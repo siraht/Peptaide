@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 type ImportMode = 'dry-run' | 'apply'
 
@@ -40,6 +41,8 @@ export function DataPortabilitySection() {
   const [result, setResult] = useState<ImportBundleResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const router = useRouter()
+
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const canDelete = deleteConfirm.trim() === 'DELETE'
 
@@ -78,6 +81,9 @@ export function DataPortabilitySection() {
       setResult(json)
       if (!json.ok) {
         setError(firstImportError(json) ?? 'Import failed.')
+      } else if (mode === 'apply') {
+        // Ensure the rest of the app reflects the imported data immediately.
+        router.refresh()
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -119,6 +125,8 @@ export function DataPortabilitySection() {
       }
 
       setDeleteConfirm('')
+      // Ensure the rest of the app reflects the deletion immediately.
+      router.refresh()
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
