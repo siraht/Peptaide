@@ -544,6 +544,10 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: The Supabase JS client talks to PostgREST, so a multi-table import cannot be performed inside one SQL transaction. A best-effort rollback (delete everything again in replace mode; restore to "empty except profile" in non-replace mode) makes failures recoverable and avoids a confusing half-imported state.
   Date/Author: 2026-02-07 / Codex
 
+- Decision: Destructive API routes require same-origin browser requests (CSRF defense-in-depth).
+  Rationale: RLS protects data reads/writes, but it does not prevent a browser from being tricked into sending an authenticated request. Validating `Origin`/`Referer`/`sec-fetch-site` on destructive endpoints reduces CSRF risk without requiring a full token-based CSRF system for the MVP. Requests that lack browser-originating headers (for example, CLI usage) are still allowed.
+  Date/Author: 2026-02-07 / Codex
+
 ## Outcomes & Retrospective
 
 2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion + auto-start decision helper, but not DB orchestration yet). A `/today` prototyping surface exists to exercise the end-to-end event pipeline (not the final virtualized grid yet).
