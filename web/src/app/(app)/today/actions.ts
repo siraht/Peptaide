@@ -681,6 +681,13 @@ export async function createEventAction(
   }
 
   revalidatePath('/today')
+  revalidatePath('/analytics')
+  revalidatePath('/cycles')
+  revalidatePath('/inventory')
+  revalidatePath('/orders')
+  if (cycleInstanceId) {
+    revalidatePath(`/cycles/${cycleInstanceId}`)
+  }
   return { status: 'success', message: 'Saved.', eventId }
 }
 
