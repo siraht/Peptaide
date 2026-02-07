@@ -30,3 +30,6 @@ supabase/.env
 .idea/
 .vscode/
 *.swp
+
+# Local agent tooling
+.ntm/
