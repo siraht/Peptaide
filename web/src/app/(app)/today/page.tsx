@@ -30,11 +30,12 @@ type TargetCompartment = 'systemic' | 'cns' | 'both'
 export default async function TodayPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const showDeleted = firstSearchParam(searchParams?.show_deleted) === '1'
-  const focus = firstSearchParam(searchParams?.focus)
-  const formulationId = firstSearchParam(searchParams?.formulation_id)
+  const sp = (await searchParams) ?? {}
+  const showDeleted = firstSearchParam(sp.show_deleted) === '1'
+  const focus = firstSearchParam(sp.focus)
+  const formulationId = firstSearchParam(sp.formulation_id)
 
   const baseParams = new URLSearchParams()
   if (focus) baseParams.set('focus', focus)
