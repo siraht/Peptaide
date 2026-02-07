@@ -15,9 +15,17 @@ function formatNumber(x: number | null | undefined): string {
   return x.toFixed(3).replace(/\.?0+$/, '')
 }
 
+type TargetCompartment = 'systemic' | 'cns' | 'both'
+
 export default async function TodayPage() {
   const supabase = await createClient()
   const formulations = await listFormulationsEnriched(supabase)
+  const substanceTargetById = new Map<string, TargetCompartment>()
+  for (const f of formulations) {
+    if (f.substance) {
+      substanceTargetById.set(f.substance.id, f.substance.target_compartment_default)
+    }
+  }
   const formulationOptions = formulations.map((f) => ({
     id: f.formulation.id,
     label: `${f.formulation.name} (${f.substance?.display_name ?? 'Unknown'} / ${
@@ -28,7 +36,17 @@ export default async function TodayPage() {
   const events = await listRecentEventsEnriched(supabase, { limit: 20 })
   const coverage = await listModelCoverage(supabase)
   const coverageGaps = coverage.filter(
-    (c) => c.missing_base_systemic || c.missing_base_cns || c.missing_any_device_calibration,
+    (c) => {
+      const target = c.substance_id ? substanceTargetById.get(c.substance_id) : undefined
+      const systemicRelevant = target !== 'cns'
+      const cnsRelevant = target !== 'systemic'
+
+      const missingBaseSystemic = systemicRelevant && c.missing_base_systemic
+      const missingBaseCns = cnsRelevant && c.missing_base_cns
+      const missingDeviceCal = c.supports_device_calibration && c.missing_any_device_calibration
+
+      return missingBaseSystemic || missingBaseCns || missingDeviceCal
+    },
   )
 
   return (
@@ -80,8 +98,13 @@ export default async function TodayPage() {
                 </tr>
               </thead>
               <tbody>
-                {coverageGaps.map((c) => (
-                  <tr key={c.formulation_id}>
+                {coverageGaps.map((c) => {
+                  const target = c.substance_id ? substanceTargetById.get(c.substance_id) : undefined
+                  const systemicRelevant = target !== 'cns'
+                  const cnsRelevant = target !== 'systemic'
+
+                  return (
+                    <tr key={c.formulation_id}>
                     <td className="border-b px-2 py-2 text-zinc-900">
                       <Link className="underline hover:text-zinc-900" href={`/formulations/${c.formulation_id}`}>
                         {c.formulation_name}
@@ -103,17 +126,25 @@ export default async function TodayPage() {
                       )}
                     </td>
                     <td className="border-b px-2 py-2 text-zinc-700">
-                      {c.missing_base_systemic ? (
-                        <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                      {systemicRelevant ? (
+                        c.missing_base_systemic ? (
+                          <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                        ) : (
+                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                        )
                       ) : (
-                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                        <span className="text-zinc-500">n/a</span>
                       )}
                     </td>
                     <td className="border-b px-2 py-2 text-zinc-700">
-                      {c.missing_base_cns ? (
-                        <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                      {cnsRelevant ? (
+                        c.missing_base_cns ? (
+                          <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                        ) : (
+                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                        )
                       ) : (
-                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                        <span className="text-zinc-500">n/a</span>
                       )}
                     </td>
                     <td className="border-b px-2 py-2 text-zinc-700">
@@ -135,7 +166,8 @@ export default async function TodayPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
