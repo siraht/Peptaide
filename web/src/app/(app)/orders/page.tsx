@@ -1,6 +1,7 @@
 import { CreateOrderForm } from './create-order-form'
 import { CreateOrderItemForm } from './create-order-item-form'
 import { CreateVendorForm } from './create-vendor-form'
+import { GenerateVialsForm } from './generate-vials-form'
 import { deleteOrderAction, deleteOrderItemAction, deleteVendorAction } from './actions'
 
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
@@ -50,6 +51,20 @@ export default async function OrdersPage() {
     label: `${f.formulation.name} (${f.substance?.display_name ?? 'Unknown'} / ${f.route?.name ?? 'Unknown'})`,
   }))
 
+  const orderItemOptions = visibleItems
+    .filter((oi) => oi.formulation_id != null)
+    .map((oi) => {
+      const order = orderById.get(oi.order_id)
+      const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
+      const orderDay = order ? order.ordered_at.slice(0, 10) : '(date)'
+      const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
+      const formulationName = oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'
+      return {
+        id: oi.id,
+        label: `${vendorName} / ${orderDay} - ${substanceName} - ${formulationName} (${oi.qty} ${oi.unit_label})`,
+      }
+    })
+
   return (
     <div className="space-y-6">
       <div>
@@ -73,6 +88,14 @@ export default async function OrdersPage() {
         </div>
       ) : (
         <CreateOrderItemForm orders={orderOptions} substances={substanceOptions} formulations={formulationOptions} />
+      )}
+
+      {orderItemOptions.length === 0 ? (
+        <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          To generate vials, create an order item that is linked to a formulation.
+        </div>
+      ) : (
+        <GenerateVialsForm orderItems={orderItemOptions} />
       )}
 
       <section className="rounded-lg border bg-white p-4">
@@ -213,4 +236,3 @@ export default async function OrdersPage() {
     </div>
   )
 }
-

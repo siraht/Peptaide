@@ -2,9 +2,16 @@
 
 import { revalidatePath } from 'next/cache'
 
+import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
 import { createOrder, softDeleteOrder } from '@/lib/repos/ordersRepo'
-import { createOrderItem, softDeleteOrderItem, softDeleteOrderItemsForOrder } from '@/lib/repos/orderItemsRepo'
+import {
+  createOrderItem,
+  getOrderItemById,
+  softDeleteOrderItem,
+  softDeleteOrderItemsForOrder,
+} from '@/lib/repos/orderItemsRepo'
 import { createVendor, softDeleteVendor } from '@/lib/repos/vendorsRepo'
+import { createVial } from '@/lib/repos/vialsRepo'
 import { createClient } from '@/lib/supabase/server'
 
 export type CreateVendorState =
@@ -18,6 +25,11 @@ export type CreateOrderState =
   | { status: 'success'; message: string }
 
 export type CreateOrderItemState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | { status: 'success'; message: string }
+
+export type GenerateVialsState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
@@ -50,6 +62,18 @@ function mustInt(raw: string, label: string): number {
   const x = Number(t)
   if (!Number.isInteger(x)) {
     throw new Error(`${label} must be an integer.`)
+  }
+  return x
+}
+
+function mustNumber(raw: string, label: string): number {
+  const t = raw.trim()
+  if (!t) {
+    throw new Error(`${label} is required.`)
+  }
+  const x = Number(t)
+  if (!Number.isFinite(x)) {
+    throw new Error(`${label} must be a number.`)
   }
   return x
 }
@@ -233,3 +257,117 @@ export async function deleteOrderItemAction(formData: FormData): Promise<void> {
   revalidatePath('/inventory')
 }
 
+export async function generateVialsFromOrderItemAction(
+  _prev: GenerateVialsState,
+  formData: FormData,
+): Promise<GenerateVialsState> {
+  const orderItemId = String(formData.get('order_item_id') ?? '').trim()
+  const countRaw = String(formData.get('vial_count') ?? '').trim()
+  const contentMassValueRaw = String(formData.get('content_mass_value') ?? '').trim()
+  const contentMassUnit = String(formData.get('content_mass_unit') ?? '').trim()
+  const totalVolumeValueRaw = String(formData.get('total_volume_value') ?? '').trim()
+  const totalVolumeUnit = String(formData.get('total_volume_unit') ?? '').trim()
+  const costUsdRaw = String(formData.get('cost_usd') ?? '').trim()
+  const notes = String(formData.get('notes') ?? '').trim()
+
+  if (!orderItemId) return { status: 'error', message: 'order_item_id is required.' }
+  if (!contentMassUnit) return { status: 'error', message: 'content_mass_unit is required.' }
+
+  let vialCount: number | null = null
+  let contentMassValue: number
+  let totalVolumeValue: number | null = null
+  let costUsdOverride: number | null = null
+
+  try {
+    vialCount = parseOptionalInt(countRaw, 'vial_count')
+    contentMassValue = mustNumber(contentMassValueRaw, 'content_mass_value')
+    totalVolumeValue = parseOptionalNumber(totalVolumeValueRaw, 'total_volume_value')
+    costUsdOverride = parseOptionalNumber(costUsdRaw, 'cost_usd')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+
+  if (!(contentMassValue > 0)) {
+    return { status: 'error', message: 'content_mass_value must be > 0.' }
+  }
+  if (totalVolumeValue != null && !(totalVolumeValue > 0)) {
+    return { status: 'error', message: 'total_volume_value must be > 0 when provided.' }
+  }
+  if (totalVolumeValue != null && !totalVolumeUnit) {
+    return { status: 'error', message: 'total_volume_unit is required when total_volume_value is provided.' }
+  }
+  if (costUsdOverride != null && costUsdOverride < 0) {
+    return { status: 'error', message: 'cost_usd must be >= 0 when provided.' }
+  }
+
+  const supabase = await createClient()
+  const orderItem = await getOrderItemById(supabase, { orderItemId })
+  if (!orderItem) {
+    return { status: 'error', message: 'Order item not found.' }
+  }
+  if (!orderItem.formulation_id) {
+    return {
+      status: 'error',
+      message:
+        'Order item must be linked to a formulation before generating vials (set formulation_id on the order item).',
+    }
+  }
+
+  const defaultCountCandidate =
+    orderItem.expected_vials != null && orderItem.expected_vials > 0
+      ? orderItem.expected_vials
+      : orderItem.qty
+  const count = vialCount ?? defaultCountCandidate
+  if (!(Number.isInteger(count) && count > 0)) {
+    return { status: 'error', message: 'vial_count must be a positive integer (or leave it blank).' }
+  }
+
+  let concentration: number | null = null
+  if (totalVolumeValue != null && totalVolumeUnit) {
+    try {
+      const massMg = toCanonicalMassMg(contentMassValue, contentMassUnit)
+      const volMl = toCanonicalVolumeMl(totalVolumeValue, totalVolumeUnit)
+      if (volMl > 0) concentration = massMg / volMl
+    } catch {
+      concentration = null
+    }
+  }
+
+  let costPerVial: number | null = null
+  if (costUsdOverride != null) {
+    costPerVial = costUsdOverride
+  } else if (
+    orderItem.price_total_usd != null &&
+    orderItem.expected_vials != null &&
+    orderItem.expected_vials > 0
+  ) {
+    costPerVial = Number(orderItem.price_total_usd) / orderItem.expected_vials
+  }
+
+  try {
+    for (let i = 0; i < count; i++) {
+      await createVial(supabase, {
+        substanceId: orderItem.substance_id,
+        formulationId: orderItem.formulation_id,
+        orderItemId: orderItem.id,
+        status: 'planned',
+        contentMassValue,
+        contentMassUnit,
+        totalVolumeValue,
+        totalVolumeUnit: totalVolumeValue != null ? totalVolumeUnit : null,
+        concentrationMgPerMl: concentration,
+        costUsd: costPerVial,
+        notes: notes || null,
+      })
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+
+  revalidatePath('/orders')
+  revalidatePath('/inventory')
+  revalidatePath('/today')
+  return { status: 'success', message: `Generated ${count} planned vial(s).` }
+}
