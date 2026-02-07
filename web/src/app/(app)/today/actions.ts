@@ -539,18 +539,54 @@ export async function createEventAction(
   const baseFractionDistIdByCompartment = new Map<Compartment, string | null>()
   const missingByCompartment = new Map<Compartment, string[]>()
 
+  const modifierCompartments: Database['public']['Enums']['compartment_t'][] = Array.from(
+    new Set<Database['public']['Enums']['compartment_t']>([...compartments, 'both']),
+  )
+
+  const [components, formulationModsAll] = await Promise.all([
+    listFormulationComponents({ supabase, formulationId }),
+    listFormulationModifierSpecs({ supabase, formulationId, compartments: modifierCompartments }),
+  ])
+
+  const componentIds = components.map((c) => c.id)
+  const componentSpecsAll = await listComponentModifierSpecs({
+    supabase,
+    formulationComponentIds: componentIds,
+    compartments: modifierCompartments,
+  })
+
+  const componentSpecsByComponentId = new Map<string, typeof componentSpecsAll>()
+  for (const spec of componentSpecsAll) {
+    const arr = componentSpecsByComponentId.get(spec.formulation_component_id) ?? []
+    arr.push(spec)
+    componentSpecsByComponentId.set(spec.formulation_component_id, arr)
+  }
+
+  const baseSpecByCompartment = new Map<Compartment, Awaited<ReturnType<typeof getBioavailabilitySpec>>>()
+  if (formulationEnriched.substance && formulationEnriched.route) {
+    const baseSpecs = await Promise.all(
+      compartments.map((compartment) =>
+        getBioavailabilitySpec({
+          supabase,
+          substanceId: formulationEnriched.substance!.id,
+          routeId: formulationEnriched.route!.id,
+          compartment,
+        }),
+      ),
+    )
+    for (let i = 0; i < compartments.length; i++) {
+      baseSpecByCompartment.set(compartments[i]!, baseSpecs[i] ?? null)
+    }
+  } else {
+    for (const compartment of compartments) {
+      baseSpecByCompartment.set(compartment, null)
+    }
+  }
+
   for (const compartment of compartments) {
     const missing: string[] = []
 
-    const baseSpec = formulationEnriched.substance && formulationEnriched.route
-      ? await getBioavailabilitySpec({
-          supabase,
-          substanceId: formulationEnriched.substance.id,
-          routeId: formulationEnriched.route.id,
-          compartment,
-        })
-      : null
-
+    const baseSpec = baseSpecByCompartment.get(compartment) ?? null
     if (!baseSpec) {
       baseFractionDistIdByCompartment.set(compartment, null)
       missing.push('missing_base_bioavailability_spec')
@@ -558,29 +594,14 @@ export async function createEventAction(
       baseFractionDistIdByCompartment.set(compartment, baseSpec.base_fraction_dist_id)
     }
 
-    const compartmentsForModifiers: Database['public']['Enums']['compartment_t'][] = [compartment, 'both']
-
-    const formulationMods = await listFormulationModifierSpecs({
-      supabase,
-      formulationId,
-      compartments: compartmentsForModifiers,
-    })
-    const formulationMultiplierIds = formulationMods.map((m) => m.multiplier_dist_id)
-
-    const components = await listFormulationComponents({ supabase, formulationId })
-    const componentIds = components.map((c) => c.id)
-    const componentSpecs = await listComponentModifierSpecs({
-      supabase,
-      formulationComponentIds: componentIds,
-      compartments: compartmentsForModifiers,
-    })
+    const formulationMultiplierIds = formulationModsAll
+      .filter((m) => m.compartment === compartment || m.compartment === 'both')
+      .map((m) => m.multiplier_dist_id)
 
     const componentMultiplierIds: string[] = []
     for (const c of components) {
-      const specsForComponent = componentSpecs.filter(
-        (s) =>
-          s.formulation_component_id === c.id &&
-          (s.compartment === compartment || s.compartment === 'both'),
+      const specsForComponent = (componentSpecsByComponentId.get(c.id) ?? []).filter(
+        (s) => s.compartment === compartment || s.compartment === 'both',
       )
       if (specsForComponent.length > 0) {
         componentMultiplierIds.push(...specsForComponent.map((s) => s.multiplier_dist_id))
