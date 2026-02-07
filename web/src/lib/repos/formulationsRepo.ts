@@ -47,26 +47,24 @@ export async function listFormulationsEnriched(
       .filter((id): id is string => id != null),
   )
 
-  const substancesRes =
+  const substancesPromise =
     substanceIds.length === 0
-      ? { data: [] as SubstanceRow[], error: null }
-      : await supabase
-          .from('substances')
-          .select('*')
-          .in('id', substanceIds)
-          .is('deleted_at', null)
-  const routesRes =
+      ? Promise.resolve({ data: [] as SubstanceRow[], error: null })
+      : supabase.from('substances').select('*').in('id', substanceIds).is('deleted_at', null)
+  const routesPromise =
     routeIds.length === 0
-      ? { data: [] as RouteRow[], error: null }
-      : await supabase.from('routes').select('*').in('id', routeIds).is('deleted_at', null)
-  const devicesRes =
+      ? Promise.resolve({ data: [] as RouteRow[], error: null })
+      : supabase.from('routes').select('*').in('id', routeIds).is('deleted_at', null)
+  const devicesPromise =
     deviceIds.length === 0
-      ? { data: [] as DeviceRow[], error: null }
-      : await supabase
-          .from('devices')
-          .select('*')
-          .in('id', deviceIds)
-          .is('deleted_at', null)
+      ? Promise.resolve({ data: [] as DeviceRow[], error: null })
+      : supabase.from('devices').select('*').in('id', deviceIds).is('deleted_at', null)
+
+  const [substancesRes, routesRes, devicesRes] = await Promise.all([
+    substancesPromise,
+    routesPromise,
+    devicesPromise,
+  ])
 
   requireOk(substancesRes.error, 'substances.select_by_id')
   requireOk(routesRes.error, 'routes.select_by_id')
