@@ -2,14 +2,14 @@
 
 Peptaide is a recording and analytics app for tracking peptide/medication administrations. It is built to make daily logging fast (keyboard-first on desktop, tap-light on mobile) while treating uncertainty as a first-class concept via Monte Carlo percentiles.
 
-**Scope disclaimer (non-negotiable):** Peptaide can store “recommendations” you enter, but it must never present itself as medical guidance, optimization, or protocol advice.
+**Scope disclaimer (non-negotiable):** Peptaide can store "recommendations" you enter, but it must never present itself as medical guidance, optimization, or protocol advice.
 
 ## What You Can Do
 
-- Log 5-10+ administrations/day quickly in a day-scoped “Today” grid.
+- Log 5-10+ administrations/day quickly in a day-scoped "Today" grid.
 - Record administered dose (canonical mg and/or mL when applicable; IU preserved as IU).
 - Compute effective dose percentiles (p05/p50/p95) for systemic and optionally CNS compartments when the model coverage is present.
-- Track cycles per substance with a gap-based “new cycle” suggestion and break computation.
+- Track cycles per substance with a gap-based "new cycle" suggestion and break computation.
 - Manage inventory (orders -> vials), attribute cost to events, and view spend/runway rollups.
 - Export all data and import it back (portable, no lock-in).
 - Rely on database-enforced privacy via Supabase/Postgres Row Level Security (RLS) on user-owned tables.
@@ -17,7 +17,7 @@ Peptaide is a recording and analytics app for tracking peptide/medication admini
 ## What This Is Not
 
 - Not a medical device.
-- Not protocol optimization, dosing advice, diagnosis, or “AI decides your dose”.
+- Not protocol optimization, dosing advice, diagnosis, or "AI decides your dose".
 
 ## Repo Layout
 
@@ -104,11 +104,11 @@ Then use:
 
 ## Modeling Notes (MVP Semantics)
 
-- “Bioavailability” is modeled as a **fraction** in `[0, 1]`.
+- "Bioavailability" is modeled as a **fraction** in `[0, 1]`.
 - Enhancers/modifiers are modeled as **multipliers** `>= 0`.
 - Composition is:
-  - `BA_total = clamp( BA_base × Π multipliers , 0, 1 )`
-  - `effective_dose_mg = administered_dose_mg × BA_total`
+  - `BA_total = clamp(BA_base * product(multipliers), 0, 1)`
+  - `effective_dose_mg = administered_dose_mg * BA_total`
 - IU inputs are preserved as IU. The MVP does **not** convert IU into mg/mL without a substance-specific rule.
 
 The database enforces key correctness constraints (distribution parameterization, value bounds, and `value_type` compatibility) and RLS is the primary privacy boundary.
@@ -165,4 +165,3 @@ See `ExecPlan.md` for the current deployment blockers and required evidence.
 
 - `ExecPlan.md` is the living spec. Keep it accurate when making meaningful changes.
 - If you use `zsh`, quote file paths containing `(app)` or `[param]` when running shell commands (to avoid glob expansion).
-
