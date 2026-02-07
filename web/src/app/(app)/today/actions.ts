@@ -76,6 +76,7 @@ type CanonicalModelSnapshot = {
 export type CreateEventState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
+  | { status: 'confirm_new_cycle'; message: string }
   | { status: 'success'; message: string; eventId: string }
 
 function hashToSeed53(input: string): bigint {
@@ -281,9 +282,16 @@ export async function createEventAction(
 
   const formulationId = String(formData.get('formulation_id') ?? '').trim()
   const inputText = String(formData.get('input_text') ?? '').trim()
+  const cycleDecisionRaw = String(formData.get('cycle_decision') ?? '').trim()
 
   if (!formulationId) return { status: 'error', message: 'Missing formulation.' }
   if (!inputText) return { status: 'error', message: 'Missing dose input.' }
+
+  const cycleDecision: '' | 'new_cycle' | 'continue_cycle' =
+    cycleDecisionRaw === 'new_cycle' || cycleDecisionRaw === 'continue_cycle' ? cycleDecisionRaw : ''
+  if (cycleDecisionRaw && !cycleDecision) {
+    return { status: 'error', message: 'Invalid cycle decision.' }
+  }
 
   const supabase = await createClient()
   const userRes = await supabase.auth.getUser()
@@ -300,7 +308,6 @@ export async function createEventAction(
   }
 
   const compartments = compartmentsForSubstance(formulationEnriched.substance)
-  const eventId = randomUUID()
   const eventTs = new Date().toISOString()
 
   let parsed: ReturnType<typeof parseQuantity>
@@ -405,6 +412,114 @@ export async function createEventAction(
     vialTotalVolumeMl,
     vialCostUsd: activeVial?.cost_usd ?? null,
   })
+
+  // Cycle assignment (MVP): auto-assign the new event to an active cycle and auto-start a first/new
+  // cycle when rules indicate it should. When a gap suggests a new cycle but an active cycle exists,
+  // return a confirmation state unless the client provided an explicit `cycle_decision`.
+  let cycleInstanceId: string | null = null
+  const substanceId = formulationEnriched.substance?.id ?? null
+  if (substanceId) {
+    try {
+      const [cycleRule, lastEvent, activeCycle, lastCycle] = await Promise.all([
+        getCycleRuleForSubstance(supabase, { substanceId }),
+        getLastEventEnrichedForSubstance(supabase, { substanceId }),
+        getActiveCycleForSubstance(supabase, { substanceId }),
+        getLastCycleForSubstance(supabase, { substanceId }),
+      ])
+
+      const gapDaysThreshold =
+        cycleRule?.gap_days_to_suggest_new_cycle ?? profile.cycle_gap_default_days
+      const autoStartFirstCycle = cycleRule?.auto_start_first_cycle ?? true
+
+      const lastEventTs = lastEvent?.ts ? new Date(lastEvent.ts) : null
+      const newEventTs = new Date(eventTs)
+
+      const action = suggestCycleAction({
+        lastEventTs,
+        newEventTs,
+        gapDaysThreshold,
+        autoStartFirstCycle,
+      })
+
+      const nextCycleNumber = (lastCycle?.cycle_number ?? 0) + 1
+
+      if (action === 'suggest_new_cycle') {
+        if (activeCycle) {
+          if (!cycleDecision) {
+            const msPerDay = 24 * 60 * 60 * 1000
+            const gapDays = lastEventTs ? (newEventTs.getTime() - lastEventTs.getTime()) / msPerDay : null
+            const substanceLabel = formulationEnriched.substance?.display_name ?? 'this substance'
+            const gapLabel = gapDays == null ? '?' : gapDays.toFixed(1)
+            return {
+              status: 'confirm_new_cycle',
+              message: `New cycle for ${substanceLabel}? Gap since last event is ${gapLabel} days (threshold ${gapDaysThreshold}). OK = start new cycle; Cancel = keep current cycle.`,
+            }
+          }
+
+          if (cycleDecision === 'continue_cycle') {
+            cycleInstanceId = activeCycle.id
+          } else {
+            const activeStartTs = new Date(activeCycle.start_ts)
+            const endCandidate = lastEventTs ?? newEventTs
+            const safeEnd = endCandidate.getTime() < activeStartTs.getTime() ? activeStartTs : endCandidate
+
+            await completeCycleInstance(supabase, {
+              cycleInstanceId: activeCycle.id,
+              endTs: safeEnd.toISOString(),
+            })
+
+            const newCycle = await createCycleInstance(supabase, {
+              substanceId,
+              cycleNumber: nextCycleNumber,
+              startTs: eventTs,
+              status: 'active',
+              goal: null,
+              notes: null,
+            })
+            cycleInstanceId = newCycle.id
+          }
+        } else {
+          // No active cycle exists to "continue", so starting a new cycle is unambiguous.
+          const newCycle = await createCycleInstance(supabase, {
+            substanceId,
+            cycleNumber: nextCycleNumber,
+            startTs: eventTs,
+            status: 'active',
+            goal: null,
+            notes: null,
+          })
+          cycleInstanceId = newCycle.id
+        }
+      } else if (activeCycle) {
+        cycleInstanceId = activeCycle.id
+      } else if (action === 'start_first_cycle') {
+        const newCycle = await createCycleInstance(supabase, {
+          substanceId,
+          cycleNumber: nextCycleNumber,
+          startTs: eventTs,
+          status: 'active',
+          goal: null,
+          notes: null,
+        })
+        cycleInstanceId = newCycle.id
+      } else if (lastCycle?.status === 'completed' || lastCycle?.status === 'abandoned') {
+        // If the user explicitly ended or abandoned the last cycle, the next administration should
+        // start a new cycle even if the gap is below the suggestion threshold.
+        const newCycle = await createCycleInstance(supabase, {
+          substanceId,
+          cycleNumber: nextCycleNumber,
+          startTs: eventTs,
+          status: 'active',
+          goal: null,
+          notes: null,
+        })
+        cycleInstanceId = newCycle.id
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { status: 'error', message: `Cycle assignment failed: ${msg}` }
+    }
+  }
 
   // Resolve distributions needed for MC.
   const multipliersByCompartment = new Map<Compartment, string[]>()
@@ -526,6 +641,8 @@ export async function createEventAction(
     }
   }
 
+  const eventId = randomUUID()
+
   const canonicalJson = JSON.stringify(snapshot)
   const mcSeed = hashToSeed53(`${user.id}|${eventId}|${canonicalJson}`)
   const mcSeedNumber = Number(mcSeed)
@@ -567,88 +684,6 @@ export async function createEventAction(
       mcN = n
       if (compartment === 'systemic') systemic = pct
       if (compartment === 'cns') cns = pct
-    }
-  }
-
-  // Cycle assignment (MVP scaffolding): automatically assigns the new event to an active cycle and
-  // auto-starts a first/new cycle when rules indicate it should. The full UX in the ExecPlan adds
-  // a default-yes prompt for "new cycle?" rather than always auto-starting.
-  let cycleInstanceId: string | null = null
-  const substanceId = formulationEnriched.substance?.id ?? null
-  if (substanceId) {
-    try {
-      const [cycleRule, lastEvent, activeCycle, lastCycle] = await Promise.all([
-        getCycleRuleForSubstance(supabase, { substanceId }),
-        getLastEventEnrichedForSubstance(supabase, { substanceId }),
-        getActiveCycleForSubstance(supabase, { substanceId }),
-        getLastCycleForSubstance(supabase, { substanceId }),
-      ])
-
-      const gapDaysThreshold =
-        cycleRule?.gap_days_to_suggest_new_cycle ?? profile.cycle_gap_default_days
-      const autoStartFirstCycle = cycleRule?.auto_start_first_cycle ?? true
-
-      const lastEventTs = lastEvent?.ts ? new Date(lastEvent.ts) : null
-      const newEventTs = new Date(eventTs)
-
-      const action = suggestCycleAction({
-        lastEventTs,
-        newEventTs,
-        gapDaysThreshold,
-        autoStartFirstCycle,
-      })
-
-      const nextCycleNumber = (lastCycle?.cycle_number ?? 0) + 1
-
-      if (action === 'suggest_new_cycle') {
-        if (activeCycle) {
-          const activeStartTs = new Date(activeCycle.start_ts)
-          const endCandidate = lastEventTs ?? newEventTs
-          const safeEnd = endCandidate.getTime() < activeStartTs.getTime() ? activeStartTs : endCandidate
-
-          await completeCycleInstance(supabase, {
-            cycleInstanceId: activeCycle.id,
-            endTs: safeEnd.toISOString(),
-          })
-        }
-
-        const newCycle = await createCycleInstance(supabase, {
-          substanceId,
-          cycleNumber: nextCycleNumber,
-          startTs: eventTs,
-          status: 'active',
-          goal: null,
-          notes: null,
-        })
-        cycleInstanceId = newCycle.id
-      } else if (activeCycle) {
-        cycleInstanceId = activeCycle.id
-      } else if (action === 'start_first_cycle') {
-        const newCycle = await createCycleInstance(supabase, {
-          substanceId,
-          cycleNumber: nextCycleNumber,
-          startTs: eventTs,
-          status: 'active',
-          goal: null,
-          notes: null,
-        })
-        cycleInstanceId = newCycle.id
-      } else if (lastCycle?.status === 'completed' || lastCycle?.status === 'abandoned') {
-        // If the user explicitly ended or abandoned the last cycle, the next administration should
-        // start a new cycle even if the gap is below the suggestion threshold.
-        const newCycle = await createCycleInstance(supabase, {
-          substanceId,
-          cycleNumber: nextCycleNumber,
-          startTs: eventTs,
-          status: 'active',
-          goal: null,
-          notes: null,
-        })
-        cycleInstanceId = newCycle.id
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      return { status: 'error', message: `Cycle assignment failed: ${msg}` }
     }
   }
 

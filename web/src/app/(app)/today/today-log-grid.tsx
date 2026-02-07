@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ClipboardEvent } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import type { CreateEventState } from './actions'
 import { createEventAction } from './actions'
@@ -29,6 +29,9 @@ export function TodayLogGrid(props: {
   defaultFormulationId?: string | null
 }) {
   const { formulations, defaultFormulationId: defaultFormulationIdProp } = props
+
+  const router = useRouter()
+  const [, startTransition] = useTransition()
 
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus')
@@ -104,6 +107,15 @@ export function TodayLogGrid(props: {
     let res: CreateEventState
     try {
       res = await createEventAction({ status: 'idle' }, fd)
+      if (res.status === 'confirm_new_cycle') {
+        // Default-yes prompt: pressing Enter selects OK.
+        const ok = window.confirm(res.message)
+        const fd2 = new FormData()
+        fd2.append('formulation_id', formulationId)
+        fd2.append('input_text', inputText)
+        fd2.append('cycle_decision', ok ? 'new_cycle' : 'continue_cycle')
+        res = await createEventAction({ status: 'idle' }, fd2)
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       res = { status: 'error', message: msg }
@@ -122,6 +134,9 @@ export function TodayLogGrid(props: {
       if (opts.focusDirection !== 'none') {
         focusRowInput(opts.focusDirection === 'prev' ? rowIndex - 1 : rowIndex + 1)
       }
+      startTransition(() => {
+        router.refresh()
+      })
       return
     }
 
@@ -131,6 +146,17 @@ export function TodayLogGrid(props: {
         const current = next[rowIndex]
         if (!current) return prev
         next[rowIndex] = { ...current, status: 'error', message: res.message }
+        return next
+      })
+      return
+    }
+
+    if (res.status === 'confirm_new_cycle') {
+      setRows((prev) => {
+        const next = [...prev]
+        const current = next[rowIndex]
+        if (!current) return prev
+        next[rowIndex] = { ...current, status: 'error', message: 'Cycle confirmation required.' }
         return next
       })
       return
