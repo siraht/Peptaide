@@ -201,12 +201,41 @@ export async function importCsvBundleZip(
     }
 
     const expectedHeader = EXPORT_COLUMNS[table]
-    const headerOk =
-      parsed.header.length === expectedHeader.length &&
-      parsed.header.every((col, idx) => col === expectedHeader[idx])
-    if (!headerOk) {
+    const expectedSet = new Set(expectedHeader)
+
+    const headerIndex = new Map<string, number>()
+    const duplicateHeaderCols: string[] = []
+    for (let i = 0; i < parsed.header.length; i++) {
+      const col = parsed.header[i]!
+      if (headerIndex.has(col)) {
+        duplicateHeaderCols.push(col)
+      } else {
+        headerIndex.set(col, i)
+      }
+    }
+
+    const missingCols = expectedHeader.filter((c) => !headerIndex.has(c))
+    const extraCols = parsed.header.filter((c) => !expectedSet.has(c))
+
+    if (
+      duplicateHeaderCols.length > 0 ||
+      missingCols.length > 0 ||
+      extraCols.length > 0 ||
+      parsed.header.length !== expectedHeader.length
+    ) {
       errors.push(
-        `Unexpected header. Expected: ${JSON.stringify(expectedHeader)}; got: ${JSON.stringify(parsed.header)}`,
+        [
+          'Unexpected header.',
+          `Expected columns: ${JSON.stringify(expectedHeader)}.`,
+          `Got columns: ${JSON.stringify(parsed.header)}.`,
+          missingCols.length > 0 ? `Missing: ${JSON.stringify(missingCols)}.` : null,
+          extraCols.length > 0 ? `Extra: ${JSON.stringify(extraCols)}.` : null,
+          duplicateHeaderCols.length > 0
+            ? `Duplicates: ${JSON.stringify(Array.from(new Set(duplicateHeaderCols)))}.`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' '),
       )
       tableReports.push({ table, rowCount: parsed.rows.length, warnings, errors })
       continue
@@ -227,8 +256,8 @@ export async function importCsvBundleZip(
       }
 
       const rec: Record<string, unknown> = {}
-      for (let colIdx = 0; colIdx < parsed.header.length; colIdx++) {
-        const col = parsed.header[colIdx]!
+      for (const col of expectedHeader) {
+        const colIdx = headerIndex.get(col)!
         const kind = kindMap[col] ?? 'string'
 
         try {
