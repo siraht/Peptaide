@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { setBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
 import { setCycleRuleForSubstance, softDeleteCycleRule } from '@/lib/repos/cyclesRepo'
 import { createSubstanceRecommendation, softDeleteSubstanceRecommendation } from '@/lib/repos/substanceRecommendationsRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -69,7 +70,7 @@ export async function setBioavailabilitySpecAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath(`/substances/${substanceId}`)
@@ -101,7 +102,7 @@ export async function createSubstanceRecommendationAction(
     maxValue = parseOptionalNumber(maxValueRaw)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   if (minValue == null && maxValue == null) {
@@ -126,7 +127,7 @@ export async function createSubstanceRecommendationAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath(`/substances/${substanceId}`)

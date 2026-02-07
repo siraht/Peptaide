@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createEvidenceSource, softDeleteEvidenceSource } from '@/lib/repos/evidenceSourcesRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -47,7 +48,7 @@ export async function createEvidenceSourceAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/evidence-sources')

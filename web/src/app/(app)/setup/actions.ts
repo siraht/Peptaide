@@ -6,6 +6,7 @@ import { setBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
 import { createDeviceCalibration } from '@/lib/repos/deviceCalibrationsRepo'
 import { setFormulationModifierSpec } from '@/lib/repos/formulationModifierSpecsRepo'
 import { normalizeDeviceUnitLabel } from '@/lib/domain/units/types'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -65,7 +66,7 @@ export async function setupSetBioavailabilitySpecAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/setup')
@@ -109,7 +110,7 @@ export async function setupCreateDeviceCalibrationAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/setup')
@@ -142,7 +143,7 @@ export async function setupSetFormulationModifierSpecAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/setup')

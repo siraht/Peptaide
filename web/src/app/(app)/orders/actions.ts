@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createOrder, softDeleteOrder } from '@/lib/repos/ordersRepo'
 import {
   createOrderItem,
@@ -103,7 +104,7 @@ export async function createVendorAction(
     await createVendor(supabase, { name, notes: notes || null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/orders')
@@ -142,7 +143,7 @@ export async function createOrderAction(
     totalCostUsd = parseOptionalNumber(totalCostUsdRaw, 'total_cost_usd')
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   if (shippingCostUsd != null && shippingCostUsd < 0) {
@@ -165,7 +166,7 @@ export async function createOrderAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/orders')
@@ -213,7 +214,7 @@ export async function createOrderItemAction(
     expectedVials = parseOptionalInt(expectedVialsRaw, 'expected_vials')
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   if (qty <= 0) return { status: 'error', message: 'qty must be > 0.' }

@@ -7,6 +7,7 @@ import {
   softDeleteDeviceCalibration,
 } from '@/lib/repos/deviceCalibrationsRepo'
 import { normalizeDeviceUnitLabel } from '@/lib/domain/units/types'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 
 export type CreateDeviceCalibrationState =
@@ -49,7 +50,7 @@ export async function createDeviceCalibrationAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath(`/devices/${deviceId}`)

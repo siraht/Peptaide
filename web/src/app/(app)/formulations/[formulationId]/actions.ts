@@ -10,6 +10,7 @@ import {
   setComponentModifierSpec,
   softDeleteComponentModifierSpec,
 } from '@/lib/repos/componentModifierSpecsRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 
 export type CreateFormulationComponentState =
@@ -42,7 +43,7 @@ export async function createFormulationComponentAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath(`/formulations/${formulationId}`)
@@ -96,7 +97,7 @@ export async function setComponentModifierSpecAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath(`/formulations/${formulationId}`)
