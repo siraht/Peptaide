@@ -69,7 +69,11 @@ export function parseQuantity(inputText: string): ParsedQuantity {
     throw new Error('Quantity is required.')
   }
 
-  const match = raw.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(.*)$/)
+  // Support either plain decimals (`1000`, `0.5`, `.5`) or comma-grouped thousands (`1,000`, `12,345.67`).
+  // We intentionally do not accept European-style decimal commas.
+  const match = raw.match(
+    /^([+-]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+))\s*(.*)$/,
+  )
   if (!match) {
     throw new Error(`Could not parse quantity: "${inputText}"`)
   }

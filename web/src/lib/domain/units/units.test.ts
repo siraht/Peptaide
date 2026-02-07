@@ -18,6 +18,14 @@ describe('units.parseQuantity', () => {
     expect(q.normalizedUnit).toBe('ml')
   })
 
+  test('parses comma-grouped thousands numbers', () => {
+    const q = parseQuantity('1,000 mg')
+    expect(q.kind).toBe('mass')
+    expect(q.value).toBe(1000)
+    expect(q.normalizedUnit).toBe('mg')
+    expect(toCanonicalMassMg(q.value, q.unit)).toBeCloseTo(1000)
+  })
+
   test('parses micrograms (ASCII ug)', () => {
     const q = parseQuantity('250 ug')
     expect(q.kind).toBe('mass')
