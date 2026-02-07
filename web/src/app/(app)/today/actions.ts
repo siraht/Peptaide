@@ -521,7 +521,8 @@ export async function createEventAction(
     snapshot.compartments[compartment] = {
       base_fraction: baseRow ? distToSpec(baseRow) : null,
       multipliers: multiplierSpecs,
-      missing,
+      // Keep snapshot stable for deterministic MC seeding.
+      missing: Array.from(new Set(missing)).sort(),
     }
   }
 
