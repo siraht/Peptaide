@@ -120,7 +120,7 @@ If `administration_events` stores both `formulation_id` and `substance_id/route_
 **profiles**
 * `user_id` (PK/FK → auth.users)
 * `timezone` (IANA string)
-* `default_mass_unit` (text; e.g. mg, mcg; IU is handled separately as `input_kind=IU` and is not a mass unit)
+* `default_mass_unit` (text; e.g. mg, mcg; this is for true mass units only. IU is supported as an input kind but is intentionally not treated as convertible mass without a substance-specific rule)
 * `default_volume_unit` (text; e.g. mL)
 * `default_simulation_n` (int; default 2048)
 * `cycle_gap_default_days` (int; default 7)
@@ -397,8 +397,8 @@ Outputs stored:
 
 ### 6.3 Supported synonyms (MVP)
 
-* Volume: `ml`, `mL`, `cc` (1 cc = 1 mL), `uL`/`µL` (→ mL)
-* Mass: `mg`, `mcg`/`µg`/`ug` (→ mg), `g` (→ mg)
+* Volume: `ml`, `mL`, `cc` (1 cc = 1 mL), `uL`/`µL`/`μL` (→ mL)
+* Mass: `mg`, `mcg`/`µg`/`μg`/`ug` (→ mg), `g` (→ mg)
 * IU: `IU` / `[iU]` (store as IU; conversion to mg is substance-specific so do **not** auto-convert)
 * Device units: `spray`, `actuation`, `pump`, `click` (user-configurable labels)
 
@@ -758,3 +758,20 @@ The MVP is done when:
 [Prisma ORM 7 announcement]: https://www.prisma.io/blog/announcing-prisma-orm-7-0-0
 [UCUM]: https://ucum.org/ucum
 [ucum.js]: https://github.com/jmandel/ucum.js/
+
+---
+
+## Plan change notes
+
+2026-02-07: Clarified distribution parameter mapping (`p1/p2/p3` vs `min_value/max_value`) to avoid ambiguous sampling, added an explicit rule to avoid double-counting component modifiers (`component_modifier_specs` vs `formulation_components.modifier_dist_id`), expanded micro-unit synonyms to include Greek-mu variants, and clarified that `default_mass_unit` is for true mass units (IU is supported but not auto-convertible without substance-specific rules).
+
+Details:
+
+* Distribution parameter mapping (MVP):
+  * `point`: `p1=value`
+  * `uniform`: `min_value`, `max_value`
+  * `triangular`: `p1=min`, `p2=mode`, `p3=max`
+  * `beta_pert`: `p1=min`, `p2=mode`, `p3=max` (lambda=4)
+  * `lognormal`: `p1=median`, `p2=log_sigma` (optionally clamp with `min_value`/`max_value`)
+
+* Component modifiers: avoid double-counting. If `component_modifier_specs` rows exist for a component (for a given compartment or `both`), use those. Otherwise, `formulation_components.modifier_dist_id` (if set) can be treated as a fallback multiplier that applies to both systemic and CNS.

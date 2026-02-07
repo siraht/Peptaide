@@ -25,6 +25,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 01:39Z) Fresh-eyes correctness audit: removed self-containment footguns (milestones no longer depend on `plan.md`), tightened probability/MC semantics (distribution parameterization + safety constraints, deterministic percentiles definition, explicit non-quantile labeling for summed-percentile day bands), clarified deterministic seeding via `model_snapshot`, fixed cost attribution to use administered dose with mg-or-volume fallback, and added key uniqueness/consistency constraints to prevent schema drift. plan[105-411] plan[500-635] plan[690-713]
 - [x] (2026-02-07 01:49Z) Fresh-eyes environment probe: recorded local runtime/repo surprises (Bun `node` wrapper, repo not a git worktree) with evidence and updated this ExecPlan so concrete steps are executable in this workspace.
 - [x] (2026-02-07 02:44Z) Fresh-eyes audit: re-checked `plan.md` vs `ExecPlan.md` coverage and fixed remaining probability/units footguns in `plan.md` (seed definition, distribution parameterization, IU vs mass-unit semantics, daily band labeling). Also updated this ExecPlan's `Progress`, `Artifacts and Notes`, and "Repository state today" so they match the actual working tree (migrations exist and are applied locally). plan[105-411]
+- [x] (2026-02-07 03:36Z) Fresh-eyes audit: corrected additional plan footguns in `plan.md` (clarified distribution parameter mapping, clarified component-modifier double-counting rules, expanded micro-unit synonyms to include Greek mu, and clarified that `default_mass_unit` is only for true mass units). Updated `ExecPlan.md` to explicitly include the plan's new "Plan change notes" section so no plan context is lost. plan[118-129] plan[385-411] plan[304-343] plan[764-777]
 
 - [ ] (H1) **HUMAN ACTION**: Choose and provision the hosted Supabase environment for deployment (local Supabase is already used for dev in this workspace), and provide the production environment variables. Evidence: the deployed web app can sign in, run migrations, and successfully query user-scoped tables with RLS enabled. Required env vars (deploy: hosting environment): `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Optional (avoid unless truly needed): a server-only `SUPABASE_SERVICE_ROLE_KEY` for offline admin scripts that cannot run in a user session; it must never be exposed to the browser and must not be used for normal app requests (to avoid bypassing RLS). If running direct SQL scripts/tests against hosted Supabase, also provide `SUPABASE_DB_URL` (a Postgres connection string with sufficient rights for migrations in the chosen environment). plan[17-29] plan[690-698]
 - [ ] (H2) **HUMAN ACTION**: For hosted Supabase, configure Auth settings for the chosen sign-in method(s) and redirect URLs for production (and confirm local dev redirects are correct). Evidence: users can complete sign-in and return to `/today` without redirect errors, and sign-out invalidates the session. plan[17-29] plan[636-689]
@@ -49,11 +50,12 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [x] (2026-02-07 03:10Z) Implemented administration event logging tables (`administration_events`) with canonical fields (mg/mL), MC outputs (p05/p50/p95 per compartment), determinism fields (`mc_seed`, `mc_n`, `model_snapshot`), soft delete, and optional revision/audit support via `event_revisions` + triggers. Implemented via `supabase/migrations/20260207030653_070_events.sql`, applied locally (`supabase db reset`), and regenerated `web/src/lib/supabase/database.types.ts`. plan[88-96] plan[230-260] plan[344-384]
 
-- [ ] Implement the units parser and canonicalization logic as a pure domain module with unit tests (supports mL/cc/uL, mg/mcg/g, IU, device units). plan[385-411]
-- [ ] Implement the uncertainty engine as pure domain modules with unit tests: distribution sampling for point/uniform/triangular/lognormal/beta-pert, bioavailability composition (fraction x multipliers with clamp), and Monte Carlo simulation producing p05/p50/p95 with deterministic seeding. plan[71-87] plan[304-384]
-- [ ] Implement the dose computation domain module (resolve vial, convert device units via calibration, compute `dose_mass_mg` and `dose_volume_ml`) with unit tests and clear failure modes. plan[230-260] plan[385-411] plan[500-518]
-- [ ] Implement cost attribution domain module (allocate vial cost, compute per-event cost based on fraction used) with unit tests and documented assumptions. plan[180-229] plan[230-260]
-- [ ] Implement cycles domain module for gap-based suggestion, auto-starting first cycle, and "split cycle at event" corrections. plan[261-282] plan[462-540]
+- [x] (2026-02-07 03:35Z) Implemented the units parser and canonicalization logic as a pure domain module in `web/src/lib/domain/units/` with unit tests in `web/src/lib/domain/units/units.test.ts` (supports mL/cc/uL, mg/mcg/ug/g, IU normalization, and device units tokenization). plan[385-411] plan[596-617]
+- [x] (2026-02-07 03:35Z) Implemented the uncertainty engine as pure domain modules under `web/src/lib/domain/uncertainty/` (splitmix64 RNG, distribution sampling for point/uniform/triangular/lognormal/beta-pert, bioavailability composition with clamp, and Monte Carlo p05/p50/p95 with deterministic seeding) with unit tests in `web/src/lib/domain/uncertainty/uncertainty.test.ts`. plan[71-87] plan[304-384] plan[596-617]
+- [x] (2026-02-07 03:35Z) Implemented the dose computation domain module `web/src/lib/domain/dose/computeDose.ts` (mass/volume/device_units canonicalization, calibration mean usage, and mg/mL when concentration is known) with unit tests in `web/src/lib/domain/dose/dose.test.ts`. plan[230-260] plan[385-411] plan[500-518] plan[596-617]
+- [x] (2026-02-07 03:35Z) Implemented the cost attribution domain module `web/src/lib/domain/cost/cost.ts` (allocate vial cost, compute per-event cost based on fraction used: mg preferred; volume fallback) with unit tests in `web/src/lib/domain/cost/cost.test.ts`. plan[180-229] plan[230-260] plan[596-617]
+- [ ] Implement cycles domain module for gap-based suggestion, auto-starting first cycle, and "split cycle at event" corrections (completed: `web/src/lib/domain/cycles/suggest.ts` + tests; remaining: auto-start/assignment logic and split-at-event mechanics in the repo/server layer). plan[261-282] plan[462-540] plan[596-617]
+- [x] (2026-02-07 03:35Z) Fixed `npm run typecheck` failing with `TS2737` BigInt literal errors by disabling `tsc` incremental compilation in `web/tsconfig.json` (stale `tsconfig.tsbuildinfo` from the earlier compiler target was causing a false "target < ES2020" error). Evidence: `npm run typecheck` now succeeds.
 
 - [ ] Implement thin, typed data-access modules (repos) for all tables and views, and make them the only place that performs SQL queries from app code. plan[618-621]
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
@@ -141,12 +143,13 @@ Implement the modules described in this ExecPlan (see `Context and Orientation`,
 
 Result:
 
-`npm run test` passes and demonstrates: parsing works for common inputs, MC output is deterministic for a fixed seed, BA composition never exceeds [0,1], and cost/cycle helpers behave as specified.
+`npm run test` and `npm run typecheck` pass and demonstrate: parsing works for common inputs, MC output is deterministic for a fixed seed, BA composition never exceeds [0,1], and cost/cycle helpers behave as specified.
 
 Proof:
 
     cd /data/projects/peptaide/web
     npm run test
+    npm run typecheck
 
 ### Milestone 3: Setup Wizard + Reference Data CRUD
 
@@ -302,6 +305,11 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     The Supabase verify endpoint redirects to `/auth/callback?code=...` for PKCE tokens, but without the browser's verifier cookie, the server-side callback exchange cannot be validated using a stateless HTTP client alone.
 
+- Observation: `tsc` incremental compilation can surface a false "BigInt literals are not available when targeting lower than ES2020" error if a stale `tsconfig.tsbuildinfo` exists from an earlier `target`. Disabling incremental in `web/tsconfig.json` made `npm run typecheck` reliable again.
+  Evidence:
+    Before: `npm run typecheck` reported `TS2737` in `src/lib/domain/uncertainty/rng.ts` and `src/lib/domain/uncertainty/uncertainty.test.ts` even though `tsc --showConfig` showed `target: es2020`.
+    After: with `"incremental": false`, `npm run typecheck` succeeds.
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -352,6 +360,10 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: The Bun `node` wrapper fails for `node --version`/REPL and may not match Node semantics that Next.js tooling assumes; using a real Node avoids non-obvious tool failures.
   Date/Author: 2026-02-07 / Codex
 
+- Decision: Disable TypeScript incremental compilation in `web/tsconfig.json`.
+  Rationale: In this environment, a stale `tsconfig.tsbuildinfo` caused `tsc` to incorrectly behave as if `target < ES2020` (surfacing `TS2737` on BigInt literals) even when `tsc --showConfig` reported `target: es2020`. Disabling incremental makes `npm run typecheck` deterministic; if incremental is re-enabled later, ensure the buildinfo is cleared or moved.
+  Date/Author: 2026-02-07 / Codex
+
 - Decision: Initialize git in `/data/projects/peptaide` if missing so "commit frequently" is actually possible while implementing this ExecPlan.
   Rationale: `AGENTS.md` requires frequent commits; without a git worktree the instruction is not executable.
   Date/Author: 2026-02-07 / Codex
@@ -370,30 +382,33 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 ## Outcomes & Retrospective
 
-2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally through `administration_events`.
+2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion helper only so far).
 
 What exists now:
 
-1. A Next.js 16 app in `web/` with working `npm run build`, `npm run lint`, and `npm run test` (Vitest).
+1. A Next.js 16 app in `web/` with working `npm run build`, `npm run lint`, `npm run test` (Vitest), and `npm run typecheck`.
 2. Local Supabase is initialized (`supabase/config.toml`) and can be started via `supabase start`. For local email sign-in, Mailpit runs at `http://127.0.0.1:54324`.
 3. Supabase SSR auth skeleton is in place: `web/middleware.ts` performs session refresh, `/sign-in` sends OTP/magic-link email, `/auth/callback` exchanges the code for a session, `/today` is protected by the `(app)` layout, and a server-action sign-out exists.
-4. The MVP schema is migrated locally under `supabase/migrations/` through reference data, inventory, cycles, recommendations, uncertainty distributions/specs, and administration events (plus `event_revisions` audit). All user-owned tables have RLS enabled with own-row policies. DB types are generated at `web/src/lib/supabase/database.types.ts`.
+4. The MVP schema is migrated locally under `supabase/migrations/` through reference data, inventory, cycles, recommendations, uncertainty distributions/specs, administration events (plus `event_revisions` audit), and the dashboard/coverage SQL views. All user-owned tables have RLS enabled with own-row policies. DB types are generated at `web/src/lib/supabase/database.types.ts`.
+5. Pure domain logic modules exist under `web/src/lib/domain/` with unit tests: `units/`, `uncertainty/`, `dose/`, and `cost/` are implemented; `cycles/` currently only includes the gap-based suggestion helper.
 
 What remains (next highest-leverage work):
 
 1. Manually validate the sign-in flow end-to-end in a browser (send link, open Mailpit, click link, confirm `/today`, sign out). Note: in this workspace, `next dev` bound to port 3001 because port 3000 was already in use.
-2. Implement the remaining DB-side pieces: SQL views for analytics and coverage, plus an explicit RLS verification/probe pass (Milestone 1 tail work).
-3. Implement the pure domain logic modules (units, dose, uncertainty, cycles, cost) with unit tests (Milestone 2) before building the complex UI surfaces.
+2. Security verification pass: add explicit probes/tests that demonstrate cross-user reads/writes are blocked by RLS (Milestone 1 tail work).
+3. Implement thin, typed data-access modules (repos) for all tables and views, and route all app data access through them (Milestone 3+ foundation).
+4. Finish cycles logic beyond "suggestion" (auto-start/assignment orchestration and split-at-event correction mechanics).
+5. Start the core UI flows: Setup Wizard (bulk add + model specs) and Today Log end-to-end.
 
 ## Context and Orientation
 
 Repository state today:
 
 1. The repo is a git worktree and contains the core docs: `AGENTS.md`, the source design doc `plan.md` (Feb 2026), this living spec `ExecPlan.md`, and the ExecPlan format authority `.agent/PLANSwHD.md`.
-2. A Next.js 16 App Router app exists in `web/` (TypeScript, Tailwind, ESLint) with a minimal Vitest harness (`npm run test`).
+2. A Next.js 16 App Router app exists in `web/` (TypeScript, Tailwind, ESLint) with `npm run build`, `npm run lint`, `npm run test` (Vitest), and `npm run typecheck` (tsc --noEmit).
 3. Supabase local dev is initialized under `supabase/` (`supabase/config.toml`). Local Supabase can be started with `supabase start` and inspected with `supabase status`.
-4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. The MVP schema is migrated locally under `supabase/migrations/` through `administration_events`, and TypeScript DB types are generated at `web/src/lib/supabase/database.types.ts`.
-5. No domain logic modules have been implemented yet beyond a smoke test; the next major milestone is implementing the pure domain modules (Milestone 2) and then the UI flows.
+4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. The MVP schema is migrated locally under `supabase/migrations/` through `administration_events` and the dashboard/coverage views, and TypeScript DB types are generated at `web/src/lib/supabase/database.types.ts`.
+5. Pure domain logic modules exist under `web/src/lib/domain/` with unit tests (Milestone 2): units/uncertainty/dose/cost are implemented; cycles is partially implemented (gap-based suggestion helper only so far). These modules are designed to be imported by server actions and UI without embedding business logic in React components.
 
 Core concepts and definitions (plain language):
 
@@ -1084,6 +1099,19 @@ The ExecPlan is intended to be self-contained and not require external reading. 
     [UCUM]: https://ucum.org/ucum
     [ucum.js]: https://github.com/jmandel/ucum.js/
 
+### Plan change notes (from `plan.md`)
+
+The source `plan.md` file in this repo was amended on 2026-02-07 to clarify a few correctness footguns (distribution parameter mapping, avoiding double-counting component modifiers, and micro-unit token variants). Those clarifications are integrated into this ExecPlan above, but the note is repeated here so no plan context is lost:
+
+1. Distribution parameter mapping (MVP):
+   - `point`: `p1=value`
+   - `uniform`: `min_value`, `max_value`
+   - `triangular`: `p1=min`, `p2=mode`, `p3=max`
+   - `beta_pert`: `p1=min`, `p2=mode`, `p3=max` (lambda=4)
+   - `lognormal`: `p1=median`, `p2=log_sigma` (optionally clamp with `min_value`/`max_value`)
+
+2. Component modifiers: avoid double-counting. If `component_modifier_specs` rows exist for a component (for a given compartment or `both`), use those. Otherwise, `formulation_components.modifier_dist_id` (if set) is a fallback multiplier that applies to both systemic and CNS.
+
 ## Plan of Work
 
 This section translates the requirements into a concrete sequence of repository edits. Paths are repository-relative.
@@ -1266,6 +1294,16 @@ This plan should be safe to run repeatedly.
 ## Artifacts and Notes
 
 As implementation proceeds, paste short, focused evidence here (no giant logs). Keep outputs that prove correctness.
+
+Evidence captured so far (domain modules):
+
+    cd /data/projects/peptaide/web
+    npm run test
+    # 26 tests passed (units/uncertainty/dose/cost/cycles + smoke)
+
+    cd /data/projects/peptaide/web
+    npm run typecheck
+    # exits 0 (no errors)
 
 Evidence captured so far (local Supabase):
 
