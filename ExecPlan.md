@@ -140,6 +140,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 11:56Z) Fresh-eyes cache correctness: evidence-source create/delete actions now call `revalidatePath('/substances', 'layout')` so `/substances/*` pages update their evidence-source dropdowns immediately (not just the list page). File: `web/src/app/(app)/evidence-sources/actions.ts`.
 - [x] (2026-02-07 12:03Z) `/today` grid UX: multi-line paste now appends rows as needed (unbounded paste), and the formulation selector is disabled while a row is saving to avoid in-flight edit races. File: `web/src/app/(app)/today/today-log-grid.tsx`.
 - [x] (2026-02-07 12:03Z) Cycle UX: added a minimal manual "Start cycle now" flow on `/cycles` (creates an active cycle for a selected substance only when no active cycle exists; redirects to the new cycle detail page). Files: `web/src/app/(app)/cycles/page.tsx`, `web/src/app/(app)/cycles/actions.ts`, `web/src/app/(app)/cycles/create-cycle-form.tsx`.
+- [x] (2026-02-07 12:28Z) Bugfix: manual "Start cycle now" now actually redirects on success (moved `redirect()` out of `try/catch` so Next.js' redirect exception is not swallowed). File: `web/src/app/(app)/cycles/actions.ts`. plan[261-282] plan[666-670]
 - [x] (2026-02-07 12:05Z) Cycle detail UX: added cycle length and break-to-next-cycle fields to the cycle detail summary to match `/cycles` list view. File: `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:07Z) Cycle UX: added an "Abandon cycle" action on cycle detail (sets cycle `status = abandoned` and records `end_ts` with a start-ts clamp). Files: `web/src/lib/repos/cyclesRepo.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/actions.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:10Z) Cycles list UX: added a `status` column to `/cycles` list so active/completed/abandoned cycles are visible without clicking into detail. File: `web/src/app/(app)/cycles/page.tsx`.
@@ -395,6 +396,10 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     The Supabase verify endpoint redirects to `/auth/callback?code=...` for PKCE tokens, but without the browser's verifier cookie, the server-side callback exchange cannot be validated using a stateless HTTP client alone.
 
+- Observation: In Next.js Server Actions, `redirect()` (from `next/navigation`) works by throwing an internal redirect exception. If you wrap `redirect()` in a broad `try/catch` and convert all exceptions into a returned error state, you will swallow the redirect and the client will not navigate.
+  Evidence:
+    The first version of `createCycleNowAction` (manual "Start cycle now") wrapped `redirect(`/cycles/${newCycle.id}`)` in a `try/catch` and returned `{ status: 'error', message: ... }` from the catch. Fix: move the `redirect()` call out of the `try/catch` (or rethrow redirect errors) so navigation occurs.
+
 - Observation: `tsc` incremental compilation can surface a false "BigInt literals are not available when targeting lower than ES2020" error if a stale `tsconfig.tsbuildinfo` exists from an earlier `target`. Disabling incremental in `web/tsconfig.json` made `npm run typecheck` reliable again.
   Evidence:
     Before: `npm run typecheck` reported `TS2737` in `src/lib/domain/uncertainty/rng.ts` and `src/lib/domain/uncertainty/uncertainty.test.ts` even though `tsc --showConfig` showed `target: es2020`.
@@ -485,6 +490,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 - Decision: For MVP, the gap-based "New cycle?" suggestion during logging is implemented as a two-step Server Action flow: `createEventAction(...)` returns `confirm_new_cycle` when a gap suggests starting a new cycle and an active cycle exists, and the client prompts via `window.confirm(...)` and resubmits with an explicit `cycle_decision` (`new_cycle` or `continue_cycle`).
   Rationale: Avoids adding a separate preflight request on every save, preserves a default-yes keyboard flow (Enter = OK), and is easy to replace later with a richer non-blocking prompt UI.
+  Date/Author: 2026-02-07 / Codex
+
+- Decision: Never swallow Next.js navigation control-flow exceptions (`redirect()`, `notFound()`) inside broad `try/catch` blocks in Server Actions; keep navigation calls outside the catch or explicitly rethrow redirect/notFound errors.
+  Rationale: Next.js implements navigation by throwing internal exceptions. Catching and converting them into returned error states prevents navigation and produces confusing user-visible failures.
   Date/Author: 2026-02-07 / Codex
 
 - Decision: Evidence sources are managed via a dedicated `/evidence-sources` page and are attached to bioavailability specs and recommendations via optional `evidence_source_id` dropdowns.
