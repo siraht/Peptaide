@@ -558,6 +558,13 @@ export type Database = {
             referencedRelation: "administration_events"
             referencedColumns: ["user_id", "id"]
           },
+          {
+            foreignKeyName: "event_revisions_event_fk"
+            columns: ["user_id", "event_id"]
+            isOneToOne: false
+            referencedRelation: "v_event_enriched"
+            referencedColumns: ["user_id", "event_id"]
+          },
         ]
       }
       evidence_sources: {
@@ -1217,6 +1224,13 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
           {
+            foreignKeyName: "vials_order_item_fk"
+            columns: ["user_id", "order_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_order_item_vial_counts"
+            referencedColumns: ["user_id", "order_item_id"]
+          },
+          {
             foreignKeyName: "vials_substance_fk"
             columns: ["user_id", "substance_id"]
             isOneToOne: false
@@ -1234,7 +1248,126 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_daily_totals_admin: {
+        Row: {
+          administered_mg: number | null
+          day_local: string | null
+          event_count: number | null
+          substance_id: string | null
+          substance_name: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      v_daily_totals_effective_cns: {
+        Row: {
+          day_local: string | null
+          eff_cns_p05_mg: number | null
+          eff_cns_p50_mg: number | null
+          eff_cns_p95_mg: number | null
+          event_count: number | null
+          substance_id: string | null
+          substance_name: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      v_daily_totals_effective_systemic: {
+        Row: {
+          day_local: string | null
+          eff_systemic_p05_mg: number | null
+          eff_systemic_p50_mg: number | null
+          eff_systemic_p95_mg: number | null
+          event_count: number | null
+          substance_id: string | null
+          substance_name: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      v_event_enriched: {
+        Row: {
+          cost_usd: number | null
+          created_at: string | null
+          cycle_instance_id: string | null
+          deleted_at: string | null
+          device_id: string | null
+          device_name: string | null
+          dose_mass_mg: number | null
+          dose_volume_ml: number | null
+          eff_cns_p05_mg: number | null
+          eff_cns_p50_mg: number | null
+          eff_cns_p95_mg: number | null
+          eff_systemic_p05_mg: number | null
+          eff_systemic_p50_mg: number | null
+          eff_systemic_p95_mg: number | null
+          event_id: string | null
+          formulation_id: string | null
+          formulation_name: string | null
+          input_kind: Database["public"]["Enums"]["input_kind_t"] | null
+          input_text: string | null
+          input_unit: string | null
+          input_value: number | null
+          mc_n: number | null
+          mc_seed: number | null
+          model_snapshot: Json | null
+          notes: string | null
+          route_id: string | null
+          route_name: string | null
+          substance_id: string | null
+          substance_name: string | null
+          tags: string[] | null
+          ts: string | null
+          updated_at: string | null
+          user_id: string | null
+          vial_id: string | null
+          vial_status: Database["public"]["Enums"]["vial_status_t"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "administration_events_cycle_fk"
+            columns: ["user_id", "cycle_instance_id"]
+            isOneToOne: false
+            referencedRelation: "cycle_instances"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "administration_events_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
+            referencedRelation: "vials"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      v_order_item_vial_counts: {
+        Row: {
+          order_item_id: string | null
+          user_id: string | null
+          vial_count_active: number | null
+          vial_count_closed: number | null
+          vial_count_discarded: number | null
+          vial_count_planned: number | null
+          vial_count_total: number | null
+        }
+        Relationships: []
+      }
+      v_spend_daily_weekly_monthly: {
+        Row: {
+          period_kind: string | null
+          period_start_date: string | null
+          spend_usd: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

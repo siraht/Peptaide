@@ -56,7 +56,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [ ] Implement cycles domain module for gap-based suggestion, auto-starting first cycle, and "split cycle at event" corrections. plan[261-282] plan[462-540]
 
 - [ ] Implement thin, typed data-access modules (repos) for all tables and views, and make them the only place that performs SQL queries from app code. plan[618-621]
-- [ ] Implement the SQL views needed for dashboards and performance (enriched event view, daily totals, cycle summary, spend, inventory status, model coverage, order item vial counts). plan[622-635] plan[706-713]
+- [ ] Implement the SQL views needed for dashboards and performance (enriched event view, daily totals, cycle summary, spend, inventory status, model coverage, order item vial counts). (Completed so far: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` via `supabase/migrations/20260207031330_080_views.sql` (2026-02-07 03:15Z); remaining: `v_cycle_summary`, `v_inventory_status`, `v_model_coverage`.) plan[622-635] plan[706-713]
 
 - [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics). plan[414-421]
 
@@ -1571,3 +1571,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Added administration events migration (`supabase/migrations/20260207030653_070_events.sql`) implementing `administration_events` and the optional audit trail table `event_revisions` (with triggers). Reset local DB to apply, regenerated `web/src/lib/supabase/database.types.ts`, and updated `Progress` + `Artifacts and Notes` evidence accordingly.
 
 2026-02-07: Updated `Outcomes & Retrospective` and "Repository state today" to reflect that Milestone 1 is now implemented locally through `administration_events`, and to shift the "what remains" focus onto SQL views, RLS probes, and Milestone 2 pure domain modules.
+
+2026-02-07: Added initial analytics/performance views migration (`supabase/migrations/20260207031330_080_views.sql`) with `security_invoker = true` so views do not bypass RLS. Implemented `v_event_enriched`, daily totals views, spend rollups, and order-item vial counts; left the remaining views (cycle summary, inventory status, model coverage) for a follow-up migration.
