@@ -19,13 +19,14 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 ## Progress
 
-- [x] (2026-02-07 01:01Z) Read `AGENTS.md` and `.agent/PLANSwHD.md` and confirmed the ExecPlan envelope, required sections, and living-document maintenance rules. plan[1-761]
-- [x] (2026-02-07 01:01Z) Read the entire `plan.md` and converted all of its sections into this self-contained ExecPlan, preserving all planning context and requirements. plan[1-761]
+- [x] (2026-02-07 01:01Z) Read `AGENTS.md` and `.agent/PLANSwHD.md` and confirmed the ExecPlan envelope, required sections, and living-document maintenance rules. plan[1-777]
+- [x] (2026-02-07 01:01Z) Read the entire `plan.md` and converted all of its sections into this self-contained ExecPlan, preserving all planning context and requirements. plan[1-777]
 - [x] (2026-02-07 01:22Z) Fresh-eyes pass: audited `ExecPlan.md` against `plan.md` and patched omissions (explicit unit synonyms including `[iU]` and micro-unit variants; vials/events field grouping labels; `formulation_id` quick-add note; clarified `price_total_usd` rationale; restored the plan's reference URLs verbatim; noted optional mean/std in MC outputs). plan[180-260] plan[344-409] plan[752-761]
 - [x] (2026-02-07 01:39Z) Fresh-eyes correctness audit: removed self-containment footguns (milestones no longer depend on `plan.md`), tightened probability/MC semantics (distribution parameterization + safety constraints, deterministic percentiles definition, explicit non-quantile labeling for summed-percentile day bands), clarified deterministic seeding via `model_snapshot`, fixed cost attribution to use administered dose with mg-or-volume fallback, and added key uniqueness/consistency constraints to prevent schema drift. plan[105-411] plan[500-635] plan[690-713]
 - [x] (2026-02-07 01:49Z) Fresh-eyes environment probe: recorded local runtime/repo surprises (Bun `node` wrapper, repo not a git worktree) with evidence and updated this ExecPlan so concrete steps are executable in this workspace.
 - [x] (2026-02-07 02:44Z) Fresh-eyes audit: re-checked `plan.md` vs `ExecPlan.md` coverage and fixed remaining probability/units footguns in `plan.md` (seed definition, distribution parameterization, IU vs mass-unit semantics, daily band labeling). Also updated this ExecPlan's `Progress`, `Artifacts and Notes`, and "Repository state today" so they match the actual working tree (migrations exist and are applied locally). plan[105-411]
 - [x] (2026-02-07 03:36Z) Fresh-eyes audit: corrected additional plan footguns in `plan.md` (clarified distribution parameter mapping, clarified component-modifier double-counting rules, expanded micro-unit synonyms to include Greek mu, and clarified that `default_mass_unit` is only for true mass units). Updated `ExecPlan.md` to explicitly include the plan's new "Plan change notes" section so no plan context is lost. plan[118-129] plan[385-411] plan[304-343] plan[764-777]
+- [x] (2026-02-07 04:23Z) Fresh-eyes parity + correctness pass: re-audited `plan.md` (including the appended "Plan change notes") against `ExecPlan.md` and confirmed full coverage. Updated `ExecPlan.md` references to reflect that `plan.md` is now 777 lines and extended the "Plan coverage index" to include the plan's change notes. plan[1-777]
 
 - [ ] (H1) **HUMAN ACTION**: Choose and provision the hosted Supabase environment for deployment (local Supabase is already used for dev in this workspace), and provide the production environment variables. Evidence: the deployed web app can sign in, run migrations, and successfully query user-scoped tables with RLS enabled. Required env vars (deploy: hosting environment): `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Optional (avoid unless truly needed): a server-only `SUPABASE_SERVICE_ROLE_KEY` for offline admin scripts that cannot run in a user session; it must never be exposed to the browser and must not be used for normal app requests (to avoid bypassing RLS). If running direct SQL scripts/tests against hosted Supabase, also provide `SUPABASE_DB_URL` (a Postgres connection string with sufficient rights for migrations in the chosen environment). plan[17-29] plan[690-698]
 - [ ] (H2) **HUMAN ACTION**: For hosted Supabase, configure Auth settings for the chosen sign-in method(s) and redirect URLs for production (and confirm local dev redirects are correct). Evidence: users can complete sign-in and return to `/today` without redirect errors, and sign-out invalidates the session. plan[17-29] plan[636-689]
@@ -431,7 +432,7 @@ Core concepts and definitions (plain language):
 14. Percentiles (p05/p50/p95): summary statistics of a distribution. p50 is the median; p05 and p95 provide a 90% interval.
 15. RLS (Row Level Security): Postgres policies that restrict which rows a user can read/write, enforced by the database itself.
 
-The remainder of this section embeds all requirements and design details from `plan.md` (plan[1-761]) in a way that is directly actionable for implementation.
+The remainder of this section embeds all requirements and design details from `plan.md` (plan[1-777]) in a way that is directly actionable for implementation.
 
 ### 0) Design goals (non-negotiable)
 
@@ -1476,6 +1477,7 @@ Plan coverage index (source plan -> this ExecPlan):
 13. plan[714-728] LLM agent research readiness: represented in `Context and Orientation` section "11) LLM agent research readiness".
 14. plan[729-751] Definition of done: represented in `Context and Orientation` section "12) Practical definition of done" and in `Validation and Acceptance`.
 15. plan[752-761] References: captured in `Context and Orientation` section "References from the original plan".
+16. plan[764-777] Plan change notes: captured in `Context and Orientation` section "Plan change notes (from `plan.md`)" and reflected in this ExecPlan's `Plan Change Notes` log.
 
 ## Interfaces and Dependencies
 

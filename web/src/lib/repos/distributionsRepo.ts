@@ -32,6 +32,15 @@ export async function getDistributionById(
   return res.data
 }
 
+export async function listDistributions(supabase: DbClient): Promise<DistributionRow[]> {
+  const res = await supabase
+    .from('distributions')
+    .select('*')
+    .is('deleted_at', null)
+    .order('name', { ascending: true })
+  return requireData(res.data, res.error, 'distributions.select')
+}
+
 export async function listDistributionsById(
   supabase: DbClient,
   opts: { distributionIds: string[] },
@@ -51,3 +60,36 @@ export async function getDistributionDomainById(
   return row ? distributionRowToDomain(row) : null
 }
 
+export async function createPointDistribution(
+  supabase: DbClient,
+  opts: {
+    name: string
+    valueType: Database['public']['Enums']['distribution_value_type_t']
+    value: number
+    units: string | null
+    qualityScore: number
+    evidenceSummary: string | null
+  },
+): Promise<DistributionRow> {
+  const { name, valueType, value, units, qualityScore, evidenceSummary } = opts
+
+  const res = await supabase
+    .from('distributions')
+    .insert({
+      name,
+      value_type: valueType,
+      dist_type: 'point',
+      p1: value,
+      p2: null,
+      p3: null,
+      min_value: null,
+      max_value: null,
+      units,
+      quality_score: qualityScore,
+      evidence_summary: evidenceSummary,
+    })
+    .select('*')
+    .single()
+
+  return requireData(res.data, res.error, 'distributions.insert_point')
+}
