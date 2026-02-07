@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { BulkAddSubstancesForm } from './bulk-add-substances-form'
 import { CreateSubstanceForm } from './create-substance-form'
 import { deleteSubstanceAction } from './actions'
 
@@ -20,6 +21,8 @@ export default async function SubstancesPage() {
       </div>
 
       <CreateSubstanceForm />
+
+      <BulkAddSubstancesForm />
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">List</h2>

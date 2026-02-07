@@ -1,4 +1,5 @@
 import { CreateRouteForm } from './create-route-form'
+import { BulkAddRoutesForm } from './bulk-add-routes-form'
 import { deleteRouteAction } from './actions'
 
 import { listRoutes } from '@/lib/repos/routesRepo'
@@ -16,6 +17,8 @@ export default async function RoutesPage() {
       </div>
 
       <CreateRouteForm />
+
+      <BulkAddRoutesForm />
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">List</h2>
@@ -60,4 +63,3 @@ export default async function RoutesPage() {
     </div>
   )
 }
-
