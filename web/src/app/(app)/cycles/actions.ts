@@ -23,6 +23,7 @@ export async function createCycleNowAction(
 
   const supabase = await createClient()
 
+  let newCycleId: string
   try {
     const activeCycle = await getActiveCycleForSubstance(supabase, { substanceId })
     if (activeCycle) {
@@ -44,16 +45,17 @@ export async function createCycleNowAction(
       goal: null,
       notes: null,
     })
-
-    revalidatePath('/cycles')
-    revalidatePath('/today')
-    revalidatePath('/analytics')
-    revalidatePath(`/cycles/${newCycle.id}`)
-
-    redirect(`/cycles/${newCycle.id}`)
+    newCycleId = newCycle.id
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return { status: 'error', message: msg }
   }
-}
 
+  // `redirect()` throws, so keep it outside the try/catch to avoid catching the redirect exception.
+  revalidatePath('/cycles')
+  revalidatePath('/today')
+  revalidatePath('/analytics')
+  revalidatePath(`/cycles/${newCycleId}`)
+
+  redirect(`/cycles/${newCycleId}`)
+}
