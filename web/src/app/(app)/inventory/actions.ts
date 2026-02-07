@@ -96,6 +96,7 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
     await createVial(supabase, {
       substanceId,
       formulationId,
+      orderItemId: null,
       status: statusRaw,
       contentMassValue,
       contentMassUnit,

@@ -54,6 +54,7 @@ export async function createVial(
   opts: {
     substanceId: string
     formulationId: string
+    orderItemId: string | null
     status: Database['public']['Enums']['vial_status_t']
     contentMassValue: number
     contentMassUnit: string
@@ -67,6 +68,7 @@ export async function createVial(
   const {
     substanceId,
     formulationId,
+    orderItemId,
     status,
     contentMassValue,
     contentMassUnit,
@@ -82,6 +84,7 @@ export async function createVial(
     .insert({
       substance_id: substanceId,
       formulation_id: formulationId,
+      order_item_id: orderItemId,
       status,
       content_mass_value: contentMassValue,
       content_mass_unit: contentMassUnit,
