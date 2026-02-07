@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { DistributionRow } from '@/lib/repos/distributionsRepo'
 
@@ -19,6 +20,13 @@ export function SetupFormulationModifierSpecForm(props: {
     setupSetFormulationModifierSpecAction,
     { status: 'idle' },
   )
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -79,4 +87,3 @@ export function SetupFormulationModifierSpecForm(props: {
     </div>
   )
 }
-
