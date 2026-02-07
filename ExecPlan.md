@@ -370,19 +370,20 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 ## Outcomes & Retrospective
 
-2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development.
+2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally through `administration_events`.
 
 What exists now:
 
 1. A Next.js 16 app in `web/` with working `npm run build`, `npm run lint`, and `npm run test` (Vitest).
 2. Local Supabase is initialized (`supabase/config.toml`) and can be started via `supabase start`. For local email sign-in, Mailpit runs at `http://127.0.0.1:54324`.
 3. Supabase SSR auth skeleton is in place: `web/middleware.ts` performs session refresh, `/sign-in` sends OTP/magic-link email, `/auth/callback` exchanges the code for a session, `/today` is protected by the `(app)` layout, and a server-action sign-out exists.
+4. The MVP schema is migrated locally under `supabase/migrations/` through reference data, inventory, cycles, recommendations, uncertainty distributions/specs, and administration events (plus `event_revisions` audit). All user-owned tables have RLS enabled with own-row policies. DB types are generated at `web/src/lib/supabase/database.types.ts`.
 
 What remains (next highest-leverage work):
 
 1. Manually validate the sign-in flow end-to-end in a browser (send link, open Mailpit, click link, confirm `/today`, sign out). Note: in this workspace, `next dev` bound to port 3001 because port 3000 was already in use.
-2. Continue implementing the full SQL schema + RLS under `supabase/migrations/` (foundation + `profiles` are already migrated locally) and generate DB types (Milestone 1).
-3. Implement the pure domain logic modules (Milestone 2) before building the complex UI surfaces.
+2. Implement the remaining DB-side pieces: SQL views for analytics and coverage, plus an explicit RLS verification/probe pass (Milestone 1 tail work).
+3. Implement the pure domain logic modules (units, dose, uncertainty, cycles, cost) with unit tests (Milestone 2) before building the complex UI surfaces.
 
 ## Context and Orientation
 
@@ -391,8 +392,8 @@ Repository state today:
 1. The repo is a git worktree and contains the core docs: `AGENTS.md`, the source design doc `plan.md` (Feb 2026), this living spec `ExecPlan.md`, and the ExecPlan format authority `.agent/PLANSwHD.md`.
 2. A Next.js 16 App Router app exists in `web/` (TypeScript, Tailwind, ESLint) with a minimal Vitest harness (`npm run test`).
 3. Supabase local dev is initialized under `supabase/` (`supabase/config.toml`). Local Supabase can be started with `supabase start` and inspected with `supabase status`.
-4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. SQL migrations now exist under `supabase/migrations/` for the DB foundation and `profiles`, and they have been applied to local Supabase; the remainder of the MVP schema is still pending.
-5. No domain logic modules have been implemented yet beyond a smoke test; the next major milestone is finishing the SQL schema + RLS (Milestone 1) and generating typed DB types.
+4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. The MVP schema is migrated locally under `supabase/migrations/` through `administration_events`, and TypeScript DB types are generated at `web/src/lib/supabase/database.types.ts`.
+5. No domain logic modules have been implemented yet beyond a smoke test; the next major milestone is implementing the pure domain modules (Milestone 2) and then the UI flows.
 
 Core concepts and definitions (plain language):
 
@@ -1568,3 +1569,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Added uncertainty tables migration (`supabase/migrations/20260207030252_060_uncertainty.sql`) implementing `distributions` and BA/modifier spec tables with explicit parameterization + probability-safety constraints and trigger-based enforcement of `distributions.value_type` across foreign keys (including earlier tables like device calibrations and vial overrides). Reset local DB to apply, regenerated `web/src/lib/supabase/database.types.ts`, and updated `Progress` + `Artifacts and Notes` evidence accordingly.
 
 2026-02-07: Added administration events migration (`supabase/migrations/20260207030653_070_events.sql`) implementing `administration_events` and the optional audit trail table `event_revisions` (with triggers). Reset local DB to apply, regenerated `web/src/lib/supabase/database.types.ts`, and updated `Progress` + `Artifacts and Notes` evidence accordingly.
+
+2026-02-07: Updated `Outcomes & Retrospective` and "Repository state today" to reflect that Milestone 1 is now implemented locally through `administration_events`, and to shift the "what remains" focus onto SQL views, RLS probes, and Milestone 2 pure domain modules.
