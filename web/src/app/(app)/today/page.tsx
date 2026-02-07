@@ -5,13 +5,18 @@ import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
 import { createClient } from '@/lib/supabase/server'
 
-import { deleteEventAction, seedDemoDataAction } from './actions'
+import { deleteEventAction, restoreEventAction, seedDemoDataAction } from './actions'
 import { TodayLogForm } from './today-log-form'
 
 function toFiniteNumber(x: number | string | null | undefined): number | null {
   if (x == null) return null
   const n = typeof x === 'number' ? x : Number(x)
   return Number.isFinite(n) ? n : null
+}
+
+function firstSearchParam(x: string | string[] | undefined): string | null {
+  if (x == null) return null
+  return Array.isArray(x) ? (x[0] ?? null) : x
 }
 
 function formatNumber(x: number | string | null | undefined): string {
@@ -22,7 +27,26 @@ function formatNumber(x: number | string | null | undefined): string {
 
 type TargetCompartment = 'systemic' | 'cns' | 'both'
 
-export default async function TodayPage() {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}) {
+  const showDeleted = firstSearchParam(searchParams?.show_deleted) === '1'
+  const focus = firstSearchParam(searchParams?.focus)
+  const formulationId = firstSearchParam(searchParams?.formulation_id)
+
+  const baseParams = new URLSearchParams()
+  if (focus) baseParams.set('focus', focus)
+  if (formulationId) baseParams.set('formulation_id', formulationId)
+
+  const showDeletedParams = new URLSearchParams(baseParams)
+  showDeletedParams.set('show_deleted', '1')
+
+  const showDeletedHref = `/today?${showDeletedParams.toString()}`
+  const baseQuery = baseParams.toString()
+  const hideDeletedHref = baseQuery ? `/today?${baseQuery}` : '/today'
+
   const supabase = await createClient()
   const formulations = await listFormulationsEnriched(supabase)
   const substanceTargetById = new Map<string, TargetCompartment>()
@@ -38,7 +62,10 @@ export default async function TodayPage() {
     })`,
   }))
 
-  const events = await listRecentEventsEnriched(supabase, { limit: 20 })
+  const events = await listRecentEventsEnriched(supabase, {
+    limit: showDeleted ? 50 : 20,
+    deletedOnly: showDeleted,
+  })
   const coverage = await listModelCoverage(supabase)
   const coverageGaps = coverage.filter(
     (c) => {
@@ -198,9 +225,18 @@ export default async function TodayPage() {
       </section>
 
       <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Recent events</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold text-zinc-900">
+            {showDeleted ? 'Deleted events' : 'Recent events'}
+          </h2>
+          <Link className="text-sm text-zinc-700 underline hover:text-zinc-900" href={showDeleted ? hideDeletedHref : showDeletedHref}>
+            {showDeleted ? 'Hide deleted' : 'Show deleted'}
+          </Link>
+        </div>
         {events.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No events yet.</p>
+          <p className="mt-2 text-sm text-zinc-700">
+            {showDeleted ? 'No deleted events.' : 'No events yet.'}
+          </p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[700px] border-separate border-spacing-0 text-left text-sm">
@@ -238,11 +274,17 @@ export default async function TodayPage() {
                     </td>
                     <td className="border-b px-2 py-2">
                       {e.event_id ? (
-                        <form action={deleteEventAction}>
+                        <form action={showDeleted ? restoreEventAction : deleteEventAction}>
                           <input type="hidden" name="event_id" value={e.event_id} />
-                          <button className="text-sm text-red-700 underline" type="submit">
-                            Delete
-                          </button>
+                          {showDeleted ? (
+                            <button className="text-sm text-emerald-700 underline" type="submit">
+                              Restore
+                            </button>
+                          ) : (
+                            <button className="text-sm text-red-700 underline" type="submit">
+                              Delete
+                            </button>
+                          )}
                         </form>
                       ) : (
                         <span className="text-zinc-500">-</span>

@@ -687,3 +687,19 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
   revalidatePath('/today')
   revalidatePath('/analytics')
 }
+
+export async function restoreEventAction(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim()
+  if (!eventId) return
+
+  const supabase = await createClient()
+  const res = await supabase
+    .from('administration_events')
+    .update({ deleted_at: null })
+    .eq('id', eventId)
+    .not('deleted_at', 'is', null)
+
+  requireOk(res.error, 'administration_events.restore')
+  revalidatePath('/today')
+  revalidatePath('/analytics')
+}

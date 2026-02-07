@@ -23,19 +23,22 @@ export async function listEventsEnrichedInRange(
 
 export async function listRecentEventsEnriched(
   supabase: DbClient,
-  opts: { limit: number },
+  opts: { limit: number; includeDeleted?: boolean; deletedOnly?: boolean },
 ): Promise<EventEnrichedRow[]> {
-  const { limit } = opts
+  const { limit, includeDeleted = false, deletedOnly = false } = opts
   if (!Number.isInteger(limit) || limit <= 0) {
     throw new Error('limit must be a positive integer.')
   }
 
-  const res = await supabase
-    .from('v_event_enriched')
-    .select('*')
-    .is('deleted_at', null)
-    .order('ts', { ascending: false })
-    .limit(limit)
+  let q = supabase.from('v_event_enriched').select('*')
+
+  if (deletedOnly) {
+    q = q.not('deleted_at', 'is', null)
+  } else if (!includeDeleted) {
+    q = q.is('deleted_at', null)
+  }
+
+  const res = await q.order('ts', { ascending: false }).limit(limit)
   requireOk(res.error, 'v_event_enriched.select_recent')
   return res.data ?? []
 }
