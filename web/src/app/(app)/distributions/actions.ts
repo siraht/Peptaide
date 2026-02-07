@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createDistribution } from '@/lib/repos/distributionsRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -163,7 +164,7 @@ export async function createDistributionAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/distributions')

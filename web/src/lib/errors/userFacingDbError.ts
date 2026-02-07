@@ -52,6 +52,25 @@ export function toUserFacingDbErrorMessage(raw: string): string | null {
     return 'Selected distribution must have value type "volume_ml_per_unit".'
   }
 
+  // Distributions table constraints (avoid leaking constraint names).
+  if (raw.includes('distributions_name_not_blank')) {
+    return 'Distribution name is required.'
+  }
+  if (raw.includes('distributions_quality_score_range')) {
+    return 'quality_score must be between 0 and 5.'
+  }
+  if (raw.includes('distributions_parameterization')) {
+    return 'Distribution parameters are invalid for the selected distribution type.'
+  }
+  if (raw.includes('distributions_value_type_fraction_bounds')) {
+    return 'Fraction distributions must be within [0,1].'
+  }
+  if (raw.includes('distributions_value_type_multiplier_bounds')) {
+    return 'Multiplier distributions must be >= 0.'
+  }
+  if (raw.includes('distributions_value_type_volume_bounds')) {
+    return 'volume_ml_per_unit distributions must be > 0.'
+  }
+
   return null
 }
-
