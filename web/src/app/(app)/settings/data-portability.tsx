@@ -21,6 +21,18 @@ type ImportBundleResult = {
   errors: string[]
 }
 
+function firstImportError(result: ImportBundleResult): string | null {
+  const top = result.errors?.[0]
+  if (top) return top
+
+  const tableWithError = result.tables.find((t) => t.errors.length > 0)
+  if (tableWithError) {
+    return `${tableWithError.table}: ${tableWithError.errors[0]}`
+  }
+
+  return null
+}
+
 export function DataPortabilitySection() {
   const [bundleFile, setBundleFile] = useState<File | null>(null)
   const [replaceExisting, setReplaceExisting] = useState(false)
@@ -58,8 +70,7 @@ export function DataPortabilitySection() {
       const json = (await res.json()) as ImportBundleResult
       setResult(json)
       if (!json.ok) {
-        const msg = json.errors?.[0] ?? 'Import failed.'
-        setError(msg)
+        setError(firstImportError(json) ?? 'Import failed.')
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -81,11 +92,25 @@ export function DataPortabilitySection() {
     setBusy('delete')
     try {
       const res = await fetch('/api/delete-my-data', { method: 'POST' })
+      const contentType = res.headers.get('content-type') ?? ''
+      const payload: unknown = contentType.includes('application/json') ? await res.json() : await res.text()
+
       if (!res.ok) {
-        const text = await res.text()
-        setError(text || 'Delete failed.')
+        if (typeof payload === 'string') {
+          setError(payload || 'Delete failed.')
+          return
+        }
+        if (payload && typeof payload === 'object') {
+          const errors = (payload as Record<string, unknown>).errors
+          if (Array.isArray(errors) && typeof errors[0] === 'string') {
+            setError(errors[0])
+            return
+          }
+        }
+        setError('Delete failed.')
         return
       }
+
       setDeleteConfirm('')
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -225,4 +250,3 @@ export function DataPortabilitySection() {
     </section>
   )
 }
-
