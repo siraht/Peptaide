@@ -81,6 +81,8 @@ export function parseCsv(text: string): ParsedCsv {
   const header = rows[0]
   const dataRows = rows.slice(1)
 
-  return { header, rows: dataRows }
-}
+  // Tolerate a UTF-8 BOM (common when CSVs are round-tripped through Excel/other tools).
+  const normalizedHeader = header.map((cell, idx) => (idx === 0 ? cell.replace(/^\uFEFF/, '') : cell))
 
+  return { header: normalizedHeader, rows: dataRows }
+}

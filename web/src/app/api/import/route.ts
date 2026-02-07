@@ -29,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
     const rawFile = form.get('bundle') ?? form.get('file')
     if (!(rawFile instanceof File)) {
       return Response.json(
-        { ok: false, mode, errors: ['Missing file field "bundle".'], tables: [] },
+        { ok: false, mode, errors: ['Missing file field "bundle" (or "file").'], tables: [] },
         { status: 400, headers: { 'Cache-Control': 'no-store' } },
       )
     }

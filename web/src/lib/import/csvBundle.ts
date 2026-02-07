@@ -124,7 +124,39 @@ export async function importCsvBundleZip(
   const topErrors: string[] = []
   const tableReports: ImportTableReport[] = []
 
-  const zip = await JSZip.loadAsync(zipData)
+  const allTables = Object.keys(EXPORT_COLUMNS).sort((a, b) => a.localeCompare(b)) as ExportTableName[]
+
+  {
+    const allSet = new Set(allTables)
+    const orderSet = new Set<ExportTableName>()
+    const dupes: ExportTableName[] = []
+    for (const t of IMPORT_ORDER) {
+      if (orderSet.has(t)) dupes.push(t)
+      orderSet.add(t)
+    }
+
+    const missingFromOrder = allTables.filter((t) => !orderSet.has(t))
+    const extraInOrder = IMPORT_ORDER.filter((t) => !allSet.has(t))
+    if (dupes.length > 0 || missingFromOrder.length > 0 || extraInOrder.length > 0) {
+      topErrors.push(
+        `Internal error: IMPORT_ORDER must contain each export table exactly once. Missing: ${missingFromOrder.join(
+          ', ',
+        )}; extra: ${extraInOrder.join(', ')}; dupes: ${dupes.join(', ')}`,
+      )
+    }
+  }
+
+  let zip: JSZip
+  try {
+    zip = await JSZip.loadAsync(zipData)
+  } catch (e) {
+    return {
+      ok: false,
+      mode,
+      tables: [],
+      errors: [`Invalid ZIP: ${normalizeError(e)}`],
+    }
+  }
 
   let meta: unknown = null
   if (zip.file('meta.json')) {
@@ -143,8 +175,6 @@ export async function importCsvBundleZip(
   if (format !== 'peptaide-csv-bundle-v1') {
     topErrors.push(`Unsupported or missing export format: ${format ?? '(missing)'}`)
   }
-
-  const allTables = Object.keys(EXPORT_COLUMNS).sort((a, b) => a.localeCompare(b)) as ExportTableName[]
 
   // Parse all CSVs first (so dry-run can report everything).
   const parsedByTable = new Map<ExportTableName, Record<string, unknown>[]>()
