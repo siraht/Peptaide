@@ -221,6 +221,15 @@ update public.administration_events
 set notes = 'probe edit'
 where input_text = '10mg';
 
+-- Capture IDs while acting as user A (user B will not be able to select them due to RLS).
+select id as probe_cycle_id from public.cycle_instances limit 1 \gset
+select id as probe_event_id from public.administration_events limit 1 \gset
+
+-- Store probe ids in transaction-local settings so we can reference them inside a DO block without
+-- relying on psql variable interpolation inside dollar-quoted strings.
+set local peptaide.probe_cycle_id = :'probe_cycle_id';
+set local peptaide.probe_event_id = :'probe_event_id';
+
 \echo '--- User A visibility (should be non-zero) ---'
 select count(*) as formulations_visible_to_a from public.formulations;
 select count(*) as formulation_components_visible_to_a from public.formulation_components;
@@ -297,6 +306,20 @@ where canonical_name = 'probe_a_substance';
 
 -- Verify that B still sees nothing.
 select count(*) as substances_visible_to_b_after_update from public.substances;
+
+-- User B should not be able to use helper functions to mutate user A's rows.
+do $$
+begin
+  begin
+    perform public.split_cycle_at_event(
+      current_setting('peptaide.probe_cycle_id')::uuid,
+      current_setting('peptaide.probe_event_id')::uuid
+    );
+    raise exception 'expected split_cycle_at_event to be blocked by RLS, but it succeeded';
+  exception when others then
+    raise notice 'expected RLS block on split_cycle_at_event: %', sqlerrm;
+  end;
+end $$;
 
 -- User B should not be able to insert a row owned by user A.
 do $$
