@@ -52,7 +52,8 @@ export async function createEvidenceSourceAction(
 
   revalidatePath('/evidence-sources')
   revalidatePath('/setup')
-  revalidatePath('/substances')
+  // Evidence sources appear in dropdowns on substance detail pages.
+  revalidatePath('/substances', 'layout')
   return { status: 'success', message: 'Saved.' }
 }
 
@@ -65,6 +66,6 @@ export async function deleteEvidenceSourceAction(formData: FormData): Promise<vo
 
   revalidatePath('/evidence-sources')
   revalidatePath('/setup')
-  revalidatePath('/substances')
+  // Evidence sources appear in dropdowns on substance detail pages.
+  revalidatePath('/substances', 'layout')
 }
-
