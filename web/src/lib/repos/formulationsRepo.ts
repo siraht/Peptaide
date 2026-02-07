@@ -100,10 +100,10 @@ export async function getFormulationEnrichedById(
   if (!formulation) return null
 
   const [substanceRes, routeRes, deviceRes] = await Promise.all([
-    supabase.from('substances').select('*').eq('id', formulation.substance_id).maybeSingle(),
-    supabase.from('routes').select('*').eq('id', formulation.route_id).maybeSingle(),
+    supabase.from('substances').select('*').eq('id', formulation.substance_id).is('deleted_at', null).maybeSingle(),
+    supabase.from('routes').select('*').eq('id', formulation.route_id).is('deleted_at', null).maybeSingle(),
     formulation.device_id
-      ? supabase.from('devices').select('*').eq('id', formulation.device_id).maybeSingle()
+      ? supabase.from('devices').select('*').eq('id', formulation.device_id).is('deleted_at', null).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ])
 
