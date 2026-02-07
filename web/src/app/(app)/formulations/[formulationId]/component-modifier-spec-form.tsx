@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { DistributionRow } from '@/lib/repos/distributionsRepo'
 import type { FormulationComponentRow } from '@/lib/repos/formulationComponentsRepo'
@@ -19,6 +20,13 @@ export function ComponentModifierSpecForm(props: {
     setComponentModifierSpecAction,
     { status: 'idle' },
   )
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   if (components.length === 0) {
     return (
@@ -92,4 +100,3 @@ export function ComponentModifierSpecForm(props: {
     </div>
   )
 }
-
