@@ -38,9 +38,9 @@ function summarizeDist(dist: {
 export default async function FormulationDetailPage({
   params,
 }: {
-  params: { formulationId: string }
+  params: Promise<{ formulationId: string }>
 }) {
-  const { formulationId } = params
+  const { formulationId } = await params
 
   const supabase = await createClient()
 

@@ -37,9 +37,9 @@ function summarizeDist(dist: {
 export default async function DeviceDetailPage({
   params,
 }: {
-  params: { deviceId: string }
+  params: Promise<{ deviceId: string }>
 }) {
-  const { deviceId } = params
+  const { deviceId } = await params
 
   const supabase = await createClient()
 
@@ -134,4 +134,3 @@ export default async function DeviceDetailPage({
     </div>
   )
 }
-

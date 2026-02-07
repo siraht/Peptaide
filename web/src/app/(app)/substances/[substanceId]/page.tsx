@@ -50,9 +50,9 @@ function fmtRange(min: number | null | undefined, max: number | null | undefined
 export default async function SubstanceDetailPage({
   params,
 }: {
-  params: { substanceId: string }
+  params: Promise<{ substanceId: string }>
 }) {
-  const { substanceId } = params
+  const { substanceId } = await params
 
   const supabase = await createClient()
 

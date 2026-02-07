@@ -25,11 +25,12 @@ export default async function CycleDetailPage({
   params,
   searchParams,
 }: {
-  params: { cycleInstanceId: string }
-  searchParams?: Record<string, string | string[] | undefined>
+  params: Promise<{ cycleInstanceId: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { cycleInstanceId } = params
-  const error = typeof searchParams?.error === 'string' ? searchParams.error : null
+  const { cycleInstanceId } = await params
+  const sp = (await searchParams) ?? {}
+  const error = typeof sp.error === 'string' ? sp.error : null
 
   const supabase = await createClient()
 
