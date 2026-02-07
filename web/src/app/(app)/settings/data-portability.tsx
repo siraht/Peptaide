@@ -57,6 +57,13 @@ export function DataPortabilitySection() {
       return
     }
 
+    if (mode === 'apply' && replaceExisting) {
+      const ok = window.confirm(
+        'This will DELETE ALL your data, then import from the ZIP bundle. Make sure you exported first. Continue?',
+      )
+      if (!ok) return
+    }
+
     setBusy(mode)
     try {
       const form = new FormData()
