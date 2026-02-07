@@ -399,6 +399,11 @@ Record the outputs and checks in `Artifacts and Notes`.
     npm run dev
     ⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
 
+- Observation: Despite running Next.js 16.1.6, this repo still needs `web/middleware.ts` for the Supabase SSR session-refresh proxy. A `web/proxy.ts` file exporting `proxy()` and `proxyConfig` was not picked up by `next build` (the build output no longer listed `Proxy (Middleware)`).
+  Evidence:
+    With `web/middleware.ts`, `npm run build` includes:
+    ƒ Proxy (Middleware)
+
 - Observation: Supabase Auth (local) enforces an exact allow-list for redirects (`auth.site_url` and `auth.additional_redirect_urls`). If the chosen callback origin/path is not allow-listed, Supabase will silently fall back to `site_url` in the emailed magic link.
   Evidence:
     The local Supabase config defaulted to `site_url = http://127.0.0.1:3000`, which caused emailed links to use `redirect_to=http://127.0.0.1:3000` even when requesting a different `emailRedirectTo`. Updating `supabase/config.toml` to include `http://localhost:3000|3001|3002/auth/callback` (and the `127.0.0.1` variants) produced emailed links with `redirect_to=http://localhost:3002/auth/callback` as expected.
