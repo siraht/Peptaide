@@ -131,11 +131,32 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
           {
+            foreignKeyName: "administration_events_cycle_fk"
+            columns: ["user_id", "cycle_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_cycle_summary"
+            referencedColumns: ["user_id", "cycle_instance_id"]
+          },
+          {
             foreignKeyName: "administration_events_formulation_fk"
             columns: ["user_id", "formulation_id"]
             isOneToOne: false
             referencedRelation: "formulations"
             referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "administration_events_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventory_status"
+            referencedColumns: ["user_id", "vial_id"]
           },
           {
             foreignKeyName: "administration_events_vial_fk"
@@ -646,6 +667,13 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
           {
+            foreignKeyName: "formulation_components_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
+          },
+          {
             foreignKeyName: "formulation_components_modifier_dist_fk"
             columns: ["user_id", "modifier_dist_id"]
             isOneToOne: false
@@ -695,6 +723,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "formulations"
             referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "formulation_modifier_specs_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
           },
           {
             foreignKeyName: "formulation_modifier_specs_multiplier_fk"
@@ -822,6 +857,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "formulations"
             referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "order_items_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
           },
           {
             foreignKeyName: "order_items_order_fk"
@@ -1217,6 +1259,13 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
           {
+            foreignKeyName: "vials_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
+          },
+          {
             foreignKeyName: "vials_order_item_fk"
             columns: ["user_id", "order_item_id"]
             isOneToOne: false
@@ -1248,6 +1297,43 @@ export type Database = {
       }
     }
     Views: {
+      v_cycle_summary: {
+        Row: {
+          administered_mg_total: number | null
+          break_to_next_cycle_days: number | null
+          cycle_instance_id: string | null
+          cycle_length_days: number | null
+          cycle_number: number | null
+          eff_cns_p05_mg_total: number | null
+          eff_cns_p50_mg_total: number | null
+          eff_cns_p95_mg_total: number | null
+          eff_systemic_p05_mg_total: number | null
+          eff_systemic_p50_mg_total: number | null
+          eff_systemic_p95_mg_total: number | null
+          end_ts: string | null
+          event_count: number | null
+          goal: string | null
+          notes: string | null
+          recommended_break_days_max: number | null
+          recommended_break_days_min: number | null
+          recommended_cycle_days_max: number | null
+          recommended_cycle_days_min: number | null
+          start_ts: string | null
+          status: Database["public"]["Enums"]["cycle_status_t"] | null
+          substance_id: string | null
+          substance_name: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_instances_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       v_daily_totals_admin: {
         Row: {
           administered_mg: number | null
@@ -1332,6 +1418,13 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
           {
+            foreignKeyName: "administration_events_cycle_fk"
+            columns: ["user_id", "cycle_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_cycle_summary"
+            referencedColumns: ["user_id", "cycle_instance_id"]
+          },
+          {
             foreignKeyName: "administration_events_formulation_fk"
             columns: ["user_id", "formulation_id"]
             isOneToOne: false
@@ -1339,10 +1432,114 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
           {
+            foreignKeyName: "administration_events_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventory_status"
+            referencedColumns: ["user_id", "vial_id"]
+          },
+          {
             foreignKeyName: "administration_events_vial_fk"
             columns: ["user_id", "vial_id"]
             isOneToOne: false
             referencedRelation: "vials"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      v_inventory_status: {
+        Row: {
+          avg_daily_administered_mg_14d: number | null
+          closed_at: string | null
+          concentration_mg_per_ml_effective: number | null
+          content_mass_mg: number | null
+          content_mass_unit: string | null
+          content_mass_value: number | null
+          cost_usd: number | null
+          formulation_id: string | null
+          formulation_name: string | null
+          notes: string | null
+          opened_at: string | null
+          received_at: string | null
+          remaining_mass_mg: number | null
+          remaining_volume_ml: number | null
+          route_id: string | null
+          route_name: string | null
+          runway_days_estimate_mg: number | null
+          status: Database["public"]["Enums"]["vial_status_t"] | null
+          substance_id: string | null
+          substance_name: string | null
+          total_volume_ml: number | null
+          total_volume_unit: string | null
+          total_volume_value: number | null
+          used_mass_mg: number | null
+          used_volume_ml: number | null
+          user_id: string | null
+          vial_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vials_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "vials_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
+          },
+        ]
+      }
+      v_model_coverage: {
+        Row: {
+          device_id: string | null
+          device_name: string | null
+          formulation_id: string | null
+          formulation_name: string | null
+          has_component_fallback_modifiers: boolean | null
+          has_component_modifiers: boolean | null
+          has_formulation_modifiers: boolean | null
+          missing_any_device_calibration: boolean | null
+          missing_base_cns: boolean | null
+          missing_base_systemic: boolean | null
+          route_id: string | null
+          route_name: string | null
+          substance_id: string | null
+          substance_name: string | null
+          supports_device_calibration: boolean | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formulations_device_fk"
+            columns: ["user_id", "device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "formulations_route_fk"
+            columns: ["user_id", "route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "formulations_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
             referencedColumns: ["user_id", "id"]
           },
         ]
