@@ -5,18 +5,21 @@ import { useRouter } from 'next/navigation'
 
 import { Command } from 'cmdk'
 
-type PaletteItem = {
+export type CommandPaletteItem = {
   label: string
   href: string
   keywords?: string[]
 }
+
+type PaletteItem = CommandPaletteItem
 
 function isOpenShortcut(e: KeyboardEvent): boolean {
   if (e.key.toLowerCase() !== 'k') return false
   return e.metaKey || e.ctrlKey
 }
 
-export function CommandPalette() {
+export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) {
+  const logItems = props.logItems ?? []
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement | null>(null)
 
@@ -138,6 +141,22 @@ export function CommandPalette() {
                     </Command.Item>
                   ))}
                 </Command.Group>
+
+                {logItems.length > 0 ? (
+                  <Command.Group heading="Log" className="mt-2 text-xs text-zinc-500">
+                    {logItems.map((item) => (
+                      <Command.Item
+                        key={item.href}
+                        value={item.label}
+                        keywords={item.keywords}
+                        className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-zinc-900 outline-none aria-selected:bg-zinc-100"
+                        onSelect={() => runNav(item.href)}
+                      >
+                        {item.label}
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                ) : null}
 
                 <Command.Group heading="Navigate" className="mt-2 text-xs text-zinc-500">
                   {navItems.map((item) => (

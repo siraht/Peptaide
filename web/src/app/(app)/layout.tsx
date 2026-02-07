@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { signOut } from '@/app/actions/auth'
 import { CommandPalette } from '@/components/command-palette'
+import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function AppLayout({
@@ -26,6 +27,18 @@ export default async function AppLayout({
   if (profileError) {
     console.error('Failed to ensure profile row exists', profileError)
   }
+
+  const formulations = await listFormulationsEnriched(supabase)
+  const logItems = formulations.map((f) => {
+    const substance = f.substance?.display_name ?? 'Unknown substance'
+    const route = f.route?.name ?? 'Unknown route'
+    const deviceSuffix = f.device?.name ? ` / ${f.device.name}` : ''
+    return {
+      label: `${substance} / ${route} / ${f.formulation.name}${deviceSuffix}`,
+      href: `/today?focus=log&formulation_id=${f.formulation.id}`,
+      keywords: [f.formulation.name, substance, route, f.device?.name].filter(Boolean) as string[],
+    }
+  })
 
   return (
     <div className="min-h-screen bg-white">
@@ -72,7 +85,7 @@ export default async function AppLayout({
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm text-zinc-700">
-            <CommandPalette />
+            <CommandPalette logItems={logItems} />
             <div className="max-w-[16rem] truncate">{data.user.email}</div>
             <form action={signOut}>
               <button

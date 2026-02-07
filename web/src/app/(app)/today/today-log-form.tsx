@@ -19,7 +19,9 @@ export function TodayLogForm(props: { formulations: TodayFormulationOption[] }) 
   })
 
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const focus = useSearchParams().get('focus')
+  const searchParams = useSearchParams()
+  const focus = searchParams.get('focus')
+  const formulationId = searchParams.get('formulation_id')
 
   useEffect(() => {
     if (state.status !== 'success') return
@@ -45,6 +47,7 @@ export function TodayLogForm(props: { formulations: TodayFormulationOption[] }) 
             className="h-10 rounded-md border px-3 text-sm"
             name="formulation_id"
             required
+            defaultValue={formulationId ?? undefined}
           >
             {formulations.map((f) => (
               <option key={f.id} value={f.id}>
