@@ -34,6 +34,207 @@ export type Database = {
   }
   public: {
     Tables: {
+      device_calibrations: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          device_id: string
+          id: string
+          notes: string | null
+          route_id: string
+          unit_label: string
+          updated_at: string
+          user_id: string
+          volume_ml_per_unit_dist_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          device_id: string
+          id?: string
+          notes?: string | null
+          route_id: string
+          unit_label: string
+          updated_at?: string
+          user_id?: string
+          volume_ml_per_unit_dist_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string
+          id?: string
+          notes?: string | null
+          route_id?: string
+          unit_label?: string
+          updated_at?: string
+          user_id?: string
+          volume_ml_per_unit_dist_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_calibrations_device_fk"
+            columns: ["user_id", "device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "device_calibrations_route_fk"
+            columns: ["user_id", "route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      devices: {
+        Row: {
+          created_at: string
+          default_unit: string
+          deleted_at: string | null
+          device_kind: Database["public"]["Enums"]["device_kind_t"]
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_unit: string
+          deleted_at?: string | null
+          device_kind?: Database["public"]["Enums"]["device_kind_t"]
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          default_unit?: string
+          deleted_at?: string | null
+          device_kind?: Database["public"]["Enums"]["device_kind_t"]
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      formulation_components: {
+        Row: {
+          component_name: string
+          created_at: string
+          deleted_at: string | null
+          formulation_id: string
+          id: string
+          modifier_dist_id: string | null
+          notes: string | null
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          component_name: string
+          created_at?: string
+          deleted_at?: string | null
+          formulation_id: string
+          id?: string
+          modifier_dist_id?: string | null
+          notes?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          component_name?: string
+          created_at?: string
+          deleted_at?: string | null
+          formulation_id?: string
+          id?: string
+          modifier_dist_id?: string | null
+          notes?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formulation_components_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      formulations: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          device_id: string | null
+          id: string
+          is_default_for_route: boolean
+          name: string
+          notes: string | null
+          route_id: string
+          substance_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string | null
+          id?: string
+          is_default_for_route?: boolean
+          name: string
+          notes?: string | null
+          route_id: string
+          substance_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string | null
+          id?: string
+          is_default_for_route?: boolean
+          name?: string
+          notes?: string | null
+          route_id?: string
+          substance_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formulations_device_fk"
+            columns: ["user_id", "device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "formulations_route_fk"
+            columns: ["user_id", "route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "formulations_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -62,6 +263,122 @@ export type Database = {
           default_simulation_n?: number
           default_volume_unit?: string
           timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      routes: {
+        Row: {
+          created_at: string
+          default_input_kind: Database["public"]["Enums"]["route_input_kind_t"]
+          default_input_unit: string
+          deleted_at: string | null
+          id: string
+          name: string
+          notes: string | null
+          supports_device_calibration: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_input_kind: Database["public"]["Enums"]["route_input_kind_t"]
+          default_input_unit: string
+          deleted_at?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          supports_device_calibration?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          default_input_kind?: Database["public"]["Enums"]["route_input_kind_t"]
+          default_input_unit?: string
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          supports_device_calibration?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      substance_aliases: {
+        Row: {
+          alias: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          substance_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          substance_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          substance_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "substance_aliases_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      substances: {
+        Row: {
+          canonical_name: string
+          created_at: string
+          deleted_at: string | null
+          display_name: string
+          family: string | null
+          id: string
+          notes: string | null
+          target_compartment_default: Database["public"]["Enums"]["compartment_t"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          canonical_name: string
+          created_at?: string
+          deleted_at?: string | null
+          display_name: string
+          family?: string | null
+          id?: string
+          notes?: string | null
+          target_compartment_default?: Database["public"]["Enums"]["compartment_t"]
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          canonical_name?: string
+          created_at?: string
+          deleted_at?: string | null
+          display_name?: string
+          family?: string | null
+          id?: string
+          notes?: string | null
+          target_compartment_default?: Database["public"]["Enums"]["compartment_t"]
           updated_at?: string
           user_id?: string
         }
