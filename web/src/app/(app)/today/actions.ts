@@ -633,6 +633,18 @@ export async function createEventAction(
           notes: null,
         })
         cycleInstanceId = newCycle.id
+      } else if (lastCycle?.status === 'completed') {
+        // If the user explicitly ended the last cycle, the next administration should start a new
+        // cycle even if the gap is below the suggestion threshold.
+        const newCycle = await createCycleInstance(supabase, {
+          substanceId,
+          cycleNumber: nextCycleNumber,
+          startTs: eventTs,
+          status: 'active',
+          goal: null,
+          notes: null,
+        })
+        cycleInstanceId = newCycle.id
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

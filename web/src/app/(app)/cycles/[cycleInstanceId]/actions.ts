@@ -84,3 +84,30 @@ export async function splitCycleAtEventAction(formData: FormData): Promise<void>
   redirect(`/cycles/${newCycle.id}`)
 }
 
+export async function endCycleNowAction(formData: FormData): Promise<void> {
+  const cycleInstanceId = String(formData.get('cycle_instance_id') ?? '').trim()
+  if (!cycleInstanceId) return
+
+  const supabase = await createClient()
+
+  const cycle = await getCycleInstanceById(supabase, { cycleInstanceId })
+  if (!cycle) {
+    redirect('/cycles')
+  }
+
+  if (cycle.status !== 'active') {
+    redirect(`/cycles/${cycleInstanceId}?error=Only%20active%20cycles%20can%20be%20ended.`)
+  }
+
+  await completeCycleInstance(supabase, {
+    cycleInstanceId,
+    endTs: new Date().toISOString(),
+  })
+
+  revalidatePath('/cycles')
+  revalidatePath('/today')
+  revalidatePath('/analytics')
+  revalidatePath(`/cycles/${cycleInstanceId}`)
+
+  redirect(`/cycles/${cycleInstanceId}`)
+}

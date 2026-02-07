@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { splitCycleAtEventAction } from './actions'
+import { endCycleNowAction, splitCycleAtEventAction } from './actions'
 
 import { getLastCycleForSubstance } from '@/lib/repos/cyclesRepo'
 import { getCycleSummaryById } from '@/lib/repos/cycleSummaryRepo'
@@ -102,6 +102,17 @@ export default async function CycleDetailPage({
           </p>
         )}
 
+        {canSplit ? (
+          <div className="mt-3 flex flex-wrap gap-3">
+            <form action={endCycleNowAction}>
+              <input type="hidden" name="cycle_instance_id" value={cycleInstanceId} />
+              <button className="rounded-md border bg-white px-3 py-2 text-sm text-zinc-900" type="submit">
+                End cycle now
+              </button>
+            </form>
+          </div>
+        ) : null}
+
         {events.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-700">No events in this cycle.</p>
         ) : (
@@ -146,4 +157,3 @@ export default async function CycleDetailPage({
     </div>
   )
 }
-
