@@ -86,8 +86,26 @@ export async function updateProfileAction(
 
   try {
     await ensureMyProfile(supabase)
+
+    // Canonicalize (and double-check) timezone against Postgres' timezone registry.
+    // This prevents storing a value that JS accepts but Postgres rejects in `AT TIME ZONE`.
+    const tzRes = await supabase.rpc('safe_timezone', { tz: timezone })
+    if (tzRes.error) {
+      return { status: 'error', message: tzRes.error.message }
+    }
+    const canonicalTimezone = tzRes.data
+    if (!canonicalTimezone) {
+      return { status: 'error', message: 'Failed to resolve timezone.' }
+    }
+    if (canonicalTimezone.toLowerCase() === 'utc' && timezone.toLowerCase() !== 'utc') {
+      return {
+        status: 'error',
+        message: 'timezone must be a valid Postgres timezone name (e.g. "America/Los_Angeles").',
+      }
+    }
+
     await updateMyProfile(supabase, {
-      timezone,
+      timezone: canonicalTimezone,
       defaultMassUnit,
       defaultVolumeUnit,
       defaultSimulationN,
