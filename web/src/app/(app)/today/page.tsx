@@ -1,6 +1,5 @@
 import Link from 'next/link'
 
-import { signOut } from '@/app/actions/auth'
 import { listRecentEventsEnriched } from '@/lib/repos/eventsRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
@@ -244,11 +243,6 @@ export default async function TodayPage() {
         )}
       </section>
 
-      <form action={signOut}>
-        <button className="rounded-md border px-3 py-2 text-sm" type="submit">
-          Sign out
-        </button>
-      </form>
     </div>
   )
 }
