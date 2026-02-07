@@ -290,6 +290,14 @@ Record the outputs and checks in `Artifacts and Notes`.
     npm run dev
     ⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
 
+- Observation: Supabase Auth (local) enforces an exact allow-list for redirects (`auth.site_url` and `auth.additional_redirect_urls`). If the chosen callback origin/path is not allow-listed, Supabase will silently fall back to `site_url` in the emailed magic link.
+  Evidence:
+    The local Supabase config defaulted to `site_url = http://127.0.0.1:3000`, which caused emailed links to use `redirect_to=http://127.0.0.1:3000` even when requesting a different `emailRedirectTo`. Updating `supabase/config.toml` to include `http://localhost:3000|3001|3002/auth/callback` (and the `127.0.0.1` variants) produced emailed links with `redirect_to=http://localhost:3002/auth/callback` as expected.
+
+- Observation: PKCE magic-link verification requires a code-verifier cookie from the browser session that initiated sign-in. Pure `curl`-only verification attempts (without that cookie) cannot prove the end-to-end session cookie behavior; manual browser validation remains required for Milestone 0 acceptance.
+  Evidence:
+    The Supabase verify endpoint redirects to `/auth/callback?code=...` for PKCE tokens, but without the browser's verifier cookie, the server-side callback exchange cannot be validated using a stateless HTTP client alone.
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -298,6 +306,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 - Decision: Use Supabase Postgres + Auth + RLS, and use `@supabase/ssr` (not the deprecated Auth Helpers).
   Rationale: RLS provides the privacy boundary at the database layer; `@supabase/ssr` is the maintained path for Next.js server-side auth/session integration.
+  Date/Author: 2026-02-07 / Codex
+
+- Decision: Use PKCE flow for Supabase email magic-link auth, and handle the callback at `/auth/callback` by exchanging `?code=...` for a session and persisting it in cookies.
+  Rationale: The implicit "access_token in URL hash" flow is not visible to server-side code; PKCE is compatible with SSR and with `@supabase/ssr` cookie-based session storage.
   Date/Author: 2026-02-07 / Codex
 
 - Decision: Avoid using the Supabase service role key in the normal request path; all user flows should run under the authenticated user's session with RLS enforced by the database.
@@ -354,14 +366,29 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 ## Outcomes & Retrospective
 
-Not started. At completion of each major milestone (and at the end), write a short summary of what was achieved, what remains, and lessons learned.
+2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development.
+
+What exists now:
+
+1. A Next.js 16 app in `web/` with working `npm run build`, `npm run lint`, and `npm run test` (Vitest).
+2. Local Supabase is initialized (`supabase/config.toml`) and can be started via `supabase start`. For local email sign-in, Mailpit runs at `http://127.0.0.1:54324`.
+3. Supabase SSR auth skeleton is in place: `web/middleware.ts` performs session refresh, `/sign-in` sends OTP/magic-link email, `/auth/callback` exchanges the code for a session, `/today` is protected by the `(app)` layout, and a server-action sign-out exists.
+
+What remains (next highest-leverage work):
+
+1. Manually validate the sign-in flow end-to-end in a browser (send link, open Mailpit, click link, confirm `/today`, sign out). Note: in this workspace, `next dev` bound to port 3001 because port 3000 was already in use.
+2. Implement the full SQL schema + RLS under `supabase/migrations/` and generate DB types (Milestone 1).
+3. Implement the pure domain logic modules (Milestone 2) before building the complex UI surfaces.
 
 ## Context and Orientation
 
 Repository state today:
 
-1. The repo currently contains `AGENTS.md` and the source design document `plan.md` (Feb 2026). There is no application code yet.
-2. This ExecPlan is intended to be sufficient for a novice to build the MVP end-to-end without reading any other plan.
+1. The repo is a git worktree and contains the core docs: `AGENTS.md`, the source design doc `plan.md` (Feb 2026), this living spec `ExecPlan.md`, and the ExecPlan format authority `.agent/PLANSwHD.md`.
+2. A Next.js 16 App Router app exists in `web/` (TypeScript, Tailwind, ESLint) with a minimal Vitest harness (`npm run test`).
+3. Supabase local dev is initialized under `supabase/` (`supabase/config.toml`). Local Supabase can be started with `supabase start` and inspected with `supabase status`.
+4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. The MVP database schema has not been migrated yet (no `supabase/migrations/*` have been authored).
+5. No domain logic modules have been implemented yet beyond a smoke test; the next major milestone is authoring the SQL schema + RLS and generating typed DB types.
 
 Core concepts and definitions (plain language):
 
@@ -1385,3 +1412,7 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Fresh-eyes execution audit for this workspace. Updates: recorded environment surprises (Bun `node` wrapper; repo not a git worktree) with evidence in `Surprises & Discoveries`, updated `Concrete Steps` with a concrete PATH workaround to use a real Node.js binary, added a `Progress` step to initialize git (so "commit frequently" is executable), removed a duplicated daily-band decision log entry, clarified the day-level MC upgrade path to include correlated sampling for epistemic uncertainties, added a DB trigger note for enforcing distribution `value_type` across foreign keys, and fixed the `eventCostFromVial` interface to accept `vialCostUsd: number | null`.
 
 2026-02-07: Added the source plan's conceptual note that "bulk add" grids are simply imports with a nicer UI, so validation + dedupe logic stays unified.
+
+2026-02-07: Updated the living plan to reflect real implementation progress (git worktree created; Next.js app and local Supabase initialized; Supabase SSR auth skeleton implemented). Updated `Progress`, `Surprises & Discoveries`, `Outcomes & Retrospective`, and the "Repository state today" orientation to match the current working tree.
+
+2026-02-07: Auth integration hardening. Updates: configured Supabase clients to use PKCE flow, adjusted `/auth/callback` to attach cookies to the redirect response, updated local Supabase redirect allow-list in `supabase/config.toml` to include common local dev origins and `/auth/callback`, and captured the redirect allow-list + PKCE verifier-cookie implications in `Surprises & Discoveries`.
