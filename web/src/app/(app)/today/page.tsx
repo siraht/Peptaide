@@ -37,7 +37,9 @@ export default async function TodayPage() {
   const coverage = await listModelCoverage(supabase)
   const coverageGaps = coverage.filter(
     (c) => {
-      const target = c.substance_id ? substanceTargetById.get(c.substance_id) : undefined
+      const target: TargetCompartment = c.substance_id
+        ? (substanceTargetById.get(c.substance_id) ?? 'systemic')
+        : 'systemic'
       const systemicRelevant = target !== 'cns'
       const cnsRelevant = target !== 'systemic'
 
@@ -99,7 +101,9 @@ export default async function TodayPage() {
               </thead>
               <tbody>
                 {coverageGaps.map((c) => {
-                  const target = c.substance_id ? substanceTargetById.get(c.substance_id) : undefined
+                  const target: TargetCompartment = c.substance_id
+                    ? (substanceTargetById.get(c.substance_id) ?? 'systemic')
+                    : 'systemic'
                   const systemicRelevant = target !== 'cns'
                   const cnsRelevant = target !== 'systemic'
 
