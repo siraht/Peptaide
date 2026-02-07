@@ -23,7 +23,16 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const items: PaletteItem[] = useMemo(
+  const actionItems: PaletteItem[] = useMemo(
+    () => [
+      { label: 'Log event', href: '/today?focus=log', keywords: ['quick', 'dose'] },
+      { label: 'Add substance', href: '/substances?focus=new', keywords: ['create', 'new'] },
+      { label: 'Add formulation', href: '/formulations?focus=new', keywords: ['create', 'new'] },
+    ],
+    [],
+  )
+
+  const navItems: PaletteItem[] = useMemo(
     () => [
       { label: 'Today', href: '/today', keywords: ['log', 'events'] },
       { label: 'Analytics', href: '/analytics', keywords: ['charts', 'totals', 'spend'] },
@@ -117,8 +126,21 @@ export function CommandPalette() {
                   No results.
                 </Command.Empty>
 
-                <Command.Group heading="Navigate" className="text-xs text-zinc-500">
-                  {items.map((item) => (
+                <Command.Group heading="Actions" className="text-xs text-zinc-500">
+                  {actionItems.map((item) => (
+                    <Command.Item
+                      key={item.href}
+                      value={[item.label, ...(item.keywords ?? [])].join(' ')}
+                      className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-zinc-900 outline-none aria-selected:bg-zinc-100"
+                      onSelect={() => runNav(item.href)}
+                    >
+                      {item.label}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+
+                <Command.Group heading="Navigate" className="mt-2 text-xs text-zinc-500">
+                  {navItems.map((item) => (
                     <Command.Item
                       key={item.href}
                       value={[item.label, ...(item.keywords ?? [])].join(' ')}

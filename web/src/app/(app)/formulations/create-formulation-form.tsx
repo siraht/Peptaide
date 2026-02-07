@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 import type { CreateFormulationState } from './actions'
 import { createFormulationAction } from './actions'
@@ -16,6 +17,14 @@ export function CreateFormulationForm(props: {
   const [state, formAction] = useActionState<CreateFormulationState, FormData>(createFormulationAction, {
     status: 'idle',
   })
+
+  const nameRef = useRef<HTMLInputElement | null>(null)
+  const focus = useSearchParams().get('focus')
+
+  useEffect(() => {
+    if (focus !== 'new') return
+    nameRef.current?.focus()
+  }, [focus])
 
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -46,7 +55,13 @@ export function CreateFormulationForm(props: {
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-zinc-700">Name</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="name" placeholder="e.g. IN + enhancer A" required />
+          <input
+            ref={nameRef}
+            className="h-10 rounded-md border px-3 text-sm"
+            name="name"
+            placeholder="e.g. IN + enhancer A"
+            required
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -87,4 +102,3 @@ export function CreateFormulationForm(props: {
     </div>
   )
 }
-

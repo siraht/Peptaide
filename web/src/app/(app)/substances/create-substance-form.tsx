@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 import type { CreateSubstanceState } from './actions'
 import { createSubstanceAction } from './actions'
@@ -11,11 +12,17 @@ export function CreateSubstanceForm() {
   })
 
   const canonicalRef = useRef<HTMLInputElement | null>(null)
+  const focus = useSearchParams().get('focus')
 
   useEffect(() => {
     if (state.status !== 'success') return
     canonicalRef.current?.focus()
   }, [state.status])
+
+  useEffect(() => {
+    if (focus !== 'new') return
+    canonicalRef.current?.focus()
+  }, [focus])
 
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -78,4 +85,3 @@ export function CreateSubstanceForm() {
     </div>
   )
 }
-

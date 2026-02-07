@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 import type { CreateEventState } from './actions'
 import { createEventAction } from './actions'
@@ -18,6 +19,7 @@ export function TodayLogForm(props: { formulations: TodayFormulationOption[] }) 
   })
 
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const focus = useSearchParams().get('focus')
 
   useEffect(() => {
     if (state.status !== 'success') return
@@ -26,6 +28,11 @@ export function TodayLogForm(props: { formulations: TodayFormulationOption[] }) 
       inputRef.current.focus()
     }
   }, [state.status])
+
+  useEffect(() => {
+    if (focus !== 'log') return
+    inputRef.current?.focus()
+  }, [focus])
 
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -78,4 +85,3 @@ export function TodayLogForm(props: { formulations: TodayFormulationOption[] }) 
     </div>
   )
 }
-
