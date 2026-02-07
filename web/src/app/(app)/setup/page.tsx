@@ -28,9 +28,10 @@ type TargetCompartment = 'systemic' | 'cns' | 'both'
 export default async function SetupPage() {
   const supabase = await createClient()
 
-  const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
+  const profilePromise = getMyProfile(supabase).then((p) => p ?? ensureMyProfile(supabase))
 
   const [
+    profile,
     substances,
     routes,
     devices,
@@ -43,6 +44,7 @@ export default async function SetupPage() {
     inventory,
     coverage,
   ] = await Promise.all([
+    profilePromise,
     listSubstances(supabase),
     listRoutes(supabase),
     listDevices(supabase),

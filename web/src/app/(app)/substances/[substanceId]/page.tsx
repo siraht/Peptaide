@@ -56,9 +56,10 @@ export default async function SubstanceDetailPage({
 
   const supabase = await createClient()
 
-  const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
+  const profilePromise = getMyProfile(supabase).then((p) => p ?? ensureMyProfile(supabase))
 
-  const [substance, routes, dists, evidenceSources, specs, recs, cycleRule] = await Promise.all([
+  const [profile, substance, routes, dists, evidenceSources, specs, recs, cycleRule] = await Promise.all([
+    profilePromise,
     getSubstanceById(supabase, { substanceId }),
     listRoutes(supabase),
     listDistributions(supabase),
