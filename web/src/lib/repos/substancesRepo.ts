@@ -5,6 +5,20 @@ import type { Database } from '@/lib/supabase/database.types'
 
 export type SubstanceRow = Database['public']['Tables']['substances']['Row']
 
+export async function getSubstanceById(
+  supabase: DbClient,
+  opts: { substanceId: string },
+): Promise<SubstanceRow | null> {
+  const res = await supabase
+    .from('substances')
+    .select('*')
+    .eq('id', opts.substanceId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  requireOk(res.error, 'substances.select_by_id')
+  return res.data
+}
+
 export async function listSubstances(supabase: DbClient): Promise<SubstanceRow[]> {
   const res = await supabase
     .from('substances')
@@ -53,4 +67,3 @@ export async function softDeleteSubstance(
 
   requireOk(res.error, 'substances.soft_delete')
 }
-

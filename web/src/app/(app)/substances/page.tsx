@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { CreateSubstanceForm } from './create-substance-form'
 import { deleteSubstanceAction } from './actions'
 
@@ -38,7 +40,11 @@ export default async function SubstancesPage() {
               <tbody>
                 {substances.map((s) => (
                   <tr key={s.id}>
-                    <td className="border-b px-2 py-2 text-zinc-900">{s.display_name}</td>
+                    <td className="border-b px-2 py-2 text-zinc-900">
+                      <Link className="underline hover:text-zinc-900" href={`/substances/${s.id}`}>
+                        {s.display_name}
+                      </Link>
+                    </td>
                     <td className="border-b px-2 py-2 text-zinc-700">{s.canonical_name}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{s.family ?? '-'}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">
@@ -62,4 +68,3 @@ export default async function SubstancesPage() {
     </div>
   )
 }
-
