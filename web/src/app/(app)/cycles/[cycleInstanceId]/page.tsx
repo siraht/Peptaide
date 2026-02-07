@@ -85,6 +85,14 @@ export default async function CycleDetailPage({
             <div className="text-zinc-900">{fmt(cycle.end_ts)}</div>
           </div>
           <div>
+            <div className="text-xs text-zinc-500">Len (days)</div>
+            <div className="text-zinc-900">{fmt(cycle.cycle_length_days)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-zinc-500">Break to next (days)</div>
+            <div className="text-zinc-900">{fmt(cycle.break_to_next_cycle_days)}</div>
+          </div>
+          <div>
             <div className="text-xs text-zinc-500">Events</div>
             <div className="text-zinc-900">{fmt(cycle.event_count)}</div>
           </div>
