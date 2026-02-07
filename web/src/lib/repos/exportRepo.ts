@@ -14,13 +14,24 @@ function chooseStableOrderColumn(columns: readonly string[]): string | null {
   return null
 }
 
+function stableOrderColumnsForExport(columns: readonly string[]): string[] {
+  const primary = chooseStableOrderColumn(columns)
+  if (!primary) return []
+
+  // Add a deterministic tie-breaker when the primary column is not unique.
+  // Most tables use `id`; `profiles` uses `user_id` as the primary key.
+  if (primary !== 'id' && columns.includes('id')) return [primary, 'id']
+  if (primary !== 'user_id' && columns.includes('user_id')) return [primary, 'user_id']
+  return [primary]
+}
+
 export async function exportAllRowsForTable(
   supabase: DbClient,
   opts: { table: ExportTableName; pageSize?: number },
 ): Promise<Record<string, unknown>[]> {
   const pageSize = opts.pageSize ?? 1000
   const columns = EXPORT_COLUMNS[opts.table]
-  const orderColumn = chooseStableOrderColumn(columns)
+  const orderColumns = stableOrderColumnsForExport(columns)
 
   const all: Record<string, unknown>[] = []
   let from = 0
@@ -29,8 +40,8 @@ export async function exportAllRowsForTable(
     // Note: using `.select('*')` keeps exports forward-compatible when new columns are added.
     // The CSV writer uses EXPORT_COLUMNS to pick a stable column order.
     let q = supabase.from(opts.table).select('*')
-    if (orderColumn) {
-      q = q.order(orderColumn as never, { ascending: true })
+    for (const col of orderColumns) {
+      q = q.order(col as never, { ascending: true })
     }
 
     const res = await q.range(from, from + pageSize - 1)
@@ -46,4 +57,3 @@ export async function exportAllRowsForTable(
 
   return all
 }
-
