@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { GenerateVialsState } from './actions'
 import { generateVialsFromOrderItemAction } from './actions'
@@ -13,6 +14,13 @@ export function GenerateVialsForm(props: { orderItems: OrdersOrderItemOption[] }
   const [state, formAction] = useActionState<GenerateVialsState, FormData>(generateVialsFromOrderItemAction, {
     status: 'idle',
   })
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -102,4 +110,3 @@ export function GenerateVialsForm(props: { orderItems: OrdersOrderItemOption[] }
     </div>
   )
 }
-

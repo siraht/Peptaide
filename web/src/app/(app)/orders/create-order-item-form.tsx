@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { CreateOrderItemState } from './actions'
 import { createOrderItemAction } from './actions'
@@ -19,6 +20,13 @@ export function CreateOrderItemForm(props: {
   const [state, formAction] = useActionState<CreateOrderItemState, FormData>(createOrderItemAction, {
     status: 'idle',
   })
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   return (
     <div className="rounded-lg border bg-white p-4">
