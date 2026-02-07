@@ -49,7 +49,17 @@ export default async function TodayPage({
   const hideDeletedHref = baseQuery ? `/today?${baseQuery}` : '/today'
 
   const supabase = await createClient()
-  const formulations = await listFormulationsEnriched(supabase)
+
+  // Avoid server-side waterfalls: these queries are independent.
+  const [formulations, events, coverage] = await Promise.all([
+    listFormulationsEnriched(supabase),
+    listTodayEventsEnriched(supabase, {
+      limit: 200,
+      deletedOnly: showDeleted,
+    }),
+    listModelCoverage(supabase),
+  ])
+
   const substanceTargetById = new Map<string, TargetCompartment>()
   for (const f of formulations) {
     if (f.substance) {
@@ -63,11 +73,6 @@ export default async function TodayPage({
     })`,
   }))
 
-  const events = await listTodayEventsEnriched(supabase, {
-    limit: 200,
-    deletedOnly: showDeleted,
-  })
-  const coverage = await listModelCoverage(supabase)
   const coverageGaps = coverage.filter(
     (c) => {
       const target: TargetCompartment = c.substance_id
