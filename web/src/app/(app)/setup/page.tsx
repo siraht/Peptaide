@@ -5,6 +5,7 @@ import { BulkAddFormulationsForm } from '@/app/(app)/formulations/bulk-add-formu
 import { BulkAddRoutesForm } from '@/app/(app)/routes/bulk-add-routes-form'
 import { BulkAddSubstancesForm } from '@/app/(app)/substances/bulk-add-substances-form'
 import { CreateVialForm } from '@/app/(app)/inventory/create-vial-form'
+import { GenerateVialsForm } from '@/app/(app)/orders/generate-vials-form'
 import { SetupBaseBioavailabilitySpecForm } from '@/app/(app)/setup/base-ba-spec-form'
 import { SetupDeviceCalibrationForm } from '@/app/(app)/setup/device-calibration-form'
 import { SetupFormulationModifierSpecForm } from '@/app/(app)/setup/formulation-modifier-form'
@@ -14,8 +15,11 @@ import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
+import { listOrders } from '@/lib/repos/ordersRepo'
+import { listOrderItems } from '@/lib/repos/orderItemsRepo'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
+import { listVendors } from '@/lib/repos/vendorsRepo'
 import { createClient } from '@/lib/supabase/server'
 
 type TargetCompartment = 'systemic' | 'cns' | 'both'
@@ -25,10 +29,24 @@ export default async function SetupPage() {
 
   const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
 
-  const [substances, routes, devices, dists, formulations, inventory, coverage] = await Promise.all([
+  const [
+    substances,
+    routes,
+    devices,
+    vendors,
+    orders,
+    orderItems,
+    dists,
+    formulations,
+    inventory,
+    coverage,
+  ] = await Promise.all([
     listSubstances(supabase),
     listRoutes(supabase),
     listDevices(supabase),
+    listVendors(supabase),
+    listOrders(supabase),
+    listOrderItems(supabase),
     listDistributions(supabase),
     listFormulationsEnriched(supabase),
     listInventoryStatus(supabase),
@@ -40,10 +58,33 @@ export default async function SetupPage() {
   const multiplierDists = dists.filter((d) => d.value_type === 'multiplier')
   const calibrationRoutes = routes.filter((r) => r.supports_device_calibration)
 
+  const vendorById = new Map(vendors.map((v) => [v.id, v] as const))
+  const substanceById = new Map(substances.map((s) => [s.id, s] as const))
+  const formulationById = new Map(formulations.map((f) => [f.formulation.id, f] as const))
+  const orderById = new Map(orders.map((o) => [o.id, o] as const))
+
   const formulationOptions = formulations.map((f) => {
     const substance = f.substance?.display_name ?? 'Unknown substance'
     const route = f.route?.name ?? 'Unknown route'
     return { id: f.formulation.id, label: `${substance} / ${route} / ${f.formulation.name}` }
+  })
+
+  const orderIds = new Set(orders.map((o) => o.id))
+  const eligibleOrderItems = orderItems.filter(
+    (oi) => orderIds.has(oi.order_id) && oi.formulation_id != null,
+  )
+  const orderItemOptions = eligibleOrderItems.map((oi) => {
+    const order = orderById.get(oi.order_id)
+    const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
+    const orderDay = order ? order.ordered_at.slice(0, 10) : '(date)'
+    const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
+    const formulationName =
+      oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'
+
+    return {
+      id: oi.id,
+      label: `${vendorName} / ${orderDay} - ${substanceName} - ${formulationName} (${oi.qty} ${oi.unit_label})`,
+    }
   })
 
   const vialsByStatus = inventory.reduce(
@@ -179,6 +220,18 @@ export default async function SetupPage() {
           </div>
         ) : (
           <CreateVialForm formulations={formulationOptions} />
+        )}
+
+        {orderItemOptions.length === 0 ? (
+          <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            To generate planned vials from orders, create an order item linked to a formulation (see{' '}
+            <Link className="underline hover:text-zinc-900" href="/orders">
+              Orders
+            </Link>
+            ).
+          </div>
+        ) : (
+          <GenerateVialsForm orderItems={orderItemOptions} />
         )}
 
         <p className="text-sm text-zinc-700">
