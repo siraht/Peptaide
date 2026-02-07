@@ -54,7 +54,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 03:35Z) Implemented the uncertainty engine as pure domain modules under `web/src/lib/domain/uncertainty/` (splitmix64 RNG, distribution sampling for point/uniform/triangular/lognormal/beta-pert, bioavailability composition with clamp, and Monte Carlo p05/p50/p95 with deterministic seeding) with unit tests in `web/src/lib/domain/uncertainty/uncertainty.test.ts`. plan[71-87] plan[304-384] plan[596-617]
 - [x] (2026-02-07 03:35Z) Implemented the dose computation domain module `web/src/lib/domain/dose/computeDose.ts` (mass/volume/device_units canonicalization, calibration mean usage, and mg/mL when concentration is known) with unit tests in `web/src/lib/domain/dose/dose.test.ts`. plan[230-260] plan[385-411] plan[500-518] plan[596-617]
 - [x] (2026-02-07 03:35Z) Implemented the cost attribution domain module `web/src/lib/domain/cost/cost.ts` (allocate vial cost, compute per-event cost based on fraction used: mg preferred; volume fallback) with unit tests in `web/src/lib/domain/cost/cost.test.ts`. plan[180-229] plan[230-260] plan[596-617]
-- [ ] Implement cycles domain module for gap-based suggestion, auto-starting first cycle, and "split cycle at event" corrections (completed: `web/src/lib/domain/cycles/suggest.ts` + tests; remaining: auto-start/assignment logic and split-at-event mechanics in the repo/server layer). plan[261-282] plan[462-540] plan[596-617]
+- [ ] Implement cycles domain module for gap-based suggestion, auto-starting first cycle, and "split cycle at event" corrections (completed: `web/src/lib/domain/cycles/suggest.ts` + tests, including `suggestCycleAction` for auto-start + gap-based suggestion; remaining: cycle assignment orchestration on real DB rows and split-at-event mechanics in the repo/server layer). plan[261-282] plan[462-540] plan[596-617]
 - [x] (2026-02-07 03:35Z) Fixed `npm run typecheck` failing with `TS2737` BigInt literal errors by disabling `tsc` incremental compilation in `web/tsconfig.json` (stale `tsconfig.tsbuildinfo` from the earlier compiler target was causing a false "target < ES2020" error). Evidence: `npm run typecheck` now succeeds.
 
 - [ ] Implement thin, typed data-access modules (repos) for all tables and views, and make them the only place that performs SQL queries from app code (completed: repo scaffolding + initial repos in `web/src/lib/repos/` for profiles/formulations/vials/distributions/events; remaining: repos for the rest of the tables/views and refactor all app DB access to go through repos). plan[618-621]
@@ -1299,7 +1299,7 @@ Evidence captured so far (domain modules):
 
     cd /data/projects/peptaide/web
     npm run test
-    # 26 tests passed (units/uncertainty/dose/cost/cycles + smoke)
+    # 30 tests passed (units/uncertainty/dose/cost/cycles + smoke)
 
     cd /data/projects/peptaide/web
     npm run typecheck
