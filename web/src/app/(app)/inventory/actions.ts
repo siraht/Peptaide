@@ -17,11 +17,13 @@ function isVialStatus(x: string): x is Database['public']['Enums']['vial_status_
   return x === 'planned' || x === 'active' || x === 'closed' || x === 'discarded'
 }
 
-function parseOptionalNumber(raw: string): number | null {
+function parseOptionalNumber(raw: string, label: string): number | null {
   const t = raw.trim()
   if (!t) return null
   const x = Number(t)
-  if (!Number.isFinite(x)) return null
+  if (!Number.isFinite(x)) {
+    throw new Error(`${label} must be a number.`)
+  }
   return x
 }
 
@@ -44,8 +46,16 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
     return { status: 'error', message: 'content_mass_value must be a number > 0.' }
   }
 
-  const totalVolumeValue = parseOptionalNumber(totalVolumeValueRaw)
-  const costUsd = parseOptionalNumber(costUsdRaw)
+  let totalVolumeValue: number | null = null
+  let costUsd: number | null = null
+
+  try {
+    totalVolumeValue = parseOptionalNumber(totalVolumeValueRaw, 'total_volume_value')
+    costUsd = parseOptionalNumber(costUsdRaw, 'cost_usd')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
 
   if (totalVolumeValue != null && totalVolumeValue <= 0) {
     return { status: 'error', message: 'total_volume_value must be > 0 when provided.' }
