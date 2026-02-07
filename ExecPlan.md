@@ -78,6 +78,9 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 05:38Z) Bugfix: distribution repo helpers now ignore soft-deleted distributions (consistent with other repos and prevents silently using deleted uncertainty primitives). File: `web/src/lib/repos/distributionsRepo.ts`.
 - [x] (2026-02-07 05:40Z) Bugfix: enriched formulation lookup now respects soft deletes for related substance/route/device rows (prevents inconsistent behavior between list vs detail/event flows). File: `web/src/lib/repos/formulationsRepo.ts`.
 - [x] (2026-02-07 05:42Z) Bugfix: `getVialById` no longer returns soft-deleted vials (consistent soft-delete semantics across repos). File: `web/src/lib/repos/vialsRepo.ts`.
+- [x] (2026-02-07 05:54Z) Bugfix: `model_snapshot.compartments[].missing` is now de-duped and sorted before hashing so Monte Carlo seeds remain deterministic even when spec query ordering varies. File: `web/src/app/(app)/today/actions.ts`.
+- [x] (2026-02-07 05:54Z) Bugfix: `/today` model coverage now defaults unknown target-compartment relevance to systemic-only, reducing false CNS gap alerts for orphaned/soft-deleted reference data. File: `web/src/app/(app)/today/page.tsx`.
+- [x] (2026-02-07 05:54Z) Bugfix: device calibration `unit_label` normalization now also normalizes micro symbols (`µ`/`μ`) to ASCII `u`, matching quantity parsing. File: `web/src/app/(app)/devices/[deviceId]/actions.ts`.
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
 
 - [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics). plan[414-421]
@@ -329,6 +332,14 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     Before: `npm run typecheck` reported `TS2737` in `src/lib/domain/uncertainty/rng.ts` and `src/lib/domain/uncertainty/uncertainty.test.ts` even though `tsc --showConfig` showed `target: es2020`.
     After: with `"incremental": false`, `npm run typecheck` succeeds.
+
+- Observation: Monte Carlo determinism depends on the `model_snapshot` being canonical (stable JSON). Unordered DB results (for example, modifier-spec rows) can change incidental array ordering (like missing-codes), which would perturb the hashed `mc_seed` even if the underlying model is unchanged.
+  Evidence:
+    `listFormulationModifierSpecs` and `listComponentModifierSpecs` do not specify ordering. The event action now de-dupes and sorts `model_snapshot.compartments[].missing` before hashing in `web/src/app/(app)/today/actions.ts`.
+
+- Observation: Soft-delete-aware enrichment can yield partial rows (for example, `substance: null` in `listFormulationsEnriched`), which can cause UI inference (like "is CNS relevant?") to produce false-positive warnings when the target compartment is unknown.
+  Evidence:
+    `/today` model coverage now defaults unknown target-compartment relevance to systemic-only in `web/src/app/(app)/today/page.tsx`, reducing false CNS gap alerts for orphaned reference rows.
 
 ## Decision Log
 
@@ -1642,3 +1653,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Added initial analytics/performance views migration (`supabase/migrations/20260207031330_080_views.sql`) with `security_invoker = true` so views do not bypass RLS. Implemented `v_event_enriched`, daily totals views, spend rollups, and order-item vial counts; left the remaining views (cycle summary, inventory status, model coverage) for a follow-up migration.
 
 2026-02-07: Added follow-up views migration (`supabase/migrations/20260207031911_081_views_more.sql`) implementing `v_cycle_summary`, `v_inventory_status`, and `v_model_coverage` (also `security_invoker = true`). Applied locally and regenerated `web/src/lib/supabase/database.types.ts`.
+
+2026-02-07: Fresh-eyes hardening updates. Recorded and fixed determinism and UX edge cases discovered during review: canonicalized `model_snapshot.compartments[].missing` for stable `mc_seed` hashing; defaulted unknown target-compartment relevance to systemic-only in `/today` coverage UI; and extended device calibration `unit_label` normalization to treat micro symbols as ASCII `u`. Updated `Progress` and `Surprises & Discoveries` accordingly.
