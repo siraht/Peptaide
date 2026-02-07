@@ -19,6 +19,9 @@ function splitCycleErrorMessage(raw: string): string {
   if (raw.includes('cycle_not_active')) return 'Only active cycles can be split in the MVP.'
   if (raw.includes('event_not_found_or_deleted')) return 'Event not found (or deleted).'
   if (raw.includes('event_not_in_cycle')) return 'Event does not belong to this cycle.'
+  if (raw.includes('event_before_cycle_start')) {
+    return 'Cannot split: the selected event time is before the cycle start time. Fix the cycle start (or pick a later event) and try again.'
+  }
   if (raw.includes('cycle_not_most_recent')) {
     return 'Only the most recent cycle can be split in the MVP.'
   }
