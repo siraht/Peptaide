@@ -79,7 +79,7 @@ export default async function SetupPage() {
   const orderItemOptions = eligibleOrderItems.map((oi) => {
     const order = orderById.get(oi.order_id)
     const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
-    const orderDay = order ? order.ordered_at.slice(0, 10) : '(date)'
+    const orderDay = order?.ordered_at ? order.ordered_at.slice(0, 10) : '(date)'
     const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
     const formulationName =
       oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'

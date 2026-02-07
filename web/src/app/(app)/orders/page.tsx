@@ -57,7 +57,7 @@ export default async function OrdersPage() {
   const vendorOptions = vendors.map((v) => ({ id: v.id, label: v.name }))
   const orderOptions = orders.map((o) => {
     const vendorName = vendorById.get(o.vendor_id)?.name ?? '(vendor)'
-    const day = o.ordered_at.slice(0, 10)
+    const day = o.ordered_at ? o.ordered_at.slice(0, 10) : '(date)'
     return { id: o.id, label: `${vendorName} / ${day}` }
   })
   const substanceOptions = substances.map((s) => ({ id: s.id, label: s.display_name }))
@@ -71,7 +71,7 @@ export default async function OrdersPage() {
     .map((oi) => {
       const order = orderById.get(oi.order_id)
       const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
-      const orderDay = order ? order.ordered_at.slice(0, 10) : '(date)'
+      const orderDay = order?.ordered_at ? order.ordered_at.slice(0, 10) : '(date)'
       const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
       const formulationName = oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'
       return {
@@ -222,7 +222,7 @@ export default async function OrdersPage() {
                 {visibleItems.map((oi) => {
                   const order = orderById.get(oi.order_id)
                   const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
-                  const orderDay = order ? order.ordered_at.slice(0, 10) : '(date)'
+                  const orderDay = order?.ordered_at ? order.ordered_at.slice(0, 10) : '(date)'
 
                   const substance = substanceById.get(oi.substance_id)
                   const formulation = oi.formulation_id ? formulationById.get(oi.formulation_id) : null
