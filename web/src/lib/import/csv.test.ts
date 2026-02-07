@@ -9,6 +9,12 @@ describe('parseCsv', () => {
     expect(parsed.rows).toEqual([['1', '2']])
   })
 
+  it('tolerates a UTF-8 BOM in the first header cell', () => {
+    const parsed = parseCsv('\uFEFFa,b\n1,2\n')
+    expect(parsed.header).toEqual(['a', 'b'])
+    expect(parsed.rows).toEqual([['1', '2']])
+  })
+
   it('parses quoted cells with commas and escaped quotes', () => {
     const parsed = parseCsv('a,b\n"hello, world","he said ""hi"""\n')
     expect(parsed.rows).toEqual([['hello, world', 'he said "hi"']])
@@ -21,6 +27,12 @@ describe('parseCsv', () => {
 
   it('handles CRLF line endings', () => {
     const parsed = parseCsv('a,b\r\n1,2\r\n')
+    expect(parsed.header).toEqual(['a', 'b'])
+    expect(parsed.rows).toEqual([['1', '2']])
+  })
+
+  it('ignores blank lines', () => {
+    const parsed = parseCsv('a,b\n1,2\n\n')
     expect(parsed.header).toEqual(['a', 'b'])
     expect(parsed.rows).toEqual([['1', '2']])
   })

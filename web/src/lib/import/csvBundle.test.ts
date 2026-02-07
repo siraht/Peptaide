@@ -42,6 +42,19 @@ describe('importCsvBundleZip (dry-run)', () => {
     expect(res.errors).toEqual([])
   })
 
+  it('returns a structured error for invalid ZIP data', async () => {
+    const buf = new TextEncoder().encode('not a zip').buffer
+    const res = await importCsvBundleZip({} as unknown as DbClient, {
+      userId: '11111111-1111-1111-1111-111111111111',
+      zipData: buf,
+      mode: 'dry-run',
+    })
+
+    expect(res.ok).toBe(false)
+    expect(res.errors[0]).toMatch(/Invalid ZIP/i)
+    expect(res.tables).toEqual([])
+  })
+
   it('rejects bundles missing table CSVs', async () => {
     const zip = new JSZip()
     zip.file(
@@ -64,4 +77,3 @@ describe('importCsvBundleZip (dry-run)', () => {
     expect(res.tables.some((t) => t.errors.some((e) => e.includes('Missing tables/')))).toBe(true)
   })
 })
-

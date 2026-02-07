@@ -79,7 +79,9 @@ export function parseCsv(text: string): ParsedCsv {
   }
 
   const header = rows[0]
-  const dataRows = rows.slice(1)
+  // Ignore fully blank lines (common when CSVs are edited manually or round-tripped through tools).
+  // We only drop "truly blank" lines, which parse as a single empty cell.
+  const dataRows = rows.slice(1).filter((r) => !(r.length === 1 && (r[0] ?? '') === ''))
 
   // Tolerate a UTF-8 BOM (common when CSVs are round-tripped through Excel/other tools).
   const normalizedHeader = header.map((cell, idx) => (idx === 0 ? cell.replace(/^\uFEFF/, '') : cell))
