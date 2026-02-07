@@ -1,4 +1,5 @@
 import { listDailyTotalsAdmin, listDailyTotalsEffectiveCns, listDailyTotalsEffectiveSystemic } from '@/lib/repos/dailyTotalsRepo'
+import { getMyProfile } from '@/lib/repos/profilesRepo'
 import { listSpendRollups } from '@/lib/repos/spendRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -20,16 +21,59 @@ function formatMoney(x: number | string | null | undefined): string {
   return `$${n.toFixed(2).replace(/\.?0+$/, '')}`
 }
 
-function dayLocalDaysAgo(n: number): string {
-  const ms = Date.now() - n * 24 * 60 * 60 * 1000
-  return new Date(ms).toISOString().slice(0, 10)
+function mustGetLocalYmd(date: Date, timeZone: string): { year: number; month: number; day: number } {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+
+  const parts = fmt.formatToParts(date)
+  const year = Number(parts.find((p) => p.type === 'year')?.value)
+  const month = Number(parts.find((p) => p.type === 'month')?.value)
+  const day = Number(parts.find((p) => p.type === 'day')?.value)
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    throw new Error(`Failed to format local day parts for timezone ${JSON.stringify(timeZone)}.`)
+  }
+
+  return { year, month, day }
+}
+
+function safeTimeZone(tz: string): string {
+  try {
+    // Throws RangeError for invalid IANA names.
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date())
+    return tz
+  } catch {
+    return 'UTC'
+  }
+}
+
+function ymdToIso(ymd: { year: number; month: number; day: number }): string {
+  const mm = String(ymd.month).padStart(2, '0')
+  const dd = String(ymd.day).padStart(2, '0')
+  return `${ymd.year}-${mm}-${dd}`
+}
+
+function dayLocalDaysAgo(daysAgo: number, timeZone: string): string {
+  // "Local day" means calendar-day arithmetic in the user's timezone, not subtracting 24h
+  // from the current UTC timestamp (which can be off by one around midnight and DST).
+  const todayLocal = mustGetLocalYmd(new Date(), timeZone)
+  const d = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day))
+  d.setUTCDate(d.getUTCDate() - daysAgo)
+  return ymdToIso({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() })
 }
 
 export default async function AnalyticsPage() {
   const supabase = await createClient()
 
-  const since60 = dayLocalDaysAgo(60)
-  const since180 = dayLocalDaysAgo(180)
+  const profile = await getMyProfile(supabase)
+  const timeZone = safeTimeZone(profile?.timezone ?? 'UTC')
+
+  const since60 = dayLocalDaysAgo(60, timeZone)
+  const since180 = dayLocalDaysAgo(180, timeZone)
 
   const [admin, effSystemic, effCns, spendDay, spendWeek, spendMonth] = await Promise.all([
     listDailyTotalsAdmin(supabase, { sinceDayLocal: since60 }),
