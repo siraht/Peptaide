@@ -90,6 +90,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 06:40Z) Fresh-eyes UI polish + robustness: updated `/orders` copy to match current vial-generation behavior, surfaced vial status counts per order item via `public.v_order_item_vial_counts`, and made numeric formatting tolerant of numeric-string values (PostgREST edge) in `/orders`, `/today`, and `/analytics`. Files: `web/src/app/(app)/orders/page.tsx`, `web/src/app/(app)/orders/create-order-item-form.tsx`, `web/src/app/(app)/analytics/page.tsx`, `web/src/app/(app)/today/page.tsx`, `web/src/lib/repos/orderItemVialCountsRepo.ts`. plan[180-229] plan[500-518] plan[556-582] plan[677-681]
 - [x] (2026-02-07 06:50Z) Started "cost allocation preview" for orders: extended `public.v_order_item_vial_counts` (SECURITY INVOKER) to include per-order-item vial cost sums and event spend rollups, and updated `/orders` to show vial cost sum, spent, and remaining per order item (plus cost-known counts). Files: `supabase/migrations/20260207064530_082_views_order_item_costs.sql`, `web/src/lib/supabase/database.types.ts`, `web/src/app/(app)/orders/page.tsx`. plan[180-229] plan[500-518] plan[660-676]
 - [x] (2026-02-07 06:58Z) Hardened analytics/inventory SQL views to tolerate missing `profiles` rows by falling back to UTC timezone, and expanded the RLS probe script to cover additional model tables (BA/modifiers/recommendations/cycle rules) plus analytics views (daily totals + spend rollups). Files: `supabase/migrations/20260207070010_083_views_timezone_fallback.sql`, `supabase/scripts/rls_probe.sql`. plan[556-582] plan[677-681] plan[690-713]
+- [x] (2026-02-07 07:09Z) Implemented the first slice of data portability: a signed-in CSV export bundle endpoint (`/api/export`) that zips one CSV per public table (with a stable column order auto-generated from `database.types.ts`). Linked the export from `/settings`. Files: `web/src/app/api/export/route.ts`, `web/src/app/(app)/settings/page.tsx`, `web/src/lib/export/csv.ts`, `web/src/lib/export/exportColumns.ts`, `web/src/lib/repos/exportRepo.ts`, `web/scripts/generate-export-columns.mjs`. plan[583-595] plan[682-689]
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
 
 - [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics) (completed: basic header nav links for implemented routes, including `/analytics` + `/settings`; remaining: command palette + keyboard-first global actions). plan[414-421]
@@ -107,7 +108,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [ ] UI: implement `/analytics` dashboard: today summary, calendar, trends, cycles/breaks analytics, inventory runway, spend (USD/day/week/month) including uncertainty bands where applicable (completed: minimal read-only `/analytics` surface backed by daily totals + spend views; remaining: richer dashboards (calendar/trends), cycle/break analytics, inventory runway summaries, and uncertainty-band UX). plan[556-582] plan[677-681]
 
-- [ ] UI: implement `/settings` including profile defaults (units, default MC N, cycle defaults) and data import/export with dry-run validation and dedupe (completed: profile defaults editor for timezone/units/MC N/cycle gap; remaining: import/export UX + validation + dedupe). plan[583-595] plan[682-689]
+- [ ] UI: implement `/settings` including profile defaults (units, default MC N, cycle defaults) and data import/export with dry-run validation and dedupe (completed: profile defaults editor for timezone/units/MC N/cycle gap; added a signed-in CSV export bundle endpoint at `/api/export` and linked it from `/settings`; remaining: import UX + dry-run validation + id mapping/dedupe, plus danger-zone delete flows). plan[583-595] plan[682-689]
 
 - [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked (completed: expanded `supabase/scripts/rls_probe.sql` to exercise cross-user isolation across a broader set of core tables (`substances`, `formulations`/`formulation_components`, `vendors`/`orders`/`order_items`/`vials`, `administration_events`/`event_revisions`, `device_calibrations`, `cycle_instances`/`cycle_rules`, `distributions`, `bioavailability_specs`/`formulation_modifier_specs`/`component_modifier_specs`, `evidence_sources`/`substance_recommendations`) and key `security_invoker` views (`v_event_enriched`, `v_cycle_summary`, `v_inventory_status`, `v_model_coverage`, `v_order_item_vial_counts`, `v_daily_totals_*`, `v_spend_daily_weekly_monthly`); remaining: expand probes to cover any remaining tables/views and add a repeatable "RLS audit" checklist. Note: `profiles` is harder to probe with simulated auth IDs because it references `auth.users`, but the views now fall back to UTC when `profiles` is missing). plan[690-698]
 - [ ] Correctness and performance pass: confirm canonical units semantics, IU behavior, MC determinism with stored seed/snapshot, required indexes, and that daily aggregation semantics are documented and conservative. plan[699-713]
@@ -441,6 +442,10 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: IU is not a mass unit and IU->mg conversion is substance-specific; treating IU as mass would violate unit correctness and create incorrect analytics.
   Date/Author: 2026-02-07 / Codex
 
+- Decision: Data export format (v1) is a ZIP of per-table CSV files generated under the signed-in user session, using a stable column order derived from `web/src/lib/supabase/database.types.ts` (auto-generated mapping) and zipped in-memory via `jszip`.
+  Rationale: CSV is easy to inspect and use in spreadsheets; a ZIP bundle keeps multi-table exports portable; deriving column order from generated DB types avoids manual drift; running under the user session keeps the RLS boundary intact.
+  Date/Author: 2026-02-07 / Codex
+
 ## Outcomes & Retrospective
 
 2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion + auto-start decision helper, but not DB orchestration yet). A `/today` prototyping surface exists to exercise the end-to-end event pipeline (not the final virtualized grid yet).
@@ -455,7 +460,7 @@ What exists now:
 6. A `/today` prototype exists that can seed demo reference data, log events via Server Actions, and render recent events from `public.v_event_enriched`. It exercises parsing, canonical dose computation, MC percentiles (when BA specs exist), and `model_snapshot` persistence.
 7. Setup/scaffolding CRUD pages exist for reference data and model inputs: `/substances` (+ detail BA spec editor), `/routes`, `/devices` (+ calibrations), `/formulations` (+ components), `/distributions`, plus `/cycles` (summary) and `/inventory`.
 8. Orders/inventory scaffolding exists: `/orders` can create vendors/orders/order items and generate planned vials; `/inventory` can create vials and supports vial lifecycle actions (activate, close, discard).
-9. Minimal read-only dashboards exist: `/analytics` (daily totals + spend rollups) and `/settings` (profile defaults editor).
+9. Minimal read-only dashboards exist: `/analytics` (daily totals + spend rollups) and `/settings` (profile defaults editor + CSV export bundle link).
 
 What remains (next highest-leverage work):
 
@@ -1651,7 +1656,7 @@ In `web/src/lib/domain/cost/cost.ts`:
       vialCostUsd: number | null
     }): number | null
 
-Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client + SSR helpers, TanStack Table/Virtual, cmdk, Recharts, Zod, date-fns, Vitest. Any additions or substitutions must be recorded in `Decision Log`.
+Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client + SSR helpers, TanStack Table/Virtual, cmdk, Recharts, Zod, date-fns, Vitest, jszip. Any additions or substitutions must be recorded in `Decision Log`.
 
 ## Plan Change Notes
 
