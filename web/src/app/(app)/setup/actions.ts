@@ -45,6 +45,7 @@ export async function setupSetBioavailabilitySpecAction(
   const compartmentRaw = String(formData.get('compartment') ?? '').trim()
   const baseFractionDistId = String(formData.get('base_fraction_dist_id') ?? '').trim()
   const notes = String(formData.get('notes') ?? '').trim()
+  const evidenceSourceIdRaw = String(formData.get('evidence_source_id') ?? '').trim()
 
   if (!substanceId) return { status: 'error', message: 'substance_id is required.' }
   if (!routeId) return { status: 'error', message: 'route_id is required.' }
@@ -60,7 +61,7 @@ export async function setupSetBioavailabilitySpecAction(
       compartment: compartmentRaw,
       baseFractionDistId,
       notes: notes || null,
-      evidenceSourceId: null,
+      evidenceSourceId: evidenceSourceIdRaw ? evidenceSourceIdRaw : null,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

@@ -2,13 +2,14 @@
 
 import { useActionState } from 'react'
 
+import type { EvidenceSourceRow } from '@/lib/repos/evidenceSourcesRepo'
 import type { RouteRow } from '@/lib/repos/routesRepo'
 
 import type { CreateSubstanceRecommendationState } from './actions'
 import { createSubstanceRecommendationAction } from './actions'
 
-export function SubstanceRecommendationsForm(props: { substanceId: string; routes: RouteRow[] }) {
-  const { substanceId, routes } = props
+export function SubstanceRecommendationsForm(props: { substanceId: string; routes: RouteRow[]; evidenceSources: EvidenceSourceRow[] }) {
+  const { substanceId, routes, evidenceSources } = props
 
   const [state, formAction] = useActionState<CreateSubstanceRecommendationState, FormData>(
     createSubstanceRecommendationAction,
@@ -72,6 +73,18 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
           <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
         </label>
 
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="text-zinc-700">Evidence source (optional)</span>
+          <select className="h-10 rounded-md border px-3 text-sm" name="evidence_source_id" defaultValue="">
+            <option value="">(none)</option>
+            {evidenceSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.source_type}: {s.citation}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <div className="sm:col-span-2">
           <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
             Save recommendation
@@ -84,4 +97,3 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
     </div>
   )
 }
-

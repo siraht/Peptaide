@@ -48,6 +48,7 @@ export async function setBioavailabilitySpecAction(
   const compartmentRaw = String(formData.get('compartment') ?? '').trim()
   const baseFractionDistId = String(formData.get('base_fraction_dist_id') ?? '').trim()
   const notes = String(formData.get('notes') ?? '').trim()
+  const evidenceSourceIdRaw = String(formData.get('evidence_source_id') ?? '').trim()
 
   if (!substanceId) return { status: 'error', message: 'Missing substance_id.' }
   if (!routeId) return { status: 'error', message: 'route_id is required.' }
@@ -63,7 +64,7 @@ export async function setBioavailabilitySpecAction(
       compartment: compartmentRaw,
       baseFractionDistId,
       notes: notes || null,
-      evidenceSourceId: null,
+      evidenceSourceId: evidenceSourceIdRaw ? evidenceSourceIdRaw : null,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -85,6 +86,7 @@ export async function createSubstanceRecommendationAction(
   const maxValueRaw = String(formData.get('max_value') ?? '').trim()
   const unit = String(formData.get('unit') ?? '').trim()
   const notes = String(formData.get('notes') ?? '').trim()
+  const evidenceSourceIdRaw = String(formData.get('evidence_source_id') ?? '').trim()
 
   if (!substanceId) return { status: 'error', message: 'Missing substance_id.' }
   if (!isRecommendationCategory(categoryRaw)) return { status: 'error', message: 'Invalid category.' }
@@ -119,7 +121,7 @@ export async function createSubstanceRecommendationAction(
       maxValue,
       unit,
       notes: notes || null,
-      evidenceSourceId: null,
+      evidenceSourceId: evidenceSourceIdRaw ? evidenceSourceIdRaw : null,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

@@ -7,6 +7,7 @@ import { SubstanceRecommendationsForm } from './recommendations-form'
 
 import { listBioavailabilitySpecsForSubstance } from '@/lib/repos/bioavailabilitySpecsRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
+import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { listSubstanceRecommendationsForSubstance } from '@/lib/repos/substanceRecommendationsRepo'
 import { getSubstanceById } from '@/lib/repos/substancesRepo'
@@ -52,10 +53,11 @@ export default async function SubstanceDetailPage({
 
   const supabase = await createClient()
 
-  const [substance, routes, dists, specs, recs] = await Promise.all([
+  const [substance, routes, dists, evidenceSources, specs, recs] = await Promise.all([
     getSubstanceById(supabase, { substanceId }),
     listRoutes(supabase),
     listDistributions(supabase),
+    listEvidenceSources(supabase),
     listBioavailabilitySpecsForSubstance({ supabase, substanceId }),
     listSubstanceRecommendationsForSubstance(supabase, { substanceId }),
   ])
@@ -67,6 +69,7 @@ export default async function SubstanceDetailPage({
   const fractionDists = dists.filter((d) => d.value_type === 'fraction')
   const routeById = new Map(routes.map((r) => [r.id, r]))
   const distById = new Map(dists.map((d) => [d.id, d]))
+  const evidenceById = new Map(evidenceSources.map((e) => [e.id, e]))
 
   return (
     <div className="space-y-6">
@@ -88,9 +91,10 @@ export default async function SubstanceDetailPage({
         substanceId={substanceId}
         routes={routes}
         fractionDistributions={fractionDists}
+        evidenceSources={evidenceSources}
       />
 
-      <SubstanceRecommendationsForm substanceId={substanceId} routes={routes} />
+      <SubstanceRecommendationsForm substanceId={substanceId} routes={routes} evidenceSources={evidenceSources} />
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Recommendations</h2>
@@ -106,6 +110,7 @@ export default async function SubstanceDetailPage({
                   <th className="border-b px-2 py-2 font-medium">Range</th>
                   <th className="border-b px-2 py-2 font-medium">Unit</th>
                   <th className="border-b px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b px-2 py-2 font-medium">Evidence</th>
                   <th className="border-b px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -124,6 +129,16 @@ export default async function SubstanceDetailPage({
                     </td>
                     <td className="border-b px-2 py-2 text-zinc-700">{r.unit}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{r.notes ?? '-'}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {r.evidence_source_id ? (
+                        (() => {
+                          const e = evidenceById.get(r.evidence_source_id)
+                          return e ? `${e.source_type}: ${e.citation}` : r.evidence_source_id
+                        })()
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                     <td className="border-b px-2 py-2">
                       <form action={deleteSubstanceRecommendationAction}>
                         <input type="hidden" name="substance_id" value={substanceId} />
@@ -155,6 +170,7 @@ export default async function SubstanceDetailPage({
                   <th className="border-b px-2 py-2 font-medium">Distribution</th>
                   <th className="border-b px-2 py-2 font-medium">Params</th>
                   <th className="border-b px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b px-2 py-2 font-medium">Evidence</th>
                 </tr>
               </thead>
               <tbody>
@@ -177,6 +193,16 @@ export default async function SubstanceDetailPage({
                         {dist ? summarizeDist(dist) : '-'}
                       </td>
                       <td className="border-b px-2 py-2 text-zinc-700">{s.notes ?? '-'}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {s.evidence_source_id ? (
+                          (() => {
+                            const e = evidenceById.get(s.evidence_source_id)
+                            return e ? `${e.source_type}: ${e.citation}` : s.evidence_source_id
+                          })()
+                        ) : (
+                          '-'
+                        )}
+                      </td>
                     </tr>
                   )
                 })}

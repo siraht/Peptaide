@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 
 import type { DistributionRow } from '@/lib/repos/distributionsRepo'
+import type { EvidenceSourceRow } from '@/lib/repos/evidenceSourcesRepo'
 import type { RouteRow } from '@/lib/repos/routesRepo'
 import type { SubstanceRow } from '@/lib/repos/substancesRepo'
 
@@ -13,8 +14,9 @@ export function SetupBaseBioavailabilitySpecForm(props: {
   substances: SubstanceRow[]
   routes: RouteRow[]
   fractionDistributions: DistributionRow[]
+  evidenceSources: EvidenceSourceRow[]
 }) {
-  const { substances, routes, fractionDistributions } = props
+  const { substances, routes, fractionDistributions, evidenceSources } = props
 
   const [state, formAction] = useActionState<SetupSetBioavailabilitySpecState, FormData>(
     setupSetBioavailabilitySpecAction,
@@ -82,6 +84,18 @@ export function SetupBaseBioavailabilitySpecForm(props: {
           <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
         </label>
 
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="text-zinc-700">Evidence source (optional)</span>
+          <select className="h-10 rounded-md border px-3 text-sm" name="evidence_source_id" defaultValue="">
+            <option value="">(none)</option>
+            {evidenceSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.source_type}: {s.citation}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <div className="sm:col-span-2">
           <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
             Save spec
@@ -94,4 +108,3 @@ export function SetupBaseBioavailabilitySpecForm(props: {
     </div>
   )
 }
-

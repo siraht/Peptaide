@@ -48,6 +48,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
       { label: 'Orders', href: '/orders', keywords: ['vendors'] },
       { label: 'Cycles', href: '/cycles', keywords: ['breaks'] },
       { label: 'Distributions', href: '/distributions', keywords: ['uncertainty', 'monte carlo'] },
+      { label: 'Evidence sources', href: '/evidence-sources', keywords: ['citations', 'papers'] },
       { label: 'Settings', href: '/settings', keywords: ['profile', 'export', 'import'] },
     ],
     [],

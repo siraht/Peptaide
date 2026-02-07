@@ -12,6 +12,7 @@ import { SetupFormulationModifierSpecForm } from '@/app/(app)/setup/formulation-
 import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
+import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
@@ -37,6 +38,7 @@ export default async function SetupPage() {
     orders,
     orderItems,
     dists,
+    evidenceSources,
     formulations,
     inventory,
     coverage,
@@ -48,6 +50,7 @@ export default async function SetupPage() {
     listOrders(supabase),
     listOrderItems(supabase),
     listDistributions(supabase),
+    listEvidenceSources(supabase),
     listFormulationsEnriched(supabase),
     listInventoryStatus(supabase),
     listModelCoverage(supabase),
@@ -274,6 +277,7 @@ export default async function SetupPage() {
               substances={substances}
               routes={routes}
               fractionDistributions={fractionDists}
+              evidenceSources={evidenceSources}
             />
           </div>
         )}
