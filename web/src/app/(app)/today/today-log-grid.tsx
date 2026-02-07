@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 import type { CreateEventState } from './actions'
@@ -46,7 +46,7 @@ export function TodayLogGrid(props: {
   const rowsRef = useRef(rows)
   const savingRowIndexesRef = useRef<Set<number>>(new Set())
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     rowsRef.current = rows
   }, [rows])
 
