@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createFormulation } from '@/lib/repos/formulationsRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 
 export type FormulationSelectOption = { id: string; label: string }
@@ -50,7 +51,7 @@ export async function createFormulationAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/formulations')
@@ -100,7 +101,7 @@ export async function bulkAddFormulationsAction(
       createdCount++
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      errors.push(`Line ${i + 1} (${name}): ${msg}`)
+      errors.push(`Line ${i + 1} (${name}): ${toUserFacingDbErrorMessage(msg) ?? msg}`)
     }
   }
 

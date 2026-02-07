@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createRoute, softDeleteRoute } from '@/lib/repos/routesRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -55,7 +56,7 @@ export async function createRouteAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/routes')
@@ -107,7 +108,7 @@ export async function bulkAddRoutesAction(
       createdCount++
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      errors.push(`Line ${i + 1} (${name}): ${msg}`)
+      errors.push(`Line ${i + 1} (${name}): ${toUserFacingDbErrorMessage(msg) ?? msg}`)
     }
   }
 

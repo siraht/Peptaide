@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createSubstance, softDeleteSubstance } from '@/lib/repos/substancesRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -61,7 +62,7 @@ export async function createSubstanceAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/substances')
@@ -123,7 +124,7 @@ export async function bulkAddSubstancesAction(
       createdCount++
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      errors.push(`Line ${i + 1} (${canonicalName}): ${msg}`)
+      errors.push(`Line ${i + 1} (${canonicalName}): ${toUserFacingDbErrorMessage(msg) ?? msg}`)
     }
   }
 

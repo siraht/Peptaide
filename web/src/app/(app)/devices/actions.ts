@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createDevice, softDeleteDevice } from '@/lib/repos/devicesRepo'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -39,7 +40,7 @@ export async function createDeviceAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/devices')
@@ -54,4 +55,3 @@ export async function deleteDeviceAction(formData: FormData): Promise<void> {
   await softDeleteDevice(supabase, { deviceId })
   revalidatePath('/devices')
 }
-
