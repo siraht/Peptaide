@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { EvidenceSourceRow } from '@/lib/repos/evidenceSourcesRepo'
 import type { RouteRow } from '@/lib/repos/routesRepo'
@@ -15,6 +16,13 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
     createSubstanceRecommendationAction,
     { status: 'idle' },
   )
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   return (
     <div className="rounded-lg border bg-white p-4">

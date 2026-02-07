@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { SetCycleRuleState } from './actions'
 import { deleteCycleRuleAction, setCycleRuleAction } from './actions'
@@ -25,6 +26,13 @@ export function CycleRuleForm(props: {
   const [state, formAction] = useActionState<SetCycleRuleState, FormData>(setCycleRuleAction, {
     status: 'idle',
   })
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   return (
     <section className="rounded-lg border bg-white p-4">
