@@ -16,3 +16,19 @@ export function shouldSuggestNewCycle(opts: {
   return gapMs >= gapDaysThreshold * MS_PER_DAY
 }
 
+export type CycleSuggestionAction = 'none' | 'start_first_cycle' | 'suggest_new_cycle'
+
+export function suggestCycleAction(opts: {
+  lastEventTs: Date | null
+  newEventTs: Date
+  gapDaysThreshold: number
+  autoStartFirstCycle: boolean
+}): CycleSuggestionAction {
+  const { lastEventTs, autoStartFirstCycle } = opts
+
+  if (lastEventTs == null) {
+    return autoStartFirstCycle ? 'start_first_cycle' : 'none'
+  }
+
+  return shouldSuggestNewCycle(opts) ? 'suggest_new_cycle' : 'none'
+}
