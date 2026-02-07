@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { BulkAddRoutesState } from './actions'
 import { bulkAddRoutesAction } from './actions'
@@ -10,14 +11,16 @@ export function BulkAddRoutesForm() {
     status: 'idle',
   })
 
+  const router = useRouter()
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     if (state.status !== 'success') return
     if (state.createdCount > 0) {
       if (textareaRef.current) textareaRef.current.value = ''
+      router.refresh()
     }
-  }, [state])
+  }, [router, state])
 
   return (
     <div className="rounded-lg border bg-white p-4">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import type { CreateSubstanceState } from './actions'
 import { createSubstanceAction } from './actions'
@@ -11,13 +11,15 @@ export function CreateSubstanceForm() {
     status: 'idle',
   })
 
+  const router = useRouter()
   const canonicalRef = useRef<HTMLInputElement | null>(null)
   const focus = useSearchParams().get('focus')
 
   useEffect(() => {
     if (state.status !== 'success') return
+    router.refresh()
     canonicalRef.current?.focus()
-  }, [state.status])
+  }, [router, state.status])
 
   useEffect(() => {
     if (focus !== 'new') return

@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { CreateRouteState } from './actions'
 import { createRouteAction } from './actions'
@@ -9,6 +10,13 @@ export function CreateRouteForm() {
   const [state, formAction] = useActionState<CreateRouteState, FormData>(createRouteAction, {
     status: 'idle',
   })
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -66,4 +74,3 @@ export function CreateRouteForm() {
     </div>
   )
 }
-
