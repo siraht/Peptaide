@@ -1,6 +1,9 @@
 import Link from 'next/link'
 
+import { CreateCycleNowForm } from './create-cycle-form'
+
 import { listCycleSummary } from '@/lib/repos/cycleSummaryRepo'
+import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
 
 function fmt(x: unknown): string {
@@ -18,7 +21,8 @@ function fmtRange(min: number | null | undefined, max: number | null | undefined
 
 export default async function CyclesPage() {
   const supabase = await createClient()
-  const cycles = await listCycleSummary(supabase)
+  const [cycles, substances] = await Promise.all([listCycleSummary(supabase), listSubstances(supabase)])
+  const substanceOptions = substances.map((s) => ({ id: s.id, label: s.display_name }))
 
   return (
     <div className="space-y-6">
@@ -28,6 +32,8 @@ export default async function CyclesPage() {
           Minimal view over computed cycle summaries (details + split/merge tools come later).
         </p>
       </div>
+
+      <CreateCycleNowForm substances={substanceOptions} />
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">List</h2>

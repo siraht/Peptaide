@@ -1,0 +1,59 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+import {
+  createCycleInstance,
+  getActiveCycleForSubstance,
+  getLastCycleForSubstance,
+} from '@/lib/repos/cyclesRepo'
+import { createClient } from '@/lib/supabase/server'
+
+export type CreateCycleNowState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+
+export async function createCycleNowAction(
+  _prev: CreateCycleNowState,
+  formData: FormData,
+): Promise<CreateCycleNowState> {
+  const substanceId = String(formData.get('substance_id') ?? '').trim()
+  if (!substanceId) return { status: 'error', message: 'substance_id is required.' }
+
+  const supabase = await createClient()
+
+  try {
+    const activeCycle = await getActiveCycleForSubstance(supabase, { substanceId })
+    if (activeCycle) {
+      return {
+        status: 'error',
+        message: 'An active cycle already exists for this substance. End it first.',
+      }
+    }
+
+    const lastCycle = await getLastCycleForSubstance(supabase, { substanceId })
+    const nextCycleNumber = (lastCycle?.cycle_number ?? 0) + 1
+
+    const nowTs = new Date().toISOString()
+    const newCycle = await createCycleInstance(supabase, {
+      substanceId,
+      cycleNumber: nextCycleNumber,
+      startTs: nowTs,
+      status: 'active',
+      goal: null,
+      notes: null,
+    })
+
+    revalidatePath('/cycles')
+    revalidatePath('/today')
+    revalidatePath('/analytics')
+    revalidatePath(`/cycles/${newCycle.id}`)
+
+    redirect(`/cycles/${newCycle.id}`)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+}
+
