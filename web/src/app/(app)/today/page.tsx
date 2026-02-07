@@ -103,69 +103,83 @@ export default async function TodayPage() {
                   const systemicRelevant = target !== 'cns'
                   const cnsRelevant = target !== 'systemic'
 
+                  const formulationId = c.formulation_id
+                  const substanceId = c.substance_id
+                  const routeId = c.route_id
+                  const deviceId = c.device_id
+                  const rowKey = formulationId ?? `${substanceId ?? 'substance'}-${routeId ?? 'route'}`
+
                   return (
-                    <tr key={c.formulation_id}>
-                    <td className="border-b px-2 py-2 text-zinc-900">
-                      <Link className="underline hover:text-zinc-900" href={`/formulations/${c.formulation_id}`}>
-                        {c.formulation_name}
-                      </Link>
-                    </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      <Link className="underline hover:text-zinc-900" href={`/substances/${c.substance_id}`}>
-                        {c.substance_name}
-                      </Link>
-                    </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{c.route_name}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      {c.device_id ? (
-                        <Link className="underline hover:text-zinc-900" href={`/devices/${c.device_id}`}>
-                          {c.device_name ?? '(device)'}
-                        </Link>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      {systemicRelevant ? (
-                        c.missing_base_systemic ? (
-                          <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                    <tr key={rowKey}>
+                      <td className="border-b px-2 py-2 text-zinc-900">
+                        {formulationId ? (
+                          <Link className="underline hover:text-zinc-900" href={`/formulations/${formulationId}`}>
+                            {c.formulation_name ?? '-'}
+                          </Link>
                         ) : (
-                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
-                        )
-                      ) : (
-                        <span className="text-zinc-500">n/a</span>
-                      )}
-                    </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      {cnsRelevant ? (
-                        c.missing_base_cns ? (
-                          <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                          <span>{c.formulation_name ?? '-'}</span>
+                        )}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {substanceId ? (
+                          <Link className="underline hover:text-zinc-900" href={`/substances/${substanceId}`}>
+                            {c.substance_name ?? '-'}
+                          </Link>
                         ) : (
-                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
-                        )
-                      ) : (
-                        <span className="text-zinc-500">n/a</span>
-                      )}
-                    </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      {c.supports_device_calibration ? (
-                        c.missing_any_device_calibration ? (
-                          <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                          <span>{c.substance_name ?? '-'}</span>
+                        )}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{c.route_name ?? '-'}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {deviceId ? (
+                          <Link className="underline hover:text-zinc-900" href={`/devices/${deviceId}`}>
+                            {c.device_name ?? '(device)'}
+                          </Link>
                         ) : (
-                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
-                        )
-                      ) : (
-                        <span className="text-zinc-500">n/a</span>
-                      )}
-                    </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      {c.has_formulation_modifiers || c.has_component_modifiers || c.has_component_fallback_modifiers ? (
-                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">present</span>
-                      ) : (
-                        <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">none</span>
-                      )}
-                    </td>
-                  </tr>
+                          '-'
+                        )}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {systemicRelevant ? (
+                          c.missing_base_systemic ? (
+                            <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                          ) : (
+                            <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                          )
+                        ) : (
+                          <span className="text-zinc-500">n/a</span>
+                        )}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {cnsRelevant ? (
+                          c.missing_base_cns ? (
+                            <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                          ) : (
+                            <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                          )
+                        ) : (
+                          <span className="text-zinc-500">n/a</span>
+                        )}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {c.supports_device_calibration && deviceId ? (
+                          c.missing_any_device_calibration ? (
+                            <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                          ) : (
+                            <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                          )
+                        ) : (
+                          <span className="text-zinc-500">n/a</span>
+                        )}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {c.has_formulation_modifiers || c.has_component_modifiers || c.has_component_fallback_modifiers ? (
+                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">present</span>
+                        ) : (
+                          <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">none</span>
+                        )}
+                      </td>
+                    </tr>
                   )
                 })}
               </tbody>

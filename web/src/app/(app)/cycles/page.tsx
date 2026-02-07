@@ -7,6 +7,13 @@ function fmt(x: unknown): string {
   return String(x)
 }
 
+function fmtRange(min: number | null | undefined, max: number | null | undefined): string {
+  if (min == null && max == null) return '-'
+  if (min != null && max != null) return `${fmt(min)} - ${fmt(max)}`
+  if (min != null) return `>= ${fmt(min)}`
+  return `<= ${fmt(max)}`
+}
+
 export default async function CyclesPage() {
   const supabase = await createClient()
   const cycles = await listCycleSummary(supabase)
@@ -42,28 +49,29 @@ export default async function CyclesPage() {
                 </tr>
               </thead>
               <tbody>
-                {cycles.map((c) => (
-                  <tr key={c.cycle_instance_id}>
-                    <td className="border-b px-2 py-2 text-zinc-900">{c.substance_name}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{c.cycle_number}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.start_ts)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.end_ts)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.cycle_length_days)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.break_to_next_cycle_days)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{c.event_count}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.administered_mg_total)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      {c.recommended_cycle_days_min == null && c.recommended_cycle_days_max == null
-                        ? '-'
-                        : `${fmt(c.recommended_cycle_days_min)} - ${fmt(c.recommended_cycle_days_max)}`}
-                    </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">
-                      {c.recommended_break_days_min == null && c.recommended_break_days_max == null
-                        ? '-'
-                        : `${fmt(c.recommended_break_days_min)} - ${fmt(c.recommended_break_days_max)}`}
-                    </td>
-                  </tr>
-                ))}
+                {cycles.map((c) => {
+                  const rowKey =
+                    c.cycle_instance_id ?? `${c.substance_id ?? 'substance'}-${c.cycle_number ?? 'cycle'}`
+
+                  return (
+                    <tr key={rowKey}>
+                      <td className="border-b px-2 py-2 text-zinc-900">{c.substance_name ?? '-'}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.cycle_number)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.start_ts)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.end_ts)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.cycle_length_days)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.break_to_next_cycle_days)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.event_count)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.administered_mg_total)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {fmtRange(c.recommended_cycle_days_min, c.recommended_cycle_days_max)}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {fmtRange(c.recommended_break_days_min, c.recommended_break_days_max)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -72,4 +80,3 @@ export default async function CyclesPage() {
     </div>
   )
 }
-
