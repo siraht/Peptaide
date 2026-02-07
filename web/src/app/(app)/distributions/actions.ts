@@ -20,7 +20,11 @@ function isDistType(x: string): x is Database['public']['Enums']['distribution_d
 }
 
 function mustNumber(raw: string, label: string): number {
-  const x = Number(raw)
+  const t = raw.trim()
+  if (!t) {
+    throw new Error(`${label} is required.`)
+  }
+  const x = Number(t)
   if (!Number.isFinite(x)) {
     throw new Error(`${label} must be a number.`)
   }
