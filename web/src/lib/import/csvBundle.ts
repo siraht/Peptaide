@@ -140,8 +140,8 @@ export async function importCsvBundleZip(
   const format = getObjectStringField(meta, 'format')
   const exportedAt = getObjectStringField(meta, 'exported_at')
 
-  if (format && format !== 'peptaide-csv-bundle-v1') {
-    topErrors.push(`Unsupported export format: ${format}`)
+  if (format !== 'peptaide-csv-bundle-v1') {
+    topErrors.push(`Unsupported or missing export format: ${format ?? '(missing)'}`)
   }
 
   const allTables = Object.keys(EXPORT_COLUMNS).sort((a, b) => a.localeCompare(b)) as ExportTableName[]
