@@ -1,4 +1,5 @@
 import { importCsvBundleZip, type ImportMode } from '@/lib/import/csvBundle'
+import { validateSameOrigin } from '@/lib/http/sameOrigin'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -14,6 +15,18 @@ export async function POST(request: Request): Promise<Response> {
   let mode: ImportMode = 'dry-run'
 
   try {
+    const url = new URL(request.url)
+    mode = parseMode(url.searchParams.get('mode'))
+    const replaceExisting = url.searchParams.get('replace') === '1'
+
+    const originError = validateSameOrigin(request)
+    if (originError) {
+      return Response.json(
+        { ok: false, mode, errors: [originError], tables: [] },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
+
     const supabase = await createClient()
     const { data } = await supabase.auth.getUser()
     if (!data.user) {
@@ -22,10 +35,6 @@ export async function POST(request: Request): Promise<Response> {
         { status: 401, headers: { 'Cache-Control': 'no-store' } },
       )
     }
-
-    const url = new URL(request.url)
-    mode = parseMode(url.searchParams.get('mode'))
-    const replaceExisting = url.searchParams.get('replace') === '1'
 
     const form = await request.formData()
     const rawFile = form.get('bundle') ?? form.get('file')

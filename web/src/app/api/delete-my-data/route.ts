@@ -1,10 +1,19 @@
 import { deleteAllMyData } from '@/lib/import/deleteMyData'
+import { validateSameOrigin } from '@/lib/http/sameOrigin'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
-export async function POST(): Promise<Response> {
+export async function POST(request: Request): Promise<Response> {
   try {
+    const originError = validateSameOrigin(request)
+    if (originError) {
+      return Response.json(
+        { ok: false, errors: [originError] },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
+
     const supabase = await createClient()
     const { data } = await supabase.auth.getUser()
     if (!data.user) {
