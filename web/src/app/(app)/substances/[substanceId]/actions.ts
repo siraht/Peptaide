@@ -193,7 +193,7 @@ export async function setCycleRuleAction(
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath(`/substances/${substanceId}`)
