@@ -6,7 +6,7 @@ import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
 import { createClient } from '@/lib/supabase/server'
 
 import { deleteEventAction, restoreEventAction, seedDemoDataAction } from './actions'
-import { TodayLogForm } from './today-log-form'
+import { TodayLogGrid } from './today-log-grid'
 
 function toFiniteNumber(x: number | string | null | undefined): number | null {
   if (x == null) return null
@@ -105,7 +105,11 @@ export default async function TodayPage({
           </form>
         </div>
       ) : (
-        <TodayLogForm formulations={formulationOptions} />
+        <TodayLogGrid
+          key={formulationId ?? 'default'}
+          formulations={formulationOptions}
+          defaultFormulationId={formulationId}
+        />
       )}
 
       <section className="rounded-lg border bg-white p-4">
