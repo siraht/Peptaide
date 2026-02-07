@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { CreateFormulationForm } from './create-formulation-form'
 
 import { listDevices } from '@/lib/repos/devicesRepo'
@@ -56,7 +58,11 @@ export default async function FormulationsPage() {
               <tbody>
                 {formulations.map((f) => (
                   <tr key={f.formulation.id}>
-                    <td className="border-b px-2 py-2 text-zinc-900">{f.formulation.name}</td>
+                    <td className="border-b px-2 py-2 text-zinc-900">
+                      <Link className="underline hover:text-zinc-900" href={`/formulations/${f.formulation.id}`}>
+                        {f.formulation.name}
+                      </Link>
+                    </td>
                     <td className="border-b px-2 py-2 text-zinc-700">
                       {f.substance?.display_name ?? '-'}
                     </td>
@@ -75,4 +81,3 @@ export default async function FormulationsPage() {
     </div>
   )
 }
-
