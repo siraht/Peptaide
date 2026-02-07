@@ -115,6 +115,13 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes('vials_one_active_per_formulation_key')) {
+      return {
+        status: 'error',
+        message:
+          'An active vial already exists for this formulation. Close/discard it first (or create this vial as planned).',
+      }
+    }
     return { status: 'error', message: msg }
   }
 
