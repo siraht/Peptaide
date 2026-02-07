@@ -48,7 +48,10 @@ export async function createCycleNowAction(
     newCycleId = newCycle.id
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    if (msg.includes('cycle_instances_one_active_per_substance_key')) {
+    if (
+      msg.includes('cycle_instances_one_active_per_substance_key') ||
+      msg.includes('cycle_instances_user_substance_cycle_number_key')
+    ) {
       return {
         status: 'error',
         message: 'An active cycle already exists for this substance. End it first.',
