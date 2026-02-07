@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import { signOut } from '@/app/actions/auth'
+import { CommandPalette } from '@/components/command-palette'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function AppLayout({
@@ -69,7 +71,18 @@ export default async function AppLayout({
               </Link>
             </nav>
           </div>
-          <div className="text-sm text-zinc-700">{data.user.email}</div>
+          <div className="flex items-center gap-3 text-sm text-zinc-700">
+            <CommandPalette />
+            <div className="max-w-[16rem] truncate">{data.user.email}</div>
+            <form action={signOut}>
+              <button
+                className="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm text-zinc-700 hover:text-zinc-900"
+                type="submit"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-5xl p-4">{children}</main>
