@@ -206,6 +206,11 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [ ] Run the full MVP definition-of-done verification, and record evidence snippets/transcripts in `Artifacts and Notes`. plan[729-751]
 
+- [ ] (2026-02-07 23:23Z) Add a conclusive, automated browser test harness using the `t-browser` approach (agent-browser sessions + diagnostics) and check it into the repo under `web/scripts/tbrowser/`, including a single entrypoint `npm run e2e:browser` that: starts from a clean local Supabase DB, signs in via local Supabase Mailpit, seeds/creates enough data to exercise the app, and performs a full page sweep with diagnostics. Evidence: `npm run e2e:browser` exits 0 and prints a PASS summary; screenshots + diagnostics summaries are captured under a run-specific artifacts directory (not committed). plan[690-698] plan[729-751]
+- [ ] (2026-02-07 23:23Z) Run the conclusive browser harness on both desktop and mobile viewports and fix any issues until it passes with 0 console errors and 0 failed (4xx/5xx) requests across the swept pages. Evidence: transcripts and a short "diagnostics: ok" summary per page are captured in `Artifacts and Notes`. plan[690-698] plan[699-713]
+- [ ] (2026-02-07 23:23Z) Browser RLS verification: within the harness, sign in as two distinct users (email A and email B) and confirm that user B cannot see user A’s data on list pages and receives 404 on user A’s detail links (substance/formulation/device/cycle). Evidence: harness logs show empty lists for user B and "not found" for cross-user deep links. plan[690-698]
+- [ ] (2026-02-07 23:23Z) Browser data portability verification: within the harness, export a ZIP from `/api/export`, import it via `/settings` (dry-run then apply), and confirm the app reflects imported data immediately; then run delete-my-data and confirm the app returns to the "empty state" surfaces. Evidence: harness logs include export HTTP 200 with `Content-Type: application/zip`, import result table with `ok=true`, and post-delete empty lists. plan[583-595] plan[682-689]
+
 ## Milestones
 
 Milestones are narrative checkpoints. Each milestone must produce something demonstrably usable, and should be independently verifiable.
@@ -1408,6 +1413,10 @@ UI implementation plan:
 4. Implement inventory/orders and cycles/recommendations next.
 5. Implement analytics and import/export last, but add the necessary views early to keep queries cheap.
 
+Conclusive browser testing plan (t-browser style):
+
+To make the MVP "definition of done" verifiable in a real browser (not just unit tests), implement a repeatable end-to-end harness under `web/scripts/tbrowser/` built on `agent-browser` (a Playwright-based CLI). The harness must use a single persisted browser session so Supabase PKCE sign-in works end-to-end, retrieve magic-link URLs from local Supabase Mailpit (HTTP API) instead of requiring manual email clicking, and then run two things: (1) a deterministic scenario that creates enough data to exercise every major page and mutation flow, and (2) a full page sweep at two viewports (desktop and mobile) that captures diagnostics (console errors/warnings and failed network requests) and fails the run if regressions are detected. Wire this as a single command (`npm run e2e:browser`) so a novice can re-run it after any change.
+
 ## Concrete Steps
 
 All commands below assume a Unix-like shell. Record the actual outputs you observe under `Artifacts and Notes` as you implement.
@@ -1473,6 +1482,31 @@ Lint:
 
 Note: if the Supabase CLI is not installed, install it for your environment and confirm `supabase --version` works. If you cannot install it in your environment, use either a hosted Supabase project (H1/H2) or a direct Postgres connection string (`SUPABASE_DB_URL`) plus a migration runner (for example `psql`) to apply the SQL migrations.
 
+Conclusive browser harness (t-browser style):
+
+This is the "extensive, thorough, and conclusive" browser verification. It runs the app in a real Chromium session, exercises major user flows, and fails if there are console errors or failed (4xx/5xx) network requests.
+
+1. Ensure local Supabase is running and start from a clean schema:
+
+    cd /data/projects/peptaide
+    supabase start
+    supabase db reset --yes
+
+2. Start the Next.js dev server on a fixed port (the local Supabase redirect allow-list already includes 3002):
+
+    cd /data/projects/peptaide/web
+    npm install
+    npm run dev -- -p 3002
+
+3. Install `agent-browser` binaries (one-time per machine) and run the harness:
+
+    cd /data/projects/peptaide/web
+    npm install -D agent-browser
+    npx agent-browser install
+    npm run e2e:browser
+
+Expect `npm run e2e:browser` to exit 0 and print a PASS summary plus a path to a run-specific artifacts directory containing screenshots and diagnostic summaries.
+
 ## Validation and Acceptance
 
 Acceptance is phrased as user-observable behavior and database-enforced properties.
@@ -1494,6 +1528,15 @@ Concrete validation steps:
 5. Create a gap large enough to trigger a new-cycle suggestion and confirm the UX and assignment.
 6. Create an order and generate vials; confirm cost attribution and spend rollups.
 7. Export and import into a fresh test DB; confirm counts match and key entities are restored.
+
+Conclusive automated acceptance (browser):
+
+The repository must also have a repeatable browser harness (see `Progress` items added on 2026-02-07) that performs the validation steps above end-to-end in a real browser session using `agent-browser` diagnostics. Acceptance requires:
+
+1. `npm run e2e:browser` exits 0.
+2. The run logs show 0 console errors and 0 failed (4xx/5xx) network requests across all swept pages (desktop + mobile viewport).
+3. The run includes multi-user isolation checks (user B cannot see user A data and cannot open user A detail pages).
+4. The run includes export/import/delete-my-data verification and demonstrates the UI reflects changes immediately (via `router.refresh()` behavior).
 
 ## Idempotence and Recovery
 
@@ -1920,3 +1963,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: UX hardening: distribution create action now maps DB constraint errors via `toUserFacingDbErrorMessage(...)`, and the helper now includes user-friendly messages for common `distributions` check constraints.
 
 2026-02-07: Docs: added a root `README.md` for repo overview + local usage and updated `web/README.md` to remove create-next-app boilerplate and point to the root README as the canonical project documentation.
+
+2026-02-07: Testing: added a conclusive browser-testing plan (t-browser style) to this ExecPlan and new `Progress` items requiring an automated `agent-browser`-based harness (`npm run e2e:browser`). Rationale: unit tests and SQL probes cannot prove the real browser experience (auth cookies, client interactions, console/network health, and router refresh behavior); the harness provides repeatable, end-to-end evidence.
