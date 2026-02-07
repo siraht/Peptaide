@@ -5,8 +5,10 @@ import { BulkAddFormulationsForm } from '@/app/(app)/formulations/bulk-add-formu
 import { BulkAddRoutesForm } from '@/app/(app)/routes/bulk-add-routes-form'
 import { BulkAddSubstancesForm } from '@/app/(app)/substances/bulk-add-substances-form'
 import { CreateVialForm } from '@/app/(app)/inventory/create-vial-form'
+import { SetupBaseBioavailabilitySpecForm } from '@/app/(app)/setup/base-ba-spec-form'
 import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
 import { listDevices } from '@/lib/repos/devicesRepo'
+import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
@@ -21,14 +23,17 @@ export default async function SetupPage() {
 
   const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
 
-  const [substances, routes, devices, formulations, inventory, coverage] = await Promise.all([
+  const [substances, routes, devices, dists, formulations, inventory, coverage] = await Promise.all([
     listSubstances(supabase),
     listRoutes(supabase),
     listDevices(supabase),
+    listDistributions(supabase),
     listFormulationsEnriched(supabase),
     listInventoryStatus(supabase),
     listModelCoverage(supabase),
   ])
+
+  const fractionDists = dists.filter((d) => d.value_type === 'fraction')
 
   const formulationOptions = formulations.map((f) => {
     const substance = f.substance?.display_name ?? 'Unknown substance'
@@ -192,6 +197,28 @@ export default async function SetupPage() {
             Today (logging surface)
           </Link>
         </div>
+
+        {substances.length === 0 || routes.length === 0 ? (
+          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            Add at least one substance and one route first.
+          </div>
+        ) : fractionDists.length === 0 ? (
+          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            Create at least one fraction distribution first (see{' '}
+            <Link className="underline hover:text-zinc-900" href="/distributions">
+              Distributions
+            </Link>
+            ).
+          </div>
+        ) : (
+          <div className="mt-3">
+            <SetupBaseBioavailabilitySpecForm
+              substances={substances}
+              routes={routes}
+              fractionDistributions={fractionDists}
+            />
+          </div>
+        )}
 
         {coverageGaps.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-700">No coverage gaps detected.</p>
