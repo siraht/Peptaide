@@ -1,6 +1,9 @@
+import Link from 'next/link'
+
 import { signOut } from '@/app/actions/auth'
 import { listRecentEventsEnriched } from '@/lib/repos/eventsRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
+import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
 import { createClient } from '@/lib/supabase/server'
 
 import { seedDemoDataAction } from './actions'
@@ -23,6 +26,10 @@ export default async function TodayPage() {
   }))
 
   const events = await listRecentEventsEnriched(supabase, { limit: 20 })
+  const coverage = await listModelCoverage(supabase)
+  const coverageGaps = coverage.filter(
+    (c) => c.missing_base_systemic || c.missing_base_cns || c.missing_any_device_calibration,
+  )
 
   return (
     <div className="space-y-6">
@@ -48,6 +55,92 @@ export default async function TodayPage() {
       ) : (
         <TodayLogForm formulations={formulationOptions} />
       )}
+
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Model coverage</h2>
+        <p className="mt-1 text-sm text-zinc-700">
+          Non-blocking warnings for missing base bioavailability specs and missing device calibrations.
+        </p>
+
+        {coverageGaps.length === 0 ? (
+          <p className="mt-3 text-sm text-zinc-700">No coverage gaps detected.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
+              <thead>
+                <tr className="text-xs text-zinc-600">
+                  <th className="border-b px-2 py-2 font-medium">Formulation</th>
+                  <th className="border-b px-2 py-2 font-medium">Substance</th>
+                  <th className="border-b px-2 py-2 font-medium">Route</th>
+                  <th className="border-b px-2 py-2 font-medium">Device</th>
+                  <th className="border-b px-2 py-2 font-medium">Base systemic</th>
+                  <th className="border-b px-2 py-2 font-medium">Base CNS</th>
+                  <th className="border-b px-2 py-2 font-medium">Device cal</th>
+                  <th className="border-b px-2 py-2 font-medium">Modifiers</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coverageGaps.map((c) => (
+                  <tr key={c.formulation_id}>
+                    <td className="border-b px-2 py-2 text-zinc-900">
+                      <Link className="underline hover:text-zinc-900" href={`/formulations/${c.formulation_id}`}>
+                        {c.formulation_name}
+                      </Link>
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      <Link className="underline hover:text-zinc-900" href={`/substances/${c.substance_id}`}>
+                        {c.substance_name}
+                      </Link>
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">{c.route_name}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {c.device_id ? (
+                        <Link className="underline hover:text-zinc-900" href={`/devices/${c.device_id}`}>
+                          {c.device_name ?? '(device)'}
+                        </Link>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {c.missing_base_systemic ? (
+                        <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                      ) : (
+                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                      )}
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {c.missing_base_cns ? (
+                        <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                      ) : (
+                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                      )}
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {c.supports_device_calibration ? (
+                        c.missing_any_device_calibration ? (
+                          <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                        ) : (
+                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                        )
+                      ) : (
+                        <span className="text-zinc-500">n/a</span>
+                      )}
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {c.has_formulation_modifiers || c.has_component_modifiers || c.has_component_fallback_modifiers ? (
+                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">present</span>
+                      ) : (
+                        <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">none</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Recent events</h2>
