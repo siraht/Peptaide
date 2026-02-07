@@ -7,6 +7,7 @@ import { BulkAddSubstancesForm } from '@/app/(app)/substances/bulk-add-substance
 import { CreateVialForm } from '@/app/(app)/inventory/create-vial-form'
 import { SetupBaseBioavailabilitySpecForm } from '@/app/(app)/setup/base-ba-spec-form'
 import { SetupDeviceCalibrationForm } from '@/app/(app)/setup/device-calibration-form'
+import { SetupFormulationModifierSpecForm } from '@/app/(app)/setup/formulation-modifier-form'
 import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
@@ -36,6 +37,7 @@ export default async function SetupPage() {
 
   const fractionDists = dists.filter((d) => d.value_type === 'fraction')
   const volumeDists = dists.filter((d) => d.value_type === 'volume_ml_per_unit')
+  const multiplierDists = dists.filter((d) => d.value_type === 'multiplier')
   const calibrationRoutes = routes.filter((r) => r.supports_device_calibration)
 
   const formulationOptions = formulations.map((f) => {
@@ -253,6 +255,27 @@ export default async function SetupPage() {
               devices={devices}
               routes={calibrationRoutes}
               volumeDistributions={volumeDists}
+            />
+          </div>
+        )}
+
+        {formulationOptions.length === 0 ? (
+          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            Add at least one formulation first.
+          </div>
+        ) : multiplierDists.length === 0 ? (
+          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            Create at least one multiplier distribution first (see{' '}
+            <Link className="underline hover:text-zinc-900" href="/distributions">
+              Distributions
+            </Link>
+            ).
+          </div>
+        ) : (
+          <div className="mt-3">
+            <SetupFormulationModifierSpecForm
+              formulations={formulationOptions}
+              multiplierDistributions={multiplierDists}
             />
           </div>
         )}
