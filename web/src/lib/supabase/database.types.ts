@@ -34,6 +34,103 @@ export type Database = {
   }
   public: {
     Tables: {
+      cycle_instances: {
+        Row: {
+          created_at: string
+          cycle_number: number
+          deleted_at: string | null
+          end_ts: string | null
+          goal: string | null
+          id: string
+          notes: string | null
+          start_ts: string
+          status: Database["public"]["Enums"]["cycle_status_t"]
+          substance_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_number: number
+          deleted_at?: string | null
+          end_ts?: string | null
+          goal?: string | null
+          id?: string
+          notes?: string | null
+          start_ts: string
+          status?: Database["public"]["Enums"]["cycle_status_t"]
+          substance_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          cycle_number?: number
+          deleted_at?: string | null
+          end_ts?: string | null
+          goal?: string | null
+          id?: string
+          notes?: string | null
+          start_ts?: string
+          status?: Database["public"]["Enums"]["cycle_status_t"]
+          substance_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_instances_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      cycle_rules: {
+        Row: {
+          auto_start_first_cycle: boolean
+          created_at: string
+          deleted_at: string | null
+          gap_days_to_suggest_new_cycle: number
+          id: string
+          notes: string | null
+          substance_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_start_first_cycle?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          gap_days_to_suggest_new_cycle?: number
+          id?: string
+          notes?: string | null
+          substance_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          auto_start_first_cycle?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          gap_days_to_suggest_new_cycle?: number
+          id?: string
+          notes?: string | null
+          substance_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_rules_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       device_calibrations: {
         Row: {
           created_at: string
@@ -119,6 +216,39 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      evidence_sources: {
+        Row: {
+          citation: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          notes: string | null
+          source_type: Database["public"]["Enums"]["evidence_source_type_t"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          citation: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notes?: string | null
+          source_type: Database["public"]["Enums"]["evidence_source_type_t"]
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          citation?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notes?: string | null
+          source_type?: Database["public"]["Enums"]["evidence_source_type_t"]
           updated_at?: string
           user_id?: string
         }
@@ -458,6 +588,76 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "substance_aliases_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      substance_recommendations: {
+        Row: {
+          category: Database["public"]["Enums"]["recommendation_category_t"]
+          created_at: string
+          deleted_at: string | null
+          evidence_source_id: string | null
+          id: string
+          max_value: number | null
+          min_value: number | null
+          notes: string | null
+          route_id: string | null
+          substance_id: string
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["recommendation_category_t"]
+          created_at?: string
+          deleted_at?: string | null
+          evidence_source_id?: string | null
+          id?: string
+          max_value?: number | null
+          min_value?: number | null
+          notes?: string | null
+          route_id?: string | null
+          substance_id: string
+          unit: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["recommendation_category_t"]
+          created_at?: string
+          deleted_at?: string | null
+          evidence_source_id?: string | null
+          id?: string
+          max_value?: number | null
+          min_value?: number | null
+          notes?: string | null
+          route_id?: string | null
+          substance_id?: string
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "substance_recommendations_evidence_source_fk"
+            columns: ["user_id", "evidence_source_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_sources"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "substance_recommendations_route_fk"
+            columns: ["user_id", "route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "substance_recommendations_substance_fk"
             columns: ["user_id", "substance_id"]
             isOneToOne: false
             referencedRelation: "substances"
