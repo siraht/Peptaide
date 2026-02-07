@@ -153,6 +153,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 13:30Z) Import robustness: `mode=apply` import now performs a best-effort rollback on insert failure to avoid leaving the user with a partially imported dataset. Replace mode rolls back to a clean slate (delete all tables again); non-replace mode rolls back to "empty except profiles" and restores the pre-import profile row. Added regression tests covering both rollback cases. Files: `web/src/lib/import/csvBundle.ts`, `web/src/lib/import/deleteMyData.ts`, `web/src/lib/import/csvBundle.test.ts`. plan[583-595] plan[682-689]
 - [x] (2026-02-07 13:37Z) Bugfix: `/analytics` now computes "last N local days" cutoffs using the profile timezone (calendar-day arithmetic), avoiding UTC off-by-one errors around midnight/DST when filtering `day_local`-grouped SQL views. File: `web/src/app/(app)/analytics/page.tsx`. plan[118-129] plan[556-582]
 - [x] (2026-02-07 13:45Z) Security hardening: destructive API routes (`/api/import`, `/api/delete-my-data`) now validate same-origin requests (Origin/Referer/sec-fetch-site checks) to reduce CSRF risk. Added a small helper + unit tests. Files: `web/src/lib/http/sameOrigin.ts`, `web/src/lib/http/sameOrigin.test.ts`, `web/src/app/api/import/route.ts`, `web/src/app/api/delete-my-data/route.ts`. plan[583-595] plan[690-698]
+- [x] (2026-02-07 13:52Z) Bugfix: `public.v_events_today` now uses `public.safe_timezone(...)` so an invalid stored timezone cannot break `/today` or other "today" lookups (falls back to UTC). File: `supabase/migrations/20260207152000_090_views_events_today_safe_timezone.sql`. plan[118-129] plan[556-582] plan[682-689]
 - [x] (2026-02-07 12:05Z) Cycle detail UX: added cycle length and break-to-next-cycle fields to the cycle detail summary to match `/cycles` list view. File: `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:07Z) Cycle UX: added an "Abandon cycle" action on cycle detail (sets cycle `status = abandoned` and records `end_ts` with a start-ts clamp). Files: `web/src/lib/repos/cyclesRepo.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/actions.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:10Z) Cycles list UX: added a `status` column to `/cycles` list so active/completed/abandoned cycles are visible without clicking into detail. File: `web/src/app/(app)/cycles/page.tsx`.
@@ -429,6 +430,10 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     `supabase/scripts/rls_probe.sql` uses simulated `request.jwt.claim.sub` values.
     After updating the views to left-join `profiles` and fall back to `'UTC'`, the probe shows non-zero counts for `public.v_daily_totals_admin` and `public.v_spend_daily_weekly_monthly` for user A.
+
+- Observation: `public.v_events_today` originally used raw `profiles.timezone` inside `AT TIME ZONE`, which can throw when an invalid timezone string is stored. This could break `/today` queries even when the rest of the "local day" analytics views were hardened via `public.safe_timezone(...)`.
+  Evidence:
+    Fixed by `supabase/migrations/20260207152000_090_views_events_today_safe_timezone.sql` replacing `coalesce(p.timezone, 'UTC')` with `public.safe_timezone(p.timezone)`.
 
 - Observation: The CSV bundle import "apply" path cannot be made truly atomic across all tables when using the Supabase JS client + PostgREST (no single multi-table SQL transaction), so mid-import failures can otherwise leave the user with a partially imported dataset.
   Evidence:
