@@ -3,11 +3,14 @@ import { notFound } from 'next/navigation'
 
 import { BaseBioavailabilitySpecForm } from './base-ba-form'
 import { deleteSubstanceRecommendationAction } from './actions'
+import { CycleRuleForm } from './cycle-rule-form'
 import { SubstanceRecommendationsForm } from './recommendations-form'
 
 import { listBioavailabilitySpecsForSubstance } from '@/lib/repos/bioavailabilitySpecsRepo'
+import { getCycleRuleForSubstance } from '@/lib/repos/cyclesRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
+import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { listSubstanceRecommendationsForSubstance } from '@/lib/repos/substanceRecommendationsRepo'
 import { getSubstanceById } from '@/lib/repos/substancesRepo'
@@ -53,13 +56,16 @@ export default async function SubstanceDetailPage({
 
   const supabase = await createClient()
 
-  const [substance, routes, dists, evidenceSources, specs, recs] = await Promise.all([
+  const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
+
+  const [substance, routes, dists, evidenceSources, specs, recs, cycleRule] = await Promise.all([
     getSubstanceById(supabase, { substanceId }),
     listRoutes(supabase),
     listDistributions(supabase),
     listEvidenceSources(supabase),
     listBioavailabilitySpecsForSubstance({ supabase, substanceId }),
     listSubstanceRecommendationsForSubstance(supabase, { substanceId }),
+    getCycleRuleForSubstance(supabase, { substanceId }),
   ])
 
   if (!substance) {
@@ -95,6 +101,12 @@ export default async function SubstanceDetailPage({
       />
 
       <SubstanceRecommendationsForm substanceId={substanceId} routes={routes} evidenceSources={evidenceSources} />
+
+      <CycleRuleForm
+        substanceId={substanceId}
+        cycleRule={cycleRule}
+        profileGapDefaultDays={profile.cycle_gap_default_days}
+      />
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Recommendations</h2>

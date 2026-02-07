@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { setBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
+import { setCycleRuleForSubstance, softDeleteCycleRule } from '@/lib/repos/cyclesRepo'
 import { createSubstanceRecommendation, softDeleteSubstanceRecommendation } from '@/lib/repos/substanceRecommendationsRepo'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
@@ -141,5 +142,74 @@ export async function deleteSubstanceRecommendationAction(formData: FormData): P
   const supabase = await createClient()
   await softDeleteSubstanceRecommendation(supabase, { recommendationId })
   revalidatePath(`/substances/${substanceId}`)
+  revalidatePath('/cycles')
+}
+
+export type SetCycleRuleState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | { status: 'success'; message: string }
+
+function parseNonNegativeInt(raw: string, label: string): number {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    throw new Error(`${label} is required.`)
+  }
+  const n = Number(trimmed)
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+    throw new Error(`${label} must be a non-negative integer.`)
+  }
+  return n
+}
+
+export async function setCycleRuleAction(
+  _prev: SetCycleRuleState,
+  formData: FormData,
+): Promise<SetCycleRuleState> {
+  const substanceId = String(formData.get('substance_id') ?? '').trim()
+  const gapDaysRaw = String(formData.get('gap_days_to_suggest_new_cycle') ?? '').trim()
+  const autoStartFirstCycle = formData.get('auto_start_first_cycle') != null
+  const notes = String(formData.get('notes') ?? '').trim()
+
+  if (!substanceId) return { status: 'error', message: 'Missing substance_id.' }
+
+  let gapDaysToSuggestNewCycle: number
+  try {
+    gapDaysToSuggestNewCycle = parseNonNegativeInt(gapDaysRaw, 'gap_days_to_suggest_new_cycle')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+
+  const supabase = await createClient()
+
+  try {
+    await setCycleRuleForSubstance(supabase, {
+      substanceId,
+      gapDaysToSuggestNewCycle,
+      autoStartFirstCycle,
+      notes: notes || null,
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+
+  revalidatePath(`/substances/${substanceId}`)
+  revalidatePath('/today')
+  revalidatePath('/cycles')
+  return { status: 'success', message: 'Saved.' }
+}
+
+export async function deleteCycleRuleAction(formData: FormData): Promise<void> {
+  const substanceId = String(formData.get('substance_id') ?? '').trim()
+  const cycleRuleId = String(formData.get('cycle_rule_id') ?? '').trim()
+  if (!substanceId || !cycleRuleId) return
+
+  const supabase = await createClient()
+  await softDeleteCycleRule(supabase, { cycleRuleId })
+
+  revalidatePath(`/substances/${substanceId}`)
+  revalidatePath('/today')
   revalidatePath('/cycles')
 }

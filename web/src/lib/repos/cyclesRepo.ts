@@ -35,6 +35,59 @@ export async function getCycleRuleForSubstance(
   return res.data
 }
 
+export async function setCycleRuleForSubstance(
+  supabase: DbClient,
+  opts: {
+    substanceId: string
+    gapDaysToSuggestNewCycle: number
+    autoStartFirstCycle: boolean
+    notes: string | null
+  },
+): Promise<CycleRuleRow> {
+  const insertRes = await supabase
+    .from('cycle_rules')
+    .insert({
+      substance_id: opts.substanceId,
+      gap_days_to_suggest_new_cycle: opts.gapDaysToSuggestNewCycle,
+      auto_start_first_cycle: opts.autoStartFirstCycle,
+      notes: opts.notes,
+    })
+    .select('*')
+    .single()
+
+  // If the unique constraint already exists, update in-place (and clear deleted_at if it was soft-deleted).
+  if (insertRes.error?.code === '23505') {
+    const updateRes = await supabase
+      .from('cycle_rules')
+      .update({
+        gap_days_to_suggest_new_cycle: opts.gapDaysToSuggestNewCycle,
+        auto_start_first_cycle: opts.autoStartFirstCycle,
+        notes: opts.notes,
+        deleted_at: null,
+      })
+      .eq('substance_id', opts.substanceId)
+      .select('*')
+      .single()
+
+    return requireData(updateRes.data, updateRes.error, 'cycle_rules.update')
+  }
+
+  return requireData(insertRes.data, insertRes.error, 'cycle_rules.insert')
+}
+
+export async function softDeleteCycleRule(
+  supabase: DbClient,
+  opts: { cycleRuleId: string },
+): Promise<void> {
+  const res = await supabase
+    .from('cycle_rules')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', opts.cycleRuleId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'cycle_rules.soft_delete')
+}
+
 export async function getActiveCycleForSubstance(
   supabase: DbClient,
   opts: { substanceId: string },
