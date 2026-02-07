@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
+const MAX_ZIP_BYTES = 50 * 1024 * 1024
+
 function parseMode(raw: string | null): ImportMode {
   if (raw === 'apply') return 'apply'
   return 'dry-run'
@@ -31,6 +33,20 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json(
         { ok: false, mode, errors: ['Missing file field "bundle" (or "file").'], tables: [] },
         { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
+
+    if (rawFile.size > MAX_ZIP_BYTES) {
+      return Response.json(
+        {
+          ok: false,
+          mode,
+          errors: [
+            `ZIP bundle is too large (${rawFile.size} bytes). Maximum supported size is ${MAX_ZIP_BYTES} bytes.`,
+          ],
+          tables: [],
+        },
+        { status: 413, headers: { 'Cache-Control': 'no-store' } },
       )
     }
 

@@ -445,45 +445,51 @@ export async function createEventAction(
 
       if (action === 'suggest_new_cycle') {
         if (activeCycle) {
+          if (!lastEventTs) {
+            throw new Error('Internal error: suggest_new_cycle requires lastEventTs.')
+          }
+
           const activeStartTs = new Date(activeCycle.start_ts)
           // If the active cycle started after the most recent event, it was created without any
           // event (for example via the manual "Start cycle now" flow). In that case we should
           // treat it as the intended new cycle and avoid prompting to start yet another cycle.
-          if (lastEventTs && activeStartTs.getTime() > lastEventTs.getTime()) {
+          if (activeStartTs.getTime() > lastEventTs.getTime()) {
             cycleInstanceId = activeCycle.id
           } else {
-          if (!cycleDecision) {
-            const msPerDay = 24 * 60 * 60 * 1000
-            const gapDays = lastEventTs ? (newEventTs.getTime() - lastEventTs.getTime()) / msPerDay : null
-            const substanceLabel = formulationEnriched.substance?.display_name ?? 'this substance'
-            const gapLabel = gapDays == null ? '?' : gapDays.toFixed(1)
-            return {
-              status: 'confirm_new_cycle',
-              message: `New cycle for ${substanceLabel}? Gap since last event is ${gapLabel} days (threshold ${gapDaysThreshold}). OK = start new cycle; Cancel = keep current cycle.`,
+            if (!cycleDecision) {
+              const msPerDay = 24 * 60 * 60 * 1000
+              const gapDays = (newEventTs.getTime() - lastEventTs.getTime()) / msPerDay
+              const substanceLabel = formulationEnriched.substance?.display_name ?? 'this substance'
+              return {
+                status: 'confirm_new_cycle',
+                message: `New cycle for ${substanceLabel}? Gap since last event is ${gapDays.toFixed(
+                  1,
+                )} days (threshold ${gapDaysThreshold}). OK = start new cycle; Cancel = keep current cycle.`,
+              }
             }
-          }
 
-          if (cycleDecision === 'continue_cycle') {
-            cycleInstanceId = activeCycle.id
-          } else {
-            const endCandidate = lastEventTs ?? newEventTs
-            const safeEnd = endCandidate.getTime() < activeStartTs.getTime() ? activeStartTs : endCandidate
+            if (cycleDecision === 'continue_cycle') {
+              cycleInstanceId = activeCycle.id
+            } else {
+              const endCandidate = lastEventTs
+              const safeEnd =
+                endCandidate.getTime() < activeStartTs.getTime() ? activeStartTs : endCandidate
 
-            await completeCycleInstance(supabase, {
-              cycleInstanceId: activeCycle.id,
-              endTs: safeEnd.toISOString(),
-            })
+              await completeCycleInstance(supabase, {
+                cycleInstanceId: activeCycle.id,
+                endTs: safeEnd.toISOString(),
+              })
 
-            const newCycle = await createCycleInstance(supabase, {
-              substanceId,
-              cycleNumber: nextCycleNumber,
-              startTs: eventTs,
-              status: 'active',
-              goal: null,
-              notes: null,
-            })
-            cycleInstanceId = newCycle.id
-          }
+              const newCycle = await createCycleInstance(supabase, {
+                substanceId,
+                cycleNumber: nextCycleNumber,
+                startTs: eventTs,
+                status: 'active',
+                goal: null,
+                notes: null,
+              })
+              cycleInstanceId = newCycle.id
+            }
           }
         } else {
           // No active cycle exists to "continue", so starting a new cycle is unambiguous.

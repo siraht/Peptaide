@@ -11,7 +11,13 @@ export async function GET(): Promise<Response> {
   const supabase = await createClient()
   const { data } = await supabase.auth.getUser()
   if (!data.user) {
-    return new Response('Unauthorized', { status: 401 })
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    })
   }
 
   const exportedAt = new Date().toISOString()
