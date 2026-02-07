@@ -159,6 +159,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 13:59Z) Next.js correctness: updated `/today` to treat `searchParams` as async, matching Next.js 15+ request API behavior. File: `web/src/app/(app)/today/page.tsx`. plan[17-29]
 - [x] (2026-02-07 14:04Z) Performance: `/today` event creation now fetches formulation modifiers/components/component specs once per save (instead of once per compartment) and fetches base bioavailability specs in parallel. This reduces DB round-trips when modeling both systemic and CNS. File: `web/src/app/(app)/today/actions.ts`. plan[304-343] plan[462-499]
 - [x] (2026-02-07 14:19Z) Performance: avoided a server-side fetch waterfall on `/today` by fetching formulations, today events, and model coverage in parallel. File: `web/src/app/(app)/today/page.tsx`. plan[462-499] plan[556-582]
+- [x] (2026-02-07 14:34Z) Docs correctness: updated the importer wording in `Decision Log` to match the implemented behavior (exact header column set required; column order tolerated). plan[583-595]
 - [x] (2026-02-07 12:05Z) Cycle detail UX: added cycle length and break-to-next-cycle fields to the cycle detail summary to match `/cycles` list view. File: `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:07Z) Cycle UX: added an "Abandon cycle" action on cycle detail (sets cycle `status = abandoned` and records `end_ts` with a start-ts clamp). Files: `web/src/lib/repos/cyclesRepo.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/actions.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:10Z) Cycles list UX: added a `status` column to `/cycles` list so active/completed/abandoned cycles are visible without clicking into detail. File: `web/src/app/(app)/cycles/page.tsx`.
@@ -551,8 +552,8 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: CSV is easy to inspect and use in spreadsheets; a ZIP bundle keeps multi-table exports portable; deriving column order from generated DB types avoids manual drift; running under the user session keeps the RLS boundary intact.
   Date/Author: 2026-02-07 / Codex
 
-- Decision: Data import format (v1) consumes the same ZIP-of-CSV bundle as `/api/export` and is replace-oriented: apply mode either requires an empty dataset or explicitly deletes all user data first; the import rebinds `user_id` to the current signed-in user and preserves UUID ids to keep foreign keys intact. The v1 importer requires exact header matches to the current generated export column order and does not implement merge/dedupe yet.
-  Rationale: Replace-mode is the safest default for an MVP: it avoids ambiguous merge semantics, keeps imports deterministic, and ensures referential integrity without building a full id-mapping/dedupe engine up front. Exact header matching prevents silent schema drift; compatibility logic can be added once we have real exports from multiple schema versions.
+- Decision: Data import format (v1) consumes the same ZIP-of-CSV bundle as `/api/export` and is replace-oriented: apply mode either requires an empty dataset or explicitly deletes all user data first; the import rebinds `user_id` to the current signed-in user and preserves UUID ids to keep foreign keys intact. The v1 importer requires the exact expected header column set (column order is tolerated) and does not implement merge/dedupe yet.
+  Rationale: Replace-mode is the safest default for an MVP: it avoids ambiguous merge semantics, keeps imports deterministic, and ensures referential integrity without building a full id-mapping/dedupe engine up front. Exact header-set matching prevents silent schema drift; compatibility logic can be added once we have real exports from multiple schema versions.
   Date/Author: 2026-02-07 / Codex
 
 - Decision: Import apply (`/api/import?mode=apply`) performs best-effort rollback on failure to avoid leaving a partially imported dataset.
@@ -1854,3 +1855,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Added `public.v_events_today` and switched `/today` to show events for the user's local day (timezone from `profiles`, UTC fallback). Updated `Progress` accordingly.
 
 2026-02-07: Replaced the `/today` single-row quick log with a minimal multi-row log grid (Enter-to-save, multi-line paste). Updated `Progress` accordingly.
+
+2026-02-07: Corrected the Decision Log wording for CSV import header matching to reflect the actual implemented importer behavior (exact header set required; header order tolerated), to prevent spec drift.
