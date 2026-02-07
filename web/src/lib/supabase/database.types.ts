@@ -235,6 +235,126 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          expected_vials: number | null
+          formulation_id: string | null
+          id: string
+          notes: string | null
+          order_id: string
+          price_total_usd: number | null
+          qty: number
+          substance_id: string
+          unit_label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          expected_vials?: number | null
+          formulation_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id: string
+          price_total_usd?: number | null
+          qty: number
+          substance_id: string
+          unit_label: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          expected_vials?: number | null
+          formulation_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string
+          price_total_usd?: number | null
+          qty?: number
+          substance_id?: string
+          unit_label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "order_items_order_fk"
+            columns: ["user_id", "order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "order_items_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          notes: string | null
+          ordered_at: string
+          shipping_cost_usd: number | null
+          total_cost_usd: number | null
+          tracking_code: string | null
+          updated_at: string
+          user_id: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notes?: string | null
+          ordered_at?: string
+          shipping_cost_usd?: number | null
+          total_cost_usd?: number | null
+          tracking_code?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notes?: string | null
+          ordered_at?: string
+          shipping_cost_usd?: number | null
+          total_cost_usd?: number | null
+          tracking_code?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_vendor_fk"
+            columns: ["user_id", "vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -383,6 +503,130 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vendors: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vials: {
+        Row: {
+          closed_at: string | null
+          concentration_mg_per_ml: number | null
+          content_mass_unit: string
+          content_mass_value: number
+          cost_usd: number | null
+          created_at: string
+          deleted_at: string | null
+          formulation_id: string
+          id: string
+          lot: string | null
+          notes: string | null
+          opened_at: string | null
+          order_item_id: string | null
+          received_at: string | null
+          status: Database["public"]["Enums"]["vial_status_t"]
+          substance_id: string
+          total_volume_unit: string | null
+          total_volume_value: number | null
+          updated_at: string
+          user_id: string
+          volume_ml_per_unit_override_dist_id: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          concentration_mg_per_ml?: number | null
+          content_mass_unit: string
+          content_mass_value: number
+          cost_usd?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          formulation_id: string
+          id?: string
+          lot?: string | null
+          notes?: string | null
+          opened_at?: string | null
+          order_item_id?: string | null
+          received_at?: string | null
+          status?: Database["public"]["Enums"]["vial_status_t"]
+          substance_id: string
+          total_volume_unit?: string | null
+          total_volume_value?: number | null
+          updated_at?: string
+          user_id?: string
+          volume_ml_per_unit_override_dist_id?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          concentration_mg_per_ml?: number | null
+          content_mass_unit?: string
+          content_mass_value?: number
+          cost_usd?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          formulation_id?: string
+          id?: string
+          lot?: string | null
+          notes?: string | null
+          opened_at?: string | null
+          order_item_id?: string | null
+          received_at?: string | null
+          status?: Database["public"]["Enums"]["vial_status_t"]
+          substance_id?: string
+          total_volume_unit?: string | null
+          total_volume_value?: number | null
+          updated_at?: string
+          user_id?: string
+          volume_ml_per_unit_override_dist_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vials_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "vials_order_item_fk"
+            columns: ["user_id", "order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "vials_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
       }
     }
     Views: {

@@ -42,7 +42,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 02:49Z) Generated DB TypeScript types into `web/src/lib/supabase/database.types.ts` (local: `supabase gen types typescript --local`) so app code stays typed. plan[105-129]
 
 - [x] (2026-02-07 02:54Z) Implemented reference-data tables (substances, substance_aliases, routes, devices, device_calibrations, formulations, formulation_components) including uniqueness-by-user constraints and RLS policies via `supabase/migrations/20260207025138_020_reference_data.sql` and applied it locally (`supabase db reset`). Regenerated `web/src/lib/supabase/database.types.ts`. plan[130-179]
-- [ ] Implement inventory + commerce tables (vendors, orders, order_items, vials) including the partial unique index that enforces one active vial per (user, formulation). plan[180-229]
+- [x] (2026-02-07 02:58Z) Implemented inventory + commerce tables (vendors, orders, order_items, vials) including the partial unique index enforcing one active vial per (user, formulation) via `supabase/migrations/20260207025608_030_inventory.sql` and applied it locally (`supabase db reset`). Regenerated `web/src/lib/supabase/database.types.ts`. plan[180-229]
 - [ ] Implement cycles tables (cycle_rules, cycle_instances) and RLS policies. plan[261-282]
 - [ ] Implement recommendations tables (substance_recommendations, evidence_sources) and RLS policies. plan[283-303]
 - [ ] Implement uncertainty tables (distributions, bioavailability_specs, formulation_modifier_specs, component_modifier_specs) including constraints that enforce correct `value_type` usage per foreign key (including device calibration distributions) and range/parameter sanity constraints that prevent invalid fraction/multiplier distributions. plan[304-343]
@@ -1291,6 +1291,26 @@ After applying `supabase/migrations/20260207025138_020_reference_data.sql` (2026
      substances
     (8 rows)
 
+After applying `supabase/migrations/20260207025608_030_inventory.sql` (2026-02-07 02:58Z):
+
+    psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "select table_name from information_schema.tables where table_schema='public' order by table_name;"
+
+           table_name
+    ------------------------
+     device_calibrations
+     devices
+     formulation_components
+     formulations
+     order_items
+     orders
+     profiles
+     routes
+     substance_aliases
+     substances
+     vendors
+     vials
+    (12 rows)
+
     psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "select typname from pg_type where typnamespace = 'public'::regnamespace and typname in ('compartment_t','input_kind_t','distribution_dist_type_t') order by typname;"
 
               typname
@@ -1458,3 +1478,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Milestone 1 started. Updates: added and applied local DB migrations for the schema foundation and `profiles` (with RLS), updated `Progress`, `Outcomes & Retrospective`, and "Repository state today" to match reality, and captured initial migration evidence in `Artifacts and Notes`. Also tightened a few plan-level semantics in `plan.md` (seed definition, distribution parameterization, IU/mg clarifications, and labeling for summed-percentile daily bands) so the source plan no longer contains probability-theory footguns.
 
 2026-02-07: Added the reference-data tables migration (`supabase/migrations/20260207025138_020_reference_data.sql`) implementing substances/routes/devices/formulations (and related tables) with RLS and uniqueness constraints. Reset local DB to apply, regenerated `web/src/lib/supabase/database.types.ts`, and updated `Progress` + `Artifacts and Notes` evidence accordingly.
+
+2026-02-07: Added the inventory + commerce tables migration (`supabase/migrations/20260207025608_030_inventory.sql`) implementing vendors/orders/order_items/vials, including the "one active vial per formulation" partial unique index and trigger-based consistency checks for redundant `substance_id` fields. Reset local DB to apply, regenerated `web/src/lib/supabase/database.types.ts`, and updated `Progress` + `Artifacts and Notes` evidence accordingly.
