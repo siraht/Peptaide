@@ -27,6 +27,7 @@ export async function getDistributionById(
     .from('distributions')
     .select('*')
     .eq('id', opts.distributionId)
+    .is('deleted_at', null)
     .maybeSingle()
   requireOk(res.error, 'distributions.select_by_id')
   return res.data
@@ -48,7 +49,11 @@ export async function listDistributionsById(
   const { distributionIds } = opts
   if (distributionIds.length === 0) return []
 
-  const res = await supabase.from('distributions').select('*').in('id', distributionIds)
+  const res = await supabase
+    .from('distributions')
+    .select('*')
+    .in('id', distributionIds)
+    .is('deleted_at', null)
   return requireData(res.data, res.error, 'distributions.select_by_ids')
 }
 
