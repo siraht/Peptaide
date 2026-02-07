@@ -115,9 +115,14 @@ export async function bulkAddRoutesAction(
     revalidatePath('/routes')
   }
 
+  const createdPart =
+    createdCount === 0 ? 'No routes created' : `Created ${createdCount} route${createdCount === 1 ? '' : 's'}`
+  const errorSuffix =
+    errors.length > 0 ? ` (${errors.length} error${errors.length === 1 ? '' : 's'})` : ''
+
   return {
     status: 'success',
-    message: `Created ${createdCount} route${createdCount === 1 ? '' : 's'}.`,
+    message: `${createdPart}${errorSuffix}.`,
     createdCount,
     errors,
   }

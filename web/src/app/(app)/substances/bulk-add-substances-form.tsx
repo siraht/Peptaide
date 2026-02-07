@@ -50,7 +50,17 @@ export function BulkAddSubstancesForm() {
       ) : null}
       {state.status === 'success' ? (
         <div className="mt-3 space-y-2">
-          <p className="text-sm text-emerald-700">{state.message}</p>
+          <p
+            className={`text-sm ${
+              state.createdCount === 0
+                ? 'text-red-700'
+                : state.errors.length > 0
+                  ? 'text-amber-700'
+                  : 'text-emerald-700'
+            }`}
+          >
+            {state.message}
+          </p>
           {state.errors.length > 0 ? (
             <ul className="list-disc pl-5 text-sm text-red-700">
               {state.errors.slice(0, 10).map((e, idx) => (
@@ -66,4 +76,3 @@ export function BulkAddSubstancesForm() {
     </div>
   )
 }
-

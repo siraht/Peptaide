@@ -108,9 +108,16 @@ export async function bulkAddFormulationsAction(
     revalidatePath('/formulations')
   }
 
+  const createdPart =
+    createdCount === 0
+      ? 'No formulations created'
+      : `Created ${createdCount} formulation${createdCount === 1 ? '' : 's'}`
+  const errorSuffix =
+    errors.length > 0 ? ` (${errors.length} error${errors.length === 1 ? '' : 's'})` : ''
+
   return {
     status: 'success',
-    message: `Created ${createdCount} formulation${createdCount === 1 ? '' : 's'}.`,
+    message: `${createdPart}${errorSuffix}.`,
     createdCount,
     errors,
   }

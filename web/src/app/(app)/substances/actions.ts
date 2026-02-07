@@ -131,9 +131,16 @@ export async function bulkAddSubstancesAction(
     revalidatePath('/substances')
   }
 
+  const createdPart =
+    createdCount === 0
+      ? 'No substances created'
+      : `Created ${createdCount} substance${createdCount === 1 ? '' : 's'}`
+  const errorSuffix =
+    errors.length > 0 ? ` (${errors.length} error${errors.length === 1 ? '' : 's'})` : ''
+
   return {
     status: 'success',
-    message: `Created ${createdCount} substance${createdCount === 1 ? '' : 's'}.`,
+    message: `${createdPart}${errorSuffix}.`,
     createdCount,
     errors,
   }
