@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { BulkAddFormulationsForm } from './bulk-add-formulations-form'
 import { CreateFormulationForm } from './create-formulation-form'
 
 import { listDevices } from '@/lib/repos/devicesRepo'
@@ -32,11 +33,18 @@ export default async function FormulationsPage() {
           Create at least one substance and one route before creating formulations.
         </div>
       ) : (
-        <CreateFormulationForm
-          substances={substances.map((s) => ({ id: s.id, label: s.display_name }))}
-          routes={routes.map((r) => ({ id: r.id, label: r.name }))}
-          devices={devices.map((d) => ({ id: d.id, label: d.name }))}
-        />
+        <>
+          <CreateFormulationForm
+            substances={substances.map((s) => ({ id: s.id, label: s.display_name }))}
+            routes={routes.map((r) => ({ id: r.id, label: r.name }))}
+            devices={devices.map((d) => ({ id: d.id, label: d.name }))}
+          />
+          <BulkAddFormulationsForm
+            substances={substances.map((s) => ({ id: s.id, label: s.display_name }))}
+            routes={routes.map((r) => ({ id: r.id, label: r.name }))}
+            devices={devices.map((d) => ({ id: d.id, label: d.name }))}
+          />
+        </>
       )}
 
       <section className="rounded-lg border bg-white p-4">

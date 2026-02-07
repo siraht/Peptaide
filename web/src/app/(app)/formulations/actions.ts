@@ -5,10 +5,22 @@ import { revalidatePath } from 'next/cache'
 import { createFormulation } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
 
+export type FormulationSelectOption = { id: string; label: string }
+
 export type CreateFormulationState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
+
+export type BulkAddFormulationsState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | {
+      status: 'success'
+      message: string
+      createdCount: number
+      errors: string[]
+    }
 
 export async function createFormulationAction(
   _prev: CreateFormulationState,
@@ -45,3 +57,61 @@ export async function createFormulationAction(
   return { status: 'success', message: 'Created.' }
 }
 
+export async function bulkAddFormulationsAction(
+  _prev: BulkAddFormulationsState,
+  formData: FormData,
+): Promise<BulkAddFormulationsState> {
+  const substanceId = String(formData.get('substance_id') ?? '').trim()
+  const routeId = String(formData.get('route_id') ?? '').trim()
+  const deviceIdRaw = String(formData.get('device_id') ?? '').trim()
+  const raw = String(formData.get('lines') ?? '')
+
+  if (!substanceId) return { status: 'error', message: 'substance is required.' }
+  if (!routeId) return { status: 'error', message: 'route is required.' }
+
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith('#'))
+
+  if (lines.length === 0) {
+    return { status: 'error', message: 'Paste one or more lines first.' }
+  }
+  if (lines.length > 200) {
+    return { status: 'error', message: 'Too many lines (max 200 per bulk add).' }
+  }
+
+  const supabase = await createClient()
+
+  let createdCount = 0
+  const errors: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const name = lines[i]!
+    try {
+      await createFormulation(supabase, {
+        substanceId,
+        routeId,
+        deviceId: deviceIdRaw ? deviceIdRaw : null,
+        name,
+        isDefaultForRoute: false,
+        notes: null,
+      })
+      createdCount++
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      errors.push(`Line ${i + 1} (${name}): ${msg}`)
+    }
+  }
+
+  if (createdCount > 0) {
+    revalidatePath('/formulations')
+  }
+
+  return {
+    status: 'success',
+    message: `Created ${createdCount} formulation${createdCount === 1 ? '' : 's'}.`,
+    createdCount,
+    errors,
+  }
+}
