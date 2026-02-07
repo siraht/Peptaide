@@ -445,6 +445,13 @@ export async function createEventAction(
 
       if (action === 'suggest_new_cycle') {
         if (activeCycle) {
+          const activeStartTs = new Date(activeCycle.start_ts)
+          // If the active cycle started after the most recent event, it was created without any
+          // event (for example via the manual "Start cycle now" flow). In that case we should
+          // treat it as the intended new cycle and avoid prompting to start yet another cycle.
+          if (lastEventTs && activeStartTs.getTime() > lastEventTs.getTime()) {
+            cycleInstanceId = activeCycle.id
+          } else {
           if (!cycleDecision) {
             const msPerDay = 24 * 60 * 60 * 1000
             const gapDays = lastEventTs ? (newEventTs.getTime() - lastEventTs.getTime()) / msPerDay : null
@@ -459,7 +466,6 @@ export async function createEventAction(
           if (cycleDecision === 'continue_cycle') {
             cycleInstanceId = activeCycle.id
           } else {
-            const activeStartTs = new Date(activeCycle.start_ts)
             const endCandidate = lastEventTs ?? newEventTs
             const safeEnd = endCandidate.getTime() < activeStartTs.getTime() ? activeStartTs : endCandidate
 
@@ -477,6 +483,7 @@ export async function createEventAction(
               notes: null,
             })
             cycleInstanceId = newCycle.id
+          }
           }
         } else {
           // No active cycle exists to "continue", so starting a new cycle is unambiguous.
