@@ -9,10 +9,16 @@ import { createClient } from '@/lib/supabase/server'
 import { seedDemoDataAction } from './actions'
 import { TodayLogForm } from './today-log-form'
 
-function formatNumber(x: number | null | undefined): string {
-  if (x == null) return '-'
-  if (!Number.isFinite(x)) return '-'
-  return x.toFixed(3).replace(/\.?0+$/, '')
+function toFiniteNumber(x: number | string | null | undefined): number | null {
+  if (x == null) return null
+  const n = typeof x === 'number' ? x : Number(x)
+  return Number.isFinite(n) ? n : null
+}
+
+function formatNumber(x: number | string | null | undefined): string {
+  const n = toFiniteNumber(x)
+  if (n == null) return '-'
+  return n.toFixed(3).replace(/\.?0+$/, '')
 }
 
 type TargetCompartment = 'systemic' | 'cns' | 'both'

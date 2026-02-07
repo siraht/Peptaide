@@ -5,16 +5,23 @@ import { GenerateVialsForm } from './generate-vials-form'
 import { deleteOrderAction, deleteOrderItemAction, deleteVendorAction } from './actions'
 
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
+import { listOrderItemVialCounts } from '@/lib/repos/orderItemVialCountsRepo'
 import { listOrders } from '@/lib/repos/ordersRepo'
 import { listOrderItems } from '@/lib/repos/orderItemsRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { listVendors, listVendorsById } from '@/lib/repos/vendorsRepo'
 import { createClient } from '@/lib/supabase/server'
 
-function fmtMoney(x: number | null): string {
-  if (x == null) return '-'
-  if (!Number.isFinite(x)) return '-'
-  return `$${x.toFixed(2).replace(/\.?0+$/, '')}`
+function toFiniteNumber(x: number | string | null | undefined): number | null {
+  if (x == null) return null
+  const n = typeof x === 'number' ? x : Number(x)
+  return Number.isFinite(n) ? n : null
+}
+
+function fmtMoney(x: number | string | null | undefined): string {
+  const n = toFiniteNumber(x)
+  if (n == null) return '-'
+  return `$${n.toFixed(2).replace(/\.?0+$/, '')}`
 }
 
 export default async function OrdersPage() {
@@ -30,6 +37,14 @@ export default async function OrdersPage() {
 
   const orderIds = new Set(orders.map((o) => o.id))
   const visibleItems = orderItems.filter((oi) => orderIds.has(oi.order_id))
+
+  const counts = await listOrderItemVialCounts(supabase, { orderItemIds: visibleItems.map((oi) => oi.id) })
+  const countsByOrderItemId = new Map<string, (typeof counts)[number]>()
+  for (const c of counts) {
+    if (c.order_item_id) {
+      countsByOrderItemId.set(c.order_item_id, c)
+    }
+  }
 
   const vendorIds = [...new Set(orders.map((o) => o.vendor_id))]
   const vendorsForOrders = await listVendorsById(supabase, { vendorIds, includeDeleted: true })
@@ -69,7 +84,9 @@ export default async function OrdersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Orders</h1>
-        <p className="mt-1 text-sm text-zinc-700">Orders, order items, and (later) vial generation + cost allocation.</p>
+        <p className="mt-1 text-sm text-zinc-700">
+          Orders and order items, with basic vial generation. Shipping allocation and cost previews come later.
+        </p>
       </div>
 
       <CreateVendorForm />
@@ -193,6 +210,7 @@ export default async function OrdersPage() {
                   <th className="border-b px-2 py-2 font-medium">Qty</th>
                   <th className="border-b px-2 py-2 font-medium">Price total</th>
                   <th className="border-b px-2 py-2 font-medium">Expected vials</th>
+                  <th className="border-b px-2 py-2 font-medium">Vials (P/A/C/D/T)</th>
                   <th className="border-b px-2 py-2 font-medium">Notes</th>
                   <th className="border-b px-2 py-2 font-medium">Actions</th>
                 </tr>
@@ -205,6 +223,13 @@ export default async function OrdersPage() {
 
                   const substance = substanceById.get(oi.substance_id)
                   const formulation = oi.formulation_id ? formulationById.get(oi.formulation_id) : null
+                  const c = countsByOrderItemId.get(oi.id) ?? null
+
+                  const planned = (c?.vial_count_planned ?? 0) || 0
+                  const active = (c?.vial_count_active ?? 0) || 0
+                  const closed = (c?.vial_count_closed ?? 0) || 0
+                  const discarded = (c?.vial_count_discarded ?? 0) || 0
+                  const total = (c?.vial_count_total ?? 0) || 0
 
                   return (
                     <tr key={oi.id}>
@@ -216,6 +241,11 @@ export default async function OrdersPage() {
                       </td>
                       <td className="border-b px-2 py-2 text-zinc-700">{fmtMoney(oi.price_total_usd)}</td>
                       <td className="border-b px-2 py-2 text-zinc-700">{oi.expected_vials ?? '-'}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        <span className="font-mono text-xs" title="planned/active/closed/discarded/total">
+                          {planned}/{active}/{closed}/{discarded}/{total}
+                        </span>
+                      </td>
                       <td className="border-b px-2 py-2 text-zinc-700">{oi.notes ?? '-'}</td>
                       <td className="border-b px-2 py-2">
                         <form action={deleteOrderItemAction}>

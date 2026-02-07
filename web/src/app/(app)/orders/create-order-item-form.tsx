@@ -24,7 +24,7 @@ export function CreateOrderItemForm(props: {
     <div className="rounded-lg border bg-white p-4">
       <h2 className="text-sm font-semibold text-zinc-900">Add order item</h2>
       <p className="mt-1 text-sm text-zinc-700">
-        Order items represent purchased units (vials, kits, packs, etc). Generating vials from order items comes later.
+        Order items represent purchased units (vials, kits, packs, etc). Link a formulation to enable vial generation.
       </p>
 
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
@@ -103,4 +103,3 @@ export function CreateOrderItemForm(props: {
     </div>
   )
 }
-

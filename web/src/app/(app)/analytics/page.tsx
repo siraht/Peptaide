@@ -2,16 +2,22 @@ import { listDailyTotalsAdmin, listDailyTotalsEffectiveCns, listDailyTotalsEffec
 import { listSpendRollups } from '@/lib/repos/spendRepo'
 import { createClient } from '@/lib/supabase/server'
 
-function formatNumber(x: number | null | undefined, digits = 3): string {
-  if (x == null) return '-'
-  if (!Number.isFinite(x)) return '-'
-  return x.toFixed(digits).replace(/\.?0+$/, '')
+function toFiniteNumber(x: number | string | null | undefined): number | null {
+  if (x == null) return null
+  const n = typeof x === 'number' ? x : Number(x)
+  return Number.isFinite(n) ? n : null
 }
 
-function formatMoney(x: number | null | undefined): string {
-  if (x == null) return '-'
-  if (!Number.isFinite(x)) return '-'
-  return `$${x.toFixed(2).replace(/\.?0+$/, '')}`
+function formatNumber(x: number | string | null | undefined, digits = 3): string {
+  const n = toFiniteNumber(x)
+  if (n == null) return '-'
+  return n.toFixed(digits).replace(/\.?0+$/, '')
+}
+
+function formatMoney(x: number | string | null | undefined): string {
+  const n = toFiniteNumber(x)
+  if (n == null) return '-'
+  return `$${n.toFixed(2).replace(/\.?0+$/, '')}`
 }
 
 function dayLocalDaysAgo(n: number): string {
@@ -223,4 +229,3 @@ export default async function AnalyticsPage() {
     </div>
   )
 }
-
