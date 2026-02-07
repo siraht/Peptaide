@@ -9,7 +9,12 @@ export async function getVialById(
   supabase: DbClient,
   opts: { vialId: string },
 ): Promise<VialRow | null> {
-  const res = await supabase.from('vials').select('*').eq('id', opts.vialId).maybeSingle()
+  const res = await supabase
+    .from('vials')
+    .select('*')
+    .eq('id', opts.vialId)
+    .is('deleted_at', null)
+    .maybeSingle()
   requireOk(res.error, 'vials.select_by_id')
   return res.data
 }
