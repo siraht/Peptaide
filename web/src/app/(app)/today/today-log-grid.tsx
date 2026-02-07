@@ -50,6 +50,7 @@ export function TodayLogGrid(props: {
   })
   const rowsRef = useRef(rows)
   const savingRowIndexesRef = useRef<Set<number>>(new Set())
+  const pendingFocusRowIndexRef = useRef<number | null>(null)
 
   useLayoutEffect(() => {
     rowsRef.current = rows
@@ -61,6 +62,13 @@ export function TodayLogGrid(props: {
     if (focus !== 'log') return
     inputRefs.current[0]?.focus()
   }, [focus])
+
+  useEffect(() => {
+    const idx = pendingFocusRowIndexRef.current
+    if (idx == null) return
+    pendingFocusRowIndexRef.current = null
+    focusRowInput(idx)
+  }, [rows.length])
 
   function focusRowInput(rowIndex: number): void {
     const idx = Math.max(0, Math.min(rowIndex, rowsRef.current.length - 1))
@@ -124,15 +132,27 @@ export function TodayLogGrid(props: {
     }
 
     if (res.status === 'success') {
+      const focusDirection = opts.focusDirection
+      const nextIndex = focusDirection === 'prev' ? rowIndex - 1 : rowIndex + 1
+      const shouldAppendRow = focusDirection === 'next' && rowIndex === rowsRef.current.length - 1
+
       setRows((prev) => {
         const next = [...prev]
         const current = next[rowIndex]
         if (!current) return prev
         next[rowIndex] = { ...current, inputText: '', status: 'success', message: res.message }
+        if (shouldAppendRow) {
+          next.push(blankRow(formulationId))
+        }
         return next
       })
-      if (opts.focusDirection !== 'none') {
-        focusRowInput(opts.focusDirection === 'prev' ? rowIndex - 1 : rowIndex + 1)
+
+      if (focusDirection !== 'none') {
+        if (shouldAppendRow) {
+          pendingFocusRowIndexRef.current = nextIndex
+        } else {
+          focusRowInput(nextIndex)
+        }
       }
       startTransition(() => {
         router.refresh()
