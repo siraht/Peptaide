@@ -25,6 +25,7 @@ export function CommandPalette() {
 
   const actionItems: PaletteItem[] = useMemo(
     () => [
+      { label: 'Setup wizard', href: '/setup', keywords: ['onboarding', 'setup'] },
       { label: 'Log event', href: '/today?focus=log', keywords: ['quick', 'dose'] },
       { label: 'Add substance', href: '/substances?focus=new', keywords: ['create', 'new'] },
       { label: 'Add formulation', href: '/formulations?focus=new', keywords: ['create', 'new'] },

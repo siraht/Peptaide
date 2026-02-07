@@ -66,9 +66,9 @@ export default async function TodayPage() {
       {formulationOptions.length === 0 ? (
         <div className="rounded-lg border bg-white p-4">
           <p className="text-sm text-zinc-700">
-            No formulations exist yet. For now, you can seed demo data to exercise the event logging
-            and Monte Carlo pipeline. This is dev-only scaffolding; the real Setup Wizard will
-            replace it.
+            No formulations exist yet. Use <Link className="underline hover:text-zinc-900" href="/setup">Setup</Link> to add
+            substances, routes, and formulations. You can also seed demo data to exercise the event logging and Monte Carlo
+            pipeline (dev-only scaffolding).
           </p>
 
           <form action={seedDemoDataAction} className="mt-3">
