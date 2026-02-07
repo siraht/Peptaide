@@ -244,8 +244,8 @@ export default async function SetupPage() {
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">6. Model coverage (bioavailability + calibrations)</h2>
         <p className="mt-1 text-sm text-zinc-700">
-          This is the to-do list for effective dose percentiles. Base bioavailability specs live on substance detail
-          pages (and require distributions). Device calibrations live on device detail pages.
+          This is the to-do list for effective dose percentiles. You can add base bioavailability specs and device
+          calibrations below (distributions required), or manage them on the substance/device detail pages.
         </p>
         <div className="mt-2 flex flex-wrap gap-3 text-sm text-zinc-700">
           <Link className="underline hover:text-zinc-900" href="/distributions">

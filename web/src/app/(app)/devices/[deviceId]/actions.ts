@@ -31,7 +31,7 @@ export async function createDeviceCalibrationAction(
     return {
       status: 'error',
       message: 'volume_ml_per_unit_dist_id is required (create a volume_ml_per_unit distribution first).',
-      }
+    }
   }
 
   const unitLabel = normalizeDeviceUnitLabel(unitLabelRaw)
