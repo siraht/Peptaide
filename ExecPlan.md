@@ -89,6 +89,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 06:26Z) Added a minimal `/analytics` dashboard backed by the existing SQL views (daily totals + spend rollups), with typed repos for each view, and linked it in the app nav. Files: `web/src/app/(app)/analytics/page.tsx`, `web/src/lib/repos/dailyTotalsRepo.ts`, `web/src/lib/repos/spendRepo.ts`, `web/src/app/(app)/layout.tsx`. plan[556-582] plan[677-681]
 - [x] (2026-02-07 06:40Z) Fresh-eyes UI polish + robustness: updated `/orders` copy to match current vial-generation behavior, surfaced vial status counts per order item via `public.v_order_item_vial_counts`, and made numeric formatting tolerant of numeric-string values (PostgREST edge) in `/orders`, `/today`, and `/analytics`. Files: `web/src/app/(app)/orders/page.tsx`, `web/src/app/(app)/orders/create-order-item-form.tsx`, `web/src/app/(app)/analytics/page.tsx`, `web/src/app/(app)/today/page.tsx`, `web/src/lib/repos/orderItemVialCountsRepo.ts`. plan[180-229] plan[500-518] plan[556-582] plan[677-681]
 - [x] (2026-02-07 06:50Z) Started "cost allocation preview" for orders: extended `public.v_order_item_vial_counts` (SECURITY INVOKER) to include per-order-item vial cost sums and event spend rollups, and updated `/orders` to show vial cost sum, spent, and remaining per order item (plus cost-known counts). Files: `supabase/migrations/20260207064530_082_views_order_item_costs.sql`, `web/src/lib/supabase/database.types.ts`, `web/src/app/(app)/orders/page.tsx`. plan[180-229] plan[500-518] plan[660-676]
+- [x] (2026-02-07 06:58Z) Hardened analytics/inventory SQL views to tolerate missing `profiles` rows by falling back to UTC timezone, and expanded the RLS probe script to cover additional model tables (BA/modifiers/recommendations/cycle rules) plus analytics views (daily totals + spend rollups). Files: `supabase/migrations/20260207070010_083_views_timezone_fallback.sql`, `supabase/scripts/rls_probe.sql`. plan[556-582] plan[677-681] plan[690-713]
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
 
 - [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics) (completed: basic header nav links for implemented routes, including `/analytics` + `/settings`; remaining: command palette + keyboard-first global actions). plan[414-421]
@@ -108,7 +109,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [ ] UI: implement `/settings` including profile defaults (units, default MC N, cycle defaults) and data import/export with dry-run validation and dedupe (completed: profile defaults editor for timezone/units/MC N/cycle gap; remaining: import/export UX + validation + dedupe). plan[583-595] plan[682-689]
 
-- [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked (completed: expanded `supabase/scripts/rls_probe.sql` to exercise cross-user isolation across core tables (`substances`, `vendors`/`orders`/`order_items`/`vials`, `device_calibrations`, `cycle_instances`, `distributions`) and key `security_invoker` views (`v_event_enriched`, `v_cycle_summary`, `v_inventory_status`, `v_model_coverage`, `v_order_item_vial_counts`); remaining: expand probes to cover the rest of the tables/views and add a repeatable "RLS audit" checklist). plan[690-698]
+- [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked (completed: expanded `supabase/scripts/rls_probe.sql` to exercise cross-user isolation across a broader set of core tables (`substances`, `formulations`/`formulation_components`, `vendors`/`orders`/`order_items`/`vials`, `administration_events`/`event_revisions`, `device_calibrations`, `cycle_instances`/`cycle_rules`, `distributions`, `bioavailability_specs`/`formulation_modifier_specs`/`component_modifier_specs`, `evidence_sources`/`substance_recommendations`) and key `security_invoker` views (`v_event_enriched`, `v_cycle_summary`, `v_inventory_status`, `v_model_coverage`, `v_order_item_vial_counts`, `v_daily_totals_*`, `v_spend_daily_weekly_monthly`); remaining: expand probes to cover any remaining tables/views and add a repeatable "RLS audit" checklist. Note: `profiles` is harder to probe with simulated auth IDs because it references `auth.users`, but the views now fall back to UTC when `profiles` is missing). plan[690-698]
 - [ ] Correctness and performance pass: confirm canonical units semantics, IU behavior, MC determinism with stored seed/snapshot, required indexes, and that daily aggregation semantics are documented and conservative. plan[699-713]
 
 - [ ] Run the full MVP definition-of-done verification, and record evidence snippets/transcripts in `Artifacts and Notes`. plan[729-751]
@@ -349,6 +350,11 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     `/today` model coverage now defaults unknown target-compartment relevance to systemic-only in `web/src/app/(app)/today/page.tsx`, reducing false CNS gap alerts for orphaned reference rows.
 
+- Observation: `public.profiles` has a foreign key to `auth.users`, which makes it hard to create synthetic profile rows in an RLS probe that uses simulated JWT subjects (UUIDs not present in `auth.users`). Views that inner-join `profiles` would silently return 0 rows in that probe even when events exist.
+  Evidence:
+    `supabase/scripts/rls_probe.sql` uses simulated `request.jwt.claim.sub` values.
+    After updating the views to left-join `profiles` and fall back to `'UTC'`, the probe shows non-zero counts for `public.v_daily_totals_admin` and `public.v_spend_daily_weekly_monthly` for user A.
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -417,6 +423,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 - Decision: Daily uncertainty bands computed by summing event percentiles are labeled as an approximate heuristic band, not true daily quantiles; accurate daily quantiles require day-level MC of summed samples.
   Rationale: The summed-percentiles band is easy to compute and explain, but quantiles are not additive in general; overstating these as true quantiles would be misleading. If accurate day-level quantiles are needed, implement day-level MC of summed samples.
+  Date/Author: 2026-02-07 / Codex
+
+- Decision: Analytics/inventory SQL views that compute "local day" groupings left-join `profiles` and fall back to `UTC` when a profile row is missing.
+  Rationale: The app tries to ensure a `profiles` row exists, but treating it as a hard dependency makes dashboards brittle (and prevents an RLS probe that uses simulated auth IDs from exercising those views). Falling back to UTC keeps the views useful and predictable in edge cases.
   Date/Author: 2026-02-07 / Codex
 
 - Decision: For MVP, generating vials from an order item requires `order_items.formulation_id` to be set; otherwise the UI refuses to generate vials.
