@@ -46,6 +46,7 @@ export default async function CyclesPage() {
                 <tr className="text-xs text-zinc-600">
                   <th className="border-b px-2 py-2 font-medium">Substance</th>
                   <th className="border-b px-2 py-2 font-medium">Cycle #</th>
+                  <th className="border-b px-2 py-2 font-medium">Status</th>
                   <th className="border-b px-2 py-2 font-medium">Start</th>
                   <th className="border-b px-2 py-2 font-medium">End</th>
                   <th className="border-b px-2 py-2 font-medium">Len (days)</th>
@@ -73,6 +74,7 @@ export default async function CyclesPage() {
                           <span>{fmt(c.cycle_number)}</span>
                         )}
                       </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{c.status ?? '-'}</td>
                       <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.start_ts)}</td>
                       <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.end_ts)}</td>
                       <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.cycle_length_days)}</td>
