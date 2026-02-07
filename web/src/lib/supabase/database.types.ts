@@ -586,6 +586,13 @@ export type Database = {
             referencedRelation: "v_event_enriched"
             referencedColumns: ["user_id", "event_id"]
           },
+          {
+            foreignKeyName: "event_revisions_event_fk"
+            columns: ["user_id", "event_id"]
+            isOneToOne: false
+            referencedRelation: "v_events_today"
+            referencedColumns: ["user_id", "event_id"]
+          },
         ]
       }
       evidence_sources: {
@@ -1372,6 +1379,89 @@ export type Database = {
         Relationships: []
       }
       v_event_enriched: {
+        Row: {
+          cost_usd: number | null
+          created_at: string | null
+          cycle_instance_id: string | null
+          deleted_at: string | null
+          device_id: string | null
+          device_name: string | null
+          dose_mass_mg: number | null
+          dose_volume_ml: number | null
+          eff_cns_p05_mg: number | null
+          eff_cns_p50_mg: number | null
+          eff_cns_p95_mg: number | null
+          eff_systemic_p05_mg: number | null
+          eff_systemic_p50_mg: number | null
+          eff_systemic_p95_mg: number | null
+          event_id: string | null
+          formulation_id: string | null
+          formulation_name: string | null
+          input_kind: Database["public"]["Enums"]["input_kind_t"] | null
+          input_text: string | null
+          input_unit: string | null
+          input_value: number | null
+          mc_n: number | null
+          mc_seed: number | null
+          model_snapshot: Json | null
+          notes: string | null
+          route_id: string | null
+          route_name: string | null
+          substance_id: string | null
+          substance_name: string | null
+          tags: string[] | null
+          ts: string | null
+          updated_at: string | null
+          user_id: string | null
+          vial_id: string | null
+          vial_status: Database["public"]["Enums"]["vial_status_t"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "administration_events_cycle_fk"
+            columns: ["user_id", "cycle_instance_id"]
+            isOneToOne: false
+            referencedRelation: "cycle_instances"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "administration_events_cycle_fk"
+            columns: ["user_id", "cycle_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_cycle_summary"
+            referencedColumns: ["user_id", "cycle_instance_id"]
+          },
+          {
+            foreignKeyName: "administration_events_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "administration_events_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventory_status"
+            referencedColumns: ["user_id", "vial_id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
+            referencedRelation: "vials"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      v_events_today: {
         Row: {
           cost_usd: number | null
           created_at: string | null

@@ -75,6 +75,28 @@ export async function listRecentEventsEnriched(
   return res.data ?? []
 }
 
+export async function listTodayEventsEnriched(
+  supabase: DbClient,
+  opts: { limit?: number; includeDeleted?: boolean; deletedOnly?: boolean } = {},
+): Promise<EventEnrichedRow[]> {
+  const { limit = 200, includeDeleted = false, deletedOnly = false } = opts
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error('limit must be a positive integer.')
+  }
+
+  let q = supabase.from('v_events_today').select('*')
+
+  if (deletedOnly) {
+    q = q.not('deleted_at', 'is', null)
+  } else if (!includeDeleted) {
+    q = q.is('deleted_at', null)
+  }
+
+  const res = await q.order('ts', { ascending: true }).limit(limit)
+  requireOk(res.error, 'v_events_today.select')
+  return res.data ?? []
+}
+
 export async function getLastEventEnrichedForSubstance(
   supabase: DbClient,
   opts: { substanceId: string },

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { listRecentEventsEnriched } from '@/lib/repos/eventsRepo'
+import { listTodayEventsEnriched } from '@/lib/repos/eventsRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
 import { createClient } from '@/lib/supabase/server'
@@ -62,8 +62,8 @@ export default async function TodayPage({
     })`,
   }))
 
-  const events = await listRecentEventsEnriched(supabase, {
-    limit: showDeleted ? 50 : 20,
+  const events = await listTodayEventsEnriched(supabase, {
+    limit: 200,
     deletedOnly: showDeleted,
   })
   const coverage = await listModelCoverage(supabase)
@@ -227,7 +227,7 @@ export default async function TodayPage({
       <section className="rounded-lg border bg-white p-4">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-sm font-semibold text-zinc-900">
-            {showDeleted ? 'Deleted events' : 'Recent events'}
+            {showDeleted ? 'Deleted events (today)' : 'Today log'}
           </h2>
           <Link className="text-sm text-zinc-700 underline hover:text-zinc-900" href={showDeleted ? hideDeletedHref : showDeletedHref}>
             {showDeleted ? 'Hide deleted' : 'Show deleted'}
@@ -235,7 +235,7 @@ export default async function TodayPage({
         </div>
         {events.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-700">
-            {showDeleted ? 'No deleted events.' : 'No events yet.'}
+            {showDeleted ? 'No deleted events today.' : 'No events logged today.'}
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto">
