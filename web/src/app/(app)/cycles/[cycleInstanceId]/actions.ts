@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import {
+  abandonCycleInstance,
   completeCycleInstance,
   getCycleInstanceById,
   getLastCycleForSubstance,
@@ -99,6 +100,38 @@ export async function endCycleNowAction(formData: FormData): Promise<void> {
   const safeEndTs = now.getTime() < start ? new Date(cycle.start_ts).toISOString() : now.toISOString()
 
   await completeCycleInstance(supabase, {
+    cycleInstanceId,
+    endTs: safeEndTs,
+  })
+
+  revalidatePath('/cycles')
+  revalidatePath('/today')
+  revalidatePath('/analytics')
+  revalidatePath(`/cycles/${cycleInstanceId}`)
+
+  redirect(`/cycles/${cycleInstanceId}`)
+}
+
+export async function abandonCycleNowAction(formData: FormData): Promise<void> {
+  const cycleInstanceId = String(formData.get('cycle_instance_id') ?? '').trim()
+  if (!cycleInstanceId) return
+
+  const supabase = await createClient()
+
+  const cycle = await getCycleInstanceById(supabase, { cycleInstanceId })
+  if (!cycle) {
+    redirect('/cycles')
+  }
+
+  if (cycle.status !== 'active') {
+    redirect(`/cycles/${cycleInstanceId}?error=Only%20active%20cycles%20can%20be%20abandoned.`)
+  }
+
+  const start = new Date(cycle.start_ts).getTime()
+  const now = new Date()
+  const safeEndTs = now.getTime() < start ? new Date(cycle.start_ts).toISOString() : now.toISOString()
+
+  await abandonCycleInstance(supabase, {
     cycleInstanceId,
     endTs: safeEndTs,
   })

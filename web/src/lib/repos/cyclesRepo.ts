@@ -107,3 +107,16 @@ export async function completeCycleInstance(
 
   requireOk(res.error, 'cycle_instances.complete')
 }
+
+export async function abandonCycleInstance(
+  supabase: DbClient,
+  opts: { cycleInstanceId: string; endTs: string },
+): Promise<void> {
+  const res = await supabase
+    .from('cycle_instances')
+    .update({ status: 'abandoned', end_ts: opts.endTs })
+    .eq('id', opts.cycleInstanceId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'cycle_instances.abandon')
+}

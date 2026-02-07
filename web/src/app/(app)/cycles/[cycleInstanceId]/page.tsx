@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { endCycleNowAction, splitCycleAtEventAction } from './actions'
+import { abandonCycleNowAction, endCycleNowAction, splitCycleAtEventAction } from './actions'
 
 import { getLastCycleForSubstance } from '@/lib/repos/cyclesRepo'
 import { getCycleSummaryById } from '@/lib/repos/cycleSummaryRepo'
@@ -145,6 +145,12 @@ export default async function CycleDetailPage({
               <input type="hidden" name="cycle_instance_id" value={cycleInstanceId} />
               <button className="rounded-md border bg-white px-3 py-2 text-sm text-zinc-900" type="submit">
                 End cycle now
+              </button>
+            </form>
+            <form action={abandonCycleNowAction}>
+              <input type="hidden" name="cycle_instance_id" value={cycleInstanceId} />
+              <button className="rounded-md border bg-white px-3 py-2 text-sm text-red-700" type="submit">
+                Abandon cycle
               </button>
             </form>
           </div>
