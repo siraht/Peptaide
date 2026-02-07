@@ -94,9 +94,13 @@ export async function endCycleNowAction(formData: FormData): Promise<void> {
     redirect(`/cycles/${cycleInstanceId}?error=Only%20active%20cycles%20can%20be%20ended.`)
   }
 
+  const start = new Date(cycle.start_ts).getTime()
+  const now = new Date()
+  const safeEndTs = now.getTime() < start ? new Date(cycle.start_ts).toISOString() : now.toISOString()
+
   await completeCycleInstance(supabase, {
     cycleInstanceId,
-    endTs: new Date().toISOString(),
+    endTs: safeEndTs,
   })
 
   revalidatePath('/cycles')
