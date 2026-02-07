@@ -22,7 +22,7 @@ export function SignInForm() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${origin}/auth/callback?next=/today`,
+        emailRedirectTo: `${origin}/auth/callback`,
       },
     })
 
@@ -72,4 +72,3 @@ export function SignInForm() {
     </form>
   )
 }
-

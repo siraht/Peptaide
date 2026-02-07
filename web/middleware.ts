@@ -13,6 +13,9 @@ export async function middleware(request: NextRequest) {
   const { url, anonKey } = getSupabaseEnv()
 
   const supabase = createServerClient(url, anonKey, {
+    auth: {
+      flowType: 'pkce',
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll()
@@ -47,4 +50,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
-

@@ -4,6 +4,9 @@ import { getSupabaseEnv } from './env'
 
 export function createClient() {
   const { url, anonKey } = getSupabaseEnv()
-  return createBrowserClient(url, anonKey)
+  return createBrowserClient(url, anonKey, {
+    auth: {
+      flowType: 'pkce',
+    },
+  })
 }
-
