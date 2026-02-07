@@ -671,3 +671,19 @@ export async function createEventAction(
   revalidatePath('/today')
   return { status: 'success', message: 'Saved.', eventId }
 }
+
+export async function deleteEventAction(formData: FormData): Promise<void> {
+  const eventId = String(formData.get('event_id') ?? '').trim()
+  if (!eventId) return
+
+  const supabase = await createClient()
+  const res = await supabase
+    .from('administration_events')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', eventId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'administration_events.soft_delete')
+  revalidatePath('/today')
+  revalidatePath('/analytics')
+}

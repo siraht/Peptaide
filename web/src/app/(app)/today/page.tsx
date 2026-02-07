@@ -5,7 +5,7 @@ import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
 import { createClient } from '@/lib/supabase/server'
 
-import { seedDemoDataAction } from './actions'
+import { deleteEventAction, seedDemoDataAction } from './actions'
 import { TodayLogForm } from './today-log-form'
 
 function toFiniteNumber(x: number | string | null | undefined): number | null {
@@ -213,6 +213,7 @@ export default async function TodayPage() {
                   <th className="border-b px-2 py-2 font-medium">Dose mL</th>
                   <th className="border-b px-2 py-2 font-medium">Eff systemic p50</th>
                   <th className="border-b px-2 py-2 font-medium">Cost</th>
+                  <th className="border-b px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,6 +235,18 @@ export default async function TodayPage() {
                     </td>
                     <td className="border-b px-2 py-2 text-zinc-700">
                       {e.cost_usd == null ? '-' : `$${formatNumber(e.cost_usd)}`}
+                    </td>
+                    <td className="border-b px-2 py-2">
+                      {e.event_id ? (
+                        <form action={deleteEventAction}>
+                          <input type="hidden" name="event_id" value={e.event_id} />
+                          <button className="text-sm text-red-700 underline" type="submit">
+                            Delete
+                          </button>
+                        </form>
+                      ) : (
+                        <span className="text-zinc-500">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}
