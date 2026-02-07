@@ -622,7 +622,7 @@ export async function createEventAction(
         cycleInstanceId = newCycle.id
       } else if (activeCycle) {
         cycleInstanceId = activeCycle.id
-      } else if (action === 'start_first_cycle' || autoStartFirstCycle) {
+      } else if (action === 'start_first_cycle') {
         const newCycle = await createCycleInstance(supabase, {
           substanceId,
           cycleNumber: nextCycleNumber,
