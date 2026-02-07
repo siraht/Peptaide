@@ -25,12 +25,14 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 01:39Z) Fresh-eyes correctness audit: removed self-containment footguns (milestones no longer depend on `plan.md`), tightened probability/MC semantics (distribution parameterization + safety constraints, deterministic percentiles definition, explicit non-quantile labeling for summed-percentile day bands), clarified deterministic seeding via `model_snapshot`, fixed cost attribution to use administered dose with mg-or-volume fallback, and added key uniqueness/consistency constraints to prevent schema drift. plan[105-411] plan[500-635] plan[690-713]
 - [x] (2026-02-07 01:49Z) Fresh-eyes environment probe: recorded local runtime/repo surprises (Bun `node` wrapper, repo not a git worktree) with evidence and updated this ExecPlan so concrete steps are executable in this workspace.
 
-- [ ] (H1) **HUMAN ACTION**: Choose and provision the Supabase environment used by development and deployment, and provide the required environment variables. Evidence: the web app can sign in, run migrations, and successfully query user-scoped tables with RLS enabled. Required env vars (dev: `web/.env.local`; deploy: hosting environment): `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Optional (avoid unless truly needed): a server-only `SUPABASE_SERVICE_ROLE_KEY` for offline admin scripts that cannot run in a user session; it must never be exposed to the browser and must not be used for normal app requests (to avoid bypassing RLS). If running direct SQL scripts/tests, also provide `SUPABASE_DB_URL` (a Postgres connection string with sufficient rights for migrations in the chosen environment). plan[17-29] plan[690-698]
-- [ ] (H2) **HUMAN ACTION**: If using hosted Supabase (not local), configure Auth settings for the chosen sign-in method(s) and redirect URLs for local dev and production. Evidence: users can complete sign-in and return to `/today` without redirect errors, and sign-out invalidates the session. plan[17-29] plan[636-689]
+- [ ] (H1) **HUMAN ACTION**: Choose and provision the hosted Supabase environment for deployment (local Supabase is already used for dev in this workspace), and provide the production environment variables. Evidence: the deployed web app can sign in, run migrations, and successfully query user-scoped tables with RLS enabled. Required env vars (deploy: hosting environment): `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Optional (avoid unless truly needed): a server-only `SUPABASE_SERVICE_ROLE_KEY` for offline admin scripts that cannot run in a user session; it must never be exposed to the browser and must not be used for normal app requests (to avoid bypassing RLS). If running direct SQL scripts/tests against hosted Supabase, also provide `SUPABASE_DB_URL` (a Postgres connection string with sufficient rights for migrations in the chosen environment). plan[17-29] plan[690-698]
+- [ ] (H2) **HUMAN ACTION**: For hosted Supabase, configure Auth settings for the chosen sign-in method(s) and redirect URLs for production (and confirm local dev redirects are correct). Evidence: users can complete sign-in and return to `/today` without redirect errors, and sign-out invalidates the session. plan[17-29] plan[636-689]
 
-- [ ] Initialize git in `/data/projects/peptaide` if missing, and create an initial commit containing `AGENTS.md`, `plan.md`, and `ExecPlan.md` so subsequent work can "commit frequently" as required. Evidence: `git status` works and `git log -n 1` shows the initial commit.
-- [ ] Create the Next.js 16 App Router project in `web/` (TypeScript, Tailwind, ESLint) and establish a consistent local workflow (`npm run dev`, `npm run test`, `npm run lint`). plan[17-36]
-- [ ] Add Supabase client wiring for Next.js using `@supabase/ssr`, and implement authentication pages plus route protection for all app pages. plan[17-29] plan[690-698]
+- [x] (2026-02-07 01:58Z) Initialized git in `/data/projects/peptaide` and created initial commits so subsequent work can "commit frequently" as required. Evidence: `git rev-parse --is-inside-work-tree` returns true and `git log -n 2 --oneline` shows commits `73a9fe5` and `80d4a7a`.
+- [x] (2026-02-07 02:01Z) Created the Next.js 16 App Router project in `web/` (TypeScript, Tailwind, ESLint). plan[17-36]
+- [x] (2026-02-07 02:03Z) Installed core MVP web dependencies (Supabase, TanStack Table/Virtual, cmdk, Recharts, Zod, date-fns) and added Vitest so `npm run test` exists; verified `npm run build`, `npm run lint`, and `npm run test` all succeed.
+- [x] (2026-02-07 02:12Z) Initialized and started local Supabase (`supabase init`, `supabase start`) and configured `web/.env.local` with the local Supabase URL + publishable key for dev auth and API access. plan[17-29] plan[690-698]
+- [x] (2026-02-07 02:12Z) Added Supabase client wiring for Next.js using `@supabase/ssr`, and implemented authentication pages plus route protection for all app pages (middleware session refresh, `/sign-in`, `/auth/callback`, and a protected `/today`). plan[17-29] plan[690-698]
 
 - [ ] Initialize SQL migrations under `supabase/migrations/` and add a DB foundation migration: extensions, common trigger function for `updated_at`, and basic enum types used across the schema. plan[105-117]
 - [ ] Implement `profiles` (identity + defaults) with RLS, and add app logic to ensure a profile row exists for each user with sane defaults (timezone, units, default MC N, cycle gap). plan[118-129]
@@ -274,10 +276,19 @@ Record the outputs and checks in `Artifacts and Notes`.
     /home/ubuntu/.nvm/versions/node/v22.21.1/bin/node --version
     v22.21.1
 
-- Observation: `/data/projects/peptaide` is not currently a git worktree, so the "commit frequently" instruction in `AGENTS.md` cannot be followed until git is initialized.
+- Observation: `/data/projects/peptaide` started without a git worktree, so the "commit frequently" instruction in `AGENTS.md` was initially not executable. Git was initialized and the initial docs/spec were committed.
   Evidence:
     git rev-parse --is-inside-work-tree
-    (exits non-zero; not a git repo)
+    true
+
+    git log -n 2 --oneline
+    73a9fe5 chore: track ExecPlan spec and ignore local tooling
+    80d4a7a chore: initial docs and ExecPlan
+
+- Observation: When starting `next dev` in this workspace, port 3000 was already in use, so Next.js selected port 3001.
+  Evidence:
+    npm run dev
+    ⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
 
 ## Decision Log
 
