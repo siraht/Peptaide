@@ -40,3 +40,18 @@ export async function listRecentEventsEnriched(
   return res.data ?? []
 }
 
+export async function getLastEventEnrichedForSubstance(
+  supabase: DbClient,
+  opts: { substanceId: string },
+): Promise<Pick<EventEnrichedRow, 'ts' | 'cycle_instance_id'> | null> {
+  const res = await supabase
+    .from('v_event_enriched')
+    .select('ts, cycle_instance_id')
+    .eq('substance_id', opts.substanceId)
+    .is('deleted_at', null)
+    .order('ts', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  requireOk(res.error, 'v_event_enriched.select_last_for_substance')
+  return res.data
+}

@@ -6,16 +6,25 @@ import { revalidatePath } from 'next/cache'
 
 import { computeDose } from '@/lib/domain/dose/computeDose'
 import { eventCostFromVial } from '@/lib/domain/cost/cost'
+import { suggestCycleAction } from '@/lib/domain/cycles/suggest'
 import { distributionMean } from '@/lib/domain/uncertainty/sample'
 import { simulateEffectiveDose } from '@/lib/domain/uncertainty/monteCarlo'
 import { parseQuantity } from '@/lib/domain/units/types'
 import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
 import type { Distribution } from '@/lib/domain/uncertainty/types'
+import {
+  completeCycleInstance,
+  createCycleInstance,
+  getActiveCycleForSubstance,
+  getCycleRuleForSubstance,
+  getLastCycleForSubstance,
+} from '@/lib/repos/cyclesRepo'
 import { requireData, requireOk } from '@/lib/repos/errors'
 import { getBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
 import { listComponentModifierSpecs } from '@/lib/repos/componentModifierSpecsRepo'
 import { listDistributionsById, distributionRowToDomain } from '@/lib/repos/distributionsRepo'
 import { getDeviceCalibration } from '@/lib/repos/deviceCalibrationsRepo'
+import { getLastEventEnrichedForSubstance } from '@/lib/repos/eventsRepo'
 import { listFormulationComponents } from '@/lib/repos/formulationComponentsRepo'
 import { getFormulationEnrichedById } from '@/lib/repos/formulationsRepo'
 import { listFormulationModifierSpecs } from '@/lib/repos/formulationModifierSpecsRepo'
@@ -560,12 +569,82 @@ export async function createEventAction(
     }
   }
 
+  // Cycle assignment (MVP scaffolding): automatically assigns the new event to an active cycle and
+  // auto-starts a first/new cycle when rules indicate it should. The full UX in the ExecPlan adds
+  // a default-yes prompt for "new cycle?" rather than always auto-starting.
+  let cycleInstanceId: string | null = null
+  const substanceId = formulationEnriched.substance?.id ?? null
+  if (substanceId) {
+    try {
+      const [cycleRule, lastEvent, activeCycle, lastCycle] = await Promise.all([
+        getCycleRuleForSubstance(supabase, { substanceId }),
+        getLastEventEnrichedForSubstance(supabase, { substanceId }),
+        getActiveCycleForSubstance(supabase, { substanceId }),
+        getLastCycleForSubstance(supabase, { substanceId }),
+      ])
+
+      const gapDaysThreshold =
+        cycleRule?.gap_days_to_suggest_new_cycle ?? profile.cycle_gap_default_days
+      const autoStartFirstCycle = cycleRule?.auto_start_first_cycle ?? true
+
+      const lastEventTs = lastEvent?.ts ? new Date(lastEvent.ts) : null
+      const newEventTs = new Date(eventTs)
+
+      const action = suggestCycleAction({
+        lastEventTs,
+        newEventTs,
+        gapDaysThreshold,
+        autoStartFirstCycle,
+      })
+
+      const nextCycleNumber = (lastCycle?.cycle_number ?? 0) + 1
+
+      if (action === 'suggest_new_cycle') {
+        if (activeCycle) {
+          const activeStartTs = new Date(activeCycle.start_ts)
+          const endCandidate = lastEventTs ?? newEventTs
+          const safeEnd = endCandidate.getTime() < activeStartTs.getTime() ? activeStartTs : endCandidate
+
+          await completeCycleInstance(supabase, {
+            cycleInstanceId: activeCycle.id,
+            endTs: safeEnd.toISOString(),
+          })
+        }
+
+        const newCycle = await createCycleInstance(supabase, {
+          substanceId,
+          cycleNumber: nextCycleNumber,
+          startTs: eventTs,
+          status: 'active',
+          goal: null,
+          notes: null,
+        })
+        cycleInstanceId = newCycle.id
+      } else if (activeCycle) {
+        cycleInstanceId = activeCycle.id
+      } else if (action === 'start_first_cycle' || autoStartFirstCycle) {
+        const newCycle = await createCycleInstance(supabase, {
+          substanceId,
+          cycleNumber: nextCycleNumber,
+          startTs: eventTs,
+          status: 'active',
+          goal: null,
+          notes: null,
+        })
+        cycleInstanceId = newCycle.id
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { status: 'error', message: `Cycle assignment failed: ${msg}` }
+    }
+  }
+
   const insertRes = await supabase.from('administration_events').insert({
     id: eventId,
     ts: eventTs,
     formulation_id: formulationId,
     vial_id: activeVial?.id ?? null,
-    cycle_instance_id: null,
+    cycle_instance_id: cycleInstanceId,
     input_text: inputText,
     input_value: parsed.value,
     input_unit: parsed.unit,
