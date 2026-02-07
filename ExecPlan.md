@@ -160,6 +160,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 14:04Z) Performance: `/today` event creation now fetches formulation modifiers/components/component specs once per save (instead of once per compartment) and fetches base bioavailability specs in parallel. This reduces DB round-trips when modeling both systemic and CNS. File: `web/src/app/(app)/today/actions.ts`. plan[304-343] plan[462-499]
 - [x] (2026-02-07 14:19Z) Performance: avoided a server-side fetch waterfall on `/today` by fetching formulations, today events, and model coverage in parallel. File: `web/src/app/(app)/today/page.tsx`. plan[462-499] plan[556-582]
 - [x] (2026-02-07 14:34Z) Docs correctness: updated the importer wording in `Decision Log` to match the implemented behavior (exact header column set required; column order tolerated). plan[583-595]
+- [x] (2026-02-07 14:40Z) Bugfix: `/api/import` now preserves the requested `mode` (`dry-run` vs `apply`) in its 401 Unauthorized JSON response (previously it always returned `mode='dry-run'`, which could confuse the settings UI). File: `web/src/app/api/import/route.ts`. Also ran web quality gates: `npm run typecheck && npm test && npm run lint && npm run build`. plan[583-595]
 - [x] (2026-02-07 12:05Z) Cycle detail UX: added cycle length and break-to-next-cycle fields to the cycle detail summary to match `/cycles` list view. File: `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:07Z) Cycle UX: added an "Abandon cycle" action on cycle detail (sets cycle `status = abandoned` and records `end_ts` with a start-ts clamp). Files: `web/src/lib/repos/cyclesRepo.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/actions.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:10Z) Cycles list UX: added a `status` column to `/cycles` list so active/completed/abandoned cycles are visible without clicking into detail. File: `web/src/app/(app)/cycles/page.tsx`.
@@ -1857,3 +1858,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Replaced the `/today` single-row quick log with a minimal multi-row log grid (Enter-to-save, multi-line paste). Updated `Progress` accordingly.
 
 2026-02-07: Corrected the Decision Log wording for CSV import header matching to reflect the actual implemented importer behavior (exact header set required; header order tolerated), to prevent spec drift.
+
+2026-02-07: Fixed a small `/api/import` response-shape bug (401 Unauthorized now returns the requested `mode` instead of always `dry-run`), and updated `Progress` to record the change and the web quality-gates run.

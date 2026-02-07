@@ -31,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
     const { data } = await supabase.auth.getUser()
     if (!data.user) {
       return Response.json(
-        { ok: false, mode: 'dry-run', errors: ['Unauthorized'], tables: [] },
+        { ok: false, mode, errors: ['Unauthorized'], tables: [] },
         { status: 401, headers: { 'Cache-Control': 'no-store' } },
       )
     }
