@@ -31,6 +31,10 @@ export default async function DistributionsPage() {
                   <th className="border-b px-2 py-2 font-medium">Value type</th>
                   <th className="border-b px-2 py-2 font-medium">Dist type</th>
                   <th className="border-b px-2 py-2 font-medium">p1</th>
+                  <th className="border-b px-2 py-2 font-medium">p2</th>
+                  <th className="border-b px-2 py-2 font-medium">p3</th>
+                  <th className="border-b px-2 py-2 font-medium">min</th>
+                  <th className="border-b px-2 py-2 font-medium">max</th>
                   <th className="border-b px-2 py-2 font-medium">Units</th>
                   <th className="border-b px-2 py-2 font-medium">Quality</th>
                 </tr>
@@ -42,6 +46,10 @@ export default async function DistributionsPage() {
                     <td className="border-b px-2 py-2 text-zinc-700">{d.value_type}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{d.dist_type}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{d.p1 ?? '-'}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">{d.p2 ?? '-'}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">{d.p3 ?? '-'}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">{d.min_value ?? '-'}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">{d.max_value ?? '-'}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{d.units ?? '-'}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{d.quality_score}</td>
                   </tr>
@@ -54,4 +62,3 @@ export default async function DistributionsPage() {
     </div>
   )
 }
-

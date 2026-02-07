@@ -93,3 +93,43 @@ export async function createPointDistribution(
 
   return requireData(res.data, res.error, 'distributions.insert_point')
 }
+
+export async function createDistribution(
+  supabase: DbClient,
+  opts: {
+    name: string
+    valueType: Database['public']['Enums']['distribution_value_type_t']
+    distType: Database['public']['Enums']['distribution_dist_type_t']
+    p1: number | null
+    p2: number | null
+    p3: number | null
+    minValue: number | null
+    maxValue: number | null
+    units: string | null
+    qualityScore: number
+    evidenceSummary: string | null
+  },
+): Promise<DistributionRow> {
+  const { name, valueType, distType, p1, p2, p3, minValue, maxValue, units, qualityScore, evidenceSummary } =
+    opts
+
+  const res = await supabase
+    .from('distributions')
+    .insert({
+      name,
+      value_type: valueType,
+      dist_type: distType,
+      p1,
+      p2,
+      p3,
+      min_value: minValue,
+      max_value: maxValue,
+      units,
+      quality_score: qualityScore,
+      evidence_summary: evidenceSummary,
+    })
+    .select('*')
+    .single()
+
+  return requireData(res.data, res.error, 'distributions.insert')
+}

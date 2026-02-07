@@ -1,22 +1,38 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useMemo, useState } from 'react'
 
 import type { CreateDistributionState } from './actions'
-import { createPointDistributionAction } from './actions'
+import { createDistributionAction } from './actions'
 
 export function CreateDistributionForm() {
+  const [distType, setDistType] = useState<'point' | 'uniform' | 'triangular' | 'beta_pert' | 'lognormal'>('point')
+
   const [state, formAction] = useActionState<CreateDistributionState, FormData>(
-    createPointDistributionAction,
+    createDistributionAction,
     { status: 'idle' },
   )
 
+  const paramHelp = useMemo(() => {
+    switch (distType) {
+      case 'point':
+        return 'Deterministic value.'
+      case 'uniform':
+        return 'Sample uniformly between min and max.'
+      case 'triangular':
+        return 'Defined by min / mode / max.'
+      case 'beta_pert':
+        return 'Defined by min / mode / max (lambda=4 in sampling).'
+      case 'lognormal':
+        return 'Defined by median and log_sigma; optional positive clamps.'
+    }
+  }, [distType])
+
   return (
     <div className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Add distribution (point)</h2>
+      <h2 className="text-sm font-semibold text-zinc-900">Add distribution</h2>
       <p className="mt-1 text-sm text-zinc-700">
-        Minimal UI: creates a <code className="rounded bg-zinc-100 px-1">point</code> distribution
-        only. The full MVP will add beta-PERT/lognormal/triangular forms.
+        Distributions are uncertainty primitives used by bioavailability specs, modifier specs, and device calibration.
       </p>
 
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
@@ -36,9 +52,82 @@ export function CreateDistributionForm() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Value</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="value" required inputMode="decimal" />
+          <span className="text-zinc-700">Dist type</span>
+          <select
+            className="h-10 rounded-md border px-3 text-sm"
+            name="dist_type"
+            value={distType}
+            onChange={(e) => setDistType(e.target.value as typeof distType)}
+          >
+            <option value="point">point</option>
+            <option value="uniform">uniform</option>
+            <option value="triangular">triangular</option>
+            <option value="beta_pert">beta_pert</option>
+            <option value="lognormal">lognormal</option>
+          </select>
         </label>
+
+        <div className="text-sm text-zinc-700 sm:col-span-2">
+          <span className="font-medium">Params:</span> {paramHelp}
+        </div>
+
+        {distType === 'point' ? (
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="text-zinc-700">Value</span>
+            <input className="h-10 rounded-md border px-3 text-sm" name="p1" required inputMode="decimal" />
+          </label>
+        ) : null}
+
+        {distType === 'uniform' ? (
+          <>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Min</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="min_value" required inputMode="decimal" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Max</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="max_value" required inputMode="decimal" />
+            </label>
+          </>
+        ) : null}
+
+        {distType === 'triangular' || distType === 'beta_pert' ? (
+          <>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Min</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="p1" required inputMode="decimal" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Mode</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="p2" required inputMode="decimal" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Max</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="p3" required inputMode="decimal" />
+            </label>
+          </>
+        ) : null}
+
+        {distType === 'lognormal' ? (
+          <>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Median</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="p1" required inputMode="decimal" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">log_sigma</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="p2" required inputMode="decimal" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Clamp min (optional)</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="min_value" inputMode="decimal" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-700">Clamp max (optional)</span>
+              <input className="h-10 rounded-md border px-3 text-sm" name="max_value" inputMode="decimal" />
+            </label>
+          </>
+        ) : null}
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-zinc-700">Units (optional)</span>
@@ -71,4 +160,3 @@ export function CreateDistributionForm() {
     </div>
   )
 }
-
