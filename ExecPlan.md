@@ -150,6 +150,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 13:07Z) Bugfix: `/orders` and `/setup` no longer crash when `orders.ordered_at` is null (avoid calling `.slice(...)` on nullable timestamps when rendering dropdown labels and table rows). Files: `web/src/app/(app)/orders/page.tsx`, `web/src/app/(app)/setup/page.tsx`. plan[422-461] plan[500-518] plan[660-676]
 - [x] (2026-02-07 13:12Z) Bugfix: units parsing now accepts comma-grouped thousands in the numeric portion of a dose input (e.g. `1,000 mg`), matching the existing comma-stripping behavior in `parseNumber`. Added a regression test. Files: `web/src/lib/domain/units/types.ts`, `web/src/lib/domain/units/units.test.ts`. plan[385-411] plan[462-499]
 - [x] (2026-02-07 13:19Z) Bugfix: `public.v_cycle_summary.cycle_length_days` now grows with `now()` for active cycles (previously it "froze" at the last event timestamp when a cycle had any events, underestimating active cycle length). File: `supabase/migrations/20260207140000_089_cycle_summary_active_now.sql`. plan[261-282] plan[666-670]
+- [x] (2026-02-07 13:30Z) Import robustness: `mode=apply` import now performs a best-effort rollback on insert failure to avoid leaving the user with a partially imported dataset. Replace mode rolls back to a clean slate (delete all tables again); non-replace mode rolls back to "empty except profiles" and restores the pre-import profile row. Added regression tests covering both rollback cases. Files: `web/src/lib/import/csvBundle.ts`, `web/src/lib/import/deleteMyData.ts`, `web/src/lib/import/csvBundle.test.ts`. plan[583-595] plan[682-689]
 - [x] (2026-02-07 12:05Z) Cycle detail UX: added cycle length and break-to-next-cycle fields to the cycle detail summary to match `/cycles` list view. File: `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:07Z) Cycle UX: added an "Abandon cycle" action on cycle detail (sets cycle `status = abandoned` and records `end_ts` with a start-ts clamp). Files: `web/src/lib/repos/cyclesRepo.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/actions.ts`, `web/src/app/(app)/cycles/[cycleInstanceId]/page.tsx`.
 - [x] (2026-02-07 12:10Z) Cycles list UX: added a `status` column to `/cycles` list so active/completed/abandoned cycles are visible without clicking into detail. File: `web/src/app/(app)/cycles/page.tsx`.
@@ -427,6 +428,10 @@ Record the outputs and checks in `Artifacts and Notes`.
     `supabase/scripts/rls_probe.sql` uses simulated `request.jwt.claim.sub` values.
     After updating the views to left-join `profiles` and fall back to `'UTC'`, the probe shows non-zero counts for `public.v_daily_totals_admin` and `public.v_spend_daily_weekly_monthly` for user A.
 
+- Observation: The CSV bundle import "apply" path cannot be made truly atomic across all tables when using the Supabase JS client + PostgREST (no single multi-table SQL transaction), so mid-import failures can otherwise leave the user with a partially imported dataset.
+  Evidence:
+    `web/src/lib/import/csvBundle.ts` now implements best-effort rollback on failure (and `web/src/lib/import/csvBundle.test.ts` includes rollback regression tests for replace and non-replace modes).
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -531,6 +536,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 - Decision: Data import format (v1) consumes the same ZIP-of-CSV bundle as `/api/export` and is replace-oriented: apply mode either requires an empty dataset or explicitly deletes all user data first; the import rebinds `user_id` to the current signed-in user and preserves UUID ids to keep foreign keys intact. The v1 importer requires exact header matches to the current generated export column order and does not implement merge/dedupe yet.
   Rationale: Replace-mode is the safest default for an MVP: it avoids ambiguous merge semantics, keeps imports deterministic, and ensures referential integrity without building a full id-mapping/dedupe engine up front. Exact header matching prevents silent schema drift; compatibility logic can be added once we have real exports from multiple schema versions.
+  Date/Author: 2026-02-07 / Codex
+
+- Decision: Import apply (`/api/import?mode=apply`) performs best-effort rollback on failure to avoid leaving a partially imported dataset.
+  Rationale: The Supabase JS client talks to PostgREST, so a multi-table import cannot be performed inside one SQL transaction. A best-effort rollback (delete everything again in replace mode; restore to "empty except profile" in non-replace mode) makes failures recoverable and avoids a confusing half-imported state.
   Date/Author: 2026-02-07 / Codex
 
 ## Outcomes & Retrospective
@@ -1444,7 +1453,7 @@ Concrete validation steps:
 This plan should be safe to run repeatedly.
 
 1. Local Supabase resets should use `supabase db reset` so migrations re-apply cleanly.
-2. Import operations must support dry-run validation and must be repeatable with dedupe by unique keys.
+2. Import operations must support dry-run validation. The v1 importer is intentionally replace-oriented (or requires an empty dataset) and must roll back on apply failure so the user is never left with a partially imported dataset; merge/dedupe semantics are deferred to a later version.
 3. Any "danger zone" deletes must require an explicit confirmation and should strongly encourage export first.
 4. When changing distributions/specs, recomputation should be explicit and traceable (record in `Decision Log` when it changes stored percentiles).
 

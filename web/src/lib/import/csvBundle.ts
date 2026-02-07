@@ -90,6 +90,7 @@ function getObjectStringField(obj: unknown, key: string): string | undefined {
 }
 
 type InsertRow<T extends ExportTableName> = Database['public']['Tables'][T]['Insert']
+type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
 async function assertEmptyForImport(
   supabase: DbClient,
@@ -300,6 +301,7 @@ export async function importCsvBundleZip(
   }
 
   // mode === 'apply' and parsing/validation succeeded
+  let existingProfile: ProfileRow | null = null
   if (replaceExisting) {
     await deleteAllMyData(supabase, { userId })
   } else {
@@ -314,43 +316,91 @@ export async function importCsvBundleZip(
         errors: [msg],
       }
     }
+
+    // Preserve the pre-import profile row so we can restore it if apply fails mid-way.
+    // We intentionally allow importing into a non-empty `profiles` table (the app ensures one exists).
+    const profileRes = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle()
+    requireOk(profileRes.error, 'profiles.select_before_import')
+    existingProfile = profileRes.data ?? null
   }
 
   const insertedByTable = new Map<ExportTableName, number>()
 
-  for (const table of IMPORT_ORDER) {
-    const rows = parsedByTable.get(table) ?? []
-    if (rows.length === 0) {
-      insertedByTable.set(table, 0)
-      continue
-    }
-
-    if (table === 'profiles') {
-      // `profiles.user_id` is the PK and has no default; upsert for safety.
-      const profileRow = rows[0] ?? null
-      if (!profileRow) {
+  try {
+    for (const table of IMPORT_ORDER) {
+      const rows = parsedByTable.get(table) ?? []
+      if (rows.length === 0) {
         insertedByTable.set(table, 0)
         continue
       }
 
-      const res = await supabase
-        .from('profiles')
-        .upsert(profileRow as unknown as InsertRow<'profiles'>, { onConflict: 'user_id' })
-      requireOk(res.error, 'profiles.upsert_import')
-      insertedByTable.set(table, 1)
-      continue
+      if (table === 'profiles') {
+        // `profiles.user_id` is the PK and has no default; upsert for safety.
+        const profileRow = rows[0] ?? null
+        if (!profileRow) {
+          insertedByTable.set(table, 0)
+          continue
+        }
+
+        const res = await supabase
+          .from('profiles')
+          .upsert(profileRow as unknown as InsertRow<'profiles'>, { onConflict: 'user_id' })
+        requireOk(res.error, 'profiles.upsert_import')
+        insertedByTable.set(table, 1)
+        continue
+      }
+
+      const batchSize = 500
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize)
+        const res = await supabase
+          .from(table)
+          .insert(batch as unknown as InsertRow<typeof table>[])
+        requireOk(res.error, `${table}.insert_import`)
+      }
+
+      insertedByTable.set(table, rows.length)
+    }
+  } catch (e) {
+    const errors = [`Import apply failed: ${normalizeError(e)}`]
+
+    // Best-effort rollback: avoid leaving the user with a partially imported dataset.
+    // We cannot run the whole import in a single SQL transaction via PostgREST, so we emulate
+    // "all-or-nothing" by deleting newly inserted rows when an insert fails.
+    try {
+      if (replaceExisting) {
+        // Replace mode already deleted the prior dataset; roll back to a clean slate.
+        await deleteAllMyData(supabase, { userId })
+      } else {
+        // Non-replace mode started from "empty (except profile)"; restore that state.
+        await deleteAllMyData(supabase, { userId, preserveProfile: true })
+
+        if (existingProfile) {
+          const restoreRes = await supabase
+            .from('profiles')
+            .upsert(existingProfile as unknown as InsertRow<'profiles'>, { onConflict: 'user_id' })
+          requireOk(restoreRes.error, 'profiles.restore_after_failed_import')
+        } else {
+          const deleteRes = await supabase.from('profiles').delete().eq('user_id', userId)
+          requireOk(deleteRes.error, 'profiles.delete_after_failed_import')
+        }
+      }
+    } catch (rollbackErr) {
+      errors.push(`Rollback failed: ${normalizeError(rollbackErr)}`)
     }
 
-    const batchSize = 500
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize)
-      const res = await supabase
-        .from(table)
-        .insert(batch as unknown as InsertRow<typeof table>[])
-      requireOk(res.error, `${table}.insert_import`)
+    return {
+      ok: false,
+      mode,
+      format,
+      exported_at: exportedAt,
+      tables: tableReports,
+      errors,
     }
-
-    insertedByTable.set(table, rows.length)
   }
 
   const tablesWithInserted = tableReports.map((t) => ({

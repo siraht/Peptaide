@@ -32,18 +32,25 @@ const DELETE_ORDER: readonly ExportTableName[] = [
 
 export async function deleteAllMyData(
   supabase: DbClient,
-  opts: { userId: string },
+  opts: { userId: string; preserveProfile?: boolean },
 ): Promise<void> {
   const allTables = Object.keys(EXPORT_COLUMNS) as ExportTableName[]
-  const orderSet = new Set(DELETE_ORDER)
-  const missing = allTables.filter((t) => !orderSet.has(t))
+  const preserveProfile = opts.preserveProfile ?? false
+
+  const tablesToDelete = preserveProfile
+    ? DELETE_ORDER.filter((t) => t !== 'profiles')
+    : DELETE_ORDER
+
+  const expectedTables = preserveProfile ? allTables.filter((t) => t !== 'profiles') : allTables
+  const orderSet = new Set(tablesToDelete)
+  const missing = expectedTables.filter((t) => !orderSet.has(t))
   if (missing.length > 0) {
     throw new Error(
       `Internal error: DELETE_ORDER missing export tables: ${missing.join(', ')}`,
     )
   }
 
-  for (const table of DELETE_ORDER) {
+  for (const table of tablesToDelete) {
     const res = await supabase.from(table).delete().eq('user_id', opts.userId)
     requireOk(res.error, `${table}.delete_all`)
   }
