@@ -37,6 +37,9 @@ export default async function AppLayout({
               <Link className="hover:text-zinc-900" href="/today">
                 Today
               </Link>
+              <Link className="hover:text-zinc-900" href="/analytics">
+                Analytics
+              </Link>
               <Link className="hover:text-zinc-900" href="/substances">
                 Substances
               </Link>
@@ -60,6 +63,9 @@ export default async function AppLayout({
               </Link>
               <Link className="hover:text-zinc-900" href="/distributions">
                 Distributions
+              </Link>
+              <Link className="hover:text-zinc-900" href="/settings">
+                Settings
               </Link>
             </nav>
           </div>
