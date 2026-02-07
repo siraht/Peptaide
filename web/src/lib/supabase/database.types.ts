@@ -34,6 +34,118 @@ export type Database = {
   }
   public: {
     Tables: {
+      administration_events: {
+        Row: {
+          cost_usd: number | null
+          created_at: string
+          cycle_instance_id: string | null
+          deleted_at: string | null
+          dose_mass_mg: number | null
+          dose_volume_ml: number | null
+          eff_cns_p05_mg: number | null
+          eff_cns_p50_mg: number | null
+          eff_cns_p95_mg: number | null
+          eff_systemic_p05_mg: number | null
+          eff_systemic_p50_mg: number | null
+          eff_systemic_p95_mg: number | null
+          formulation_id: string
+          id: string
+          input_kind: Database["public"]["Enums"]["input_kind_t"]
+          input_text: string
+          input_unit: string | null
+          input_value: number | null
+          mc_n: number | null
+          mc_seed: number | null
+          model_snapshot: Json | null
+          notes: string | null
+          tags: string[]
+          ts: string
+          updated_at: string
+          user_id: string
+          vial_id: string | null
+        }
+        Insert: {
+          cost_usd?: number | null
+          created_at?: string
+          cycle_instance_id?: string | null
+          deleted_at?: string | null
+          dose_mass_mg?: number | null
+          dose_volume_ml?: number | null
+          eff_cns_p05_mg?: number | null
+          eff_cns_p50_mg?: number | null
+          eff_cns_p95_mg?: number | null
+          eff_systemic_p05_mg?: number | null
+          eff_systemic_p50_mg?: number | null
+          eff_systemic_p95_mg?: number | null
+          formulation_id: string
+          id?: string
+          input_kind?: Database["public"]["Enums"]["input_kind_t"]
+          input_text: string
+          input_unit?: string | null
+          input_value?: number | null
+          mc_n?: number | null
+          mc_seed?: number | null
+          model_snapshot?: Json | null
+          notes?: string | null
+          tags?: string[]
+          ts: string
+          updated_at?: string
+          user_id?: string
+          vial_id?: string | null
+        }
+        Update: {
+          cost_usd?: number | null
+          created_at?: string
+          cycle_instance_id?: string | null
+          deleted_at?: string | null
+          dose_mass_mg?: number | null
+          dose_volume_ml?: number | null
+          eff_cns_p05_mg?: number | null
+          eff_cns_p50_mg?: number | null
+          eff_cns_p95_mg?: number | null
+          eff_systemic_p05_mg?: number | null
+          eff_systemic_p50_mg?: number | null
+          eff_systemic_p95_mg?: number | null
+          formulation_id?: string
+          id?: string
+          input_kind?: Database["public"]["Enums"]["input_kind_t"]
+          input_text?: string
+          input_unit?: string | null
+          input_value?: number | null
+          mc_n?: number | null
+          mc_seed?: number | null
+          model_snapshot?: Json | null
+          notes?: string | null
+          tags?: string[]
+          ts?: string
+          updated_at?: string
+          user_id?: string
+          vial_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "administration_events_cycle_fk"
+            columns: ["user_id", "cycle_instance_id"]
+            isOneToOne: false
+            referencedRelation: "cycle_instances"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "administration_events_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
+            referencedRelation: "vials"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       bioavailability_specs: {
         Row: {
           base_fraction_dist_id: string
@@ -406,6 +518,47 @@ export type Database = {
           value_type?: Database["public"]["Enums"]["distribution_value_type_t"]
         }
         Relationships: []
+      }
+      event_revisions: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          new_values: Json | null
+          old_values: Json
+          reason: string | null
+          revised_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          new_values?: Json | null
+          old_values: Json
+          reason?: string | null
+          revised_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json
+          reason?: string | null
+          revised_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_revisions_event_fk"
+            columns: ["user_id", "event_id"]
+            isOneToOne: false
+            referencedRelation: "administration_events"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
       }
       evidence_sources: {
         Row: {
