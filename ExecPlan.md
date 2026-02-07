@@ -82,6 +82,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 05:54Z) Bugfix: `/today` model coverage now defaults unknown target-compartment relevance to systemic-only, reducing false CNS gap alerts for orphaned/soft-deleted reference data. File: `web/src/app/(app)/today/page.tsx`.
 - [x] (2026-02-07 05:54Z) Bugfix: device calibration `unit_label` normalization now also normalizes micro symbols (`µ`/`μ`) to ASCII `u`, matching quantity parsing. File: `web/src/app/(app)/devices/[deviceId]/actions.ts`.
 - [x] (2026-02-07 06:05Z) Added a minimal `/orders` page to create/list/soft-delete vendors, orders, and order items (soft-deleting an order also soft-deletes its order items to avoid orphan rows in list views). Added typed repos for `vendors`, `orders`, and `order_items`, and linked `/orders` in the app nav. Files: `web/src/app/(app)/orders/page.tsx`, `web/src/app/(app)/orders/actions.ts`, `web/src/lib/repos/vendorsRepo.ts`, `web/src/lib/repos/ordersRepo.ts`, `web/src/lib/repos/orderItemsRepo.ts`, `web/src/app/(app)/layout.tsx`. plan[180-229] plan[500-518] plan[671-676]
+- [x] (2026-02-07 06:09Z) Expanded the RLS probe script to cover additional user-owned tables and `security_invoker` views (orders/inventory/cycles/model coverage), and verified user B sees 0 rows across those surfaces. File: `supabase/scripts/rls_probe.sql`. plan[690-698]
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
 
 - [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics). plan[414-421]
@@ -101,7 +102,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [ ] UI: implement `/settings` including profile defaults (units, default MC N, cycle defaults) and data import/export with dry-run validation and dedupe. plan[583-595] plan[682-689]
 
-- [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked (completed: added `supabase/scripts/rls_probe.sql` exercising cross-user isolation on `substances` and the `v_event_enriched` view; remaining: expand probes to cover the rest of the tables/views and add a repeatable "RLS audit" checklist). plan[690-698]
+- [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked (completed: expanded `supabase/scripts/rls_probe.sql` to exercise cross-user isolation across core tables (`substances`, `vendors`/`orders`/`order_items`/`vials`, `device_calibrations`, `cycle_instances`, `distributions`) and key `security_invoker` views (`v_event_enriched`, `v_cycle_summary`, `v_inventory_status`, `v_model_coverage`, `v_order_item_vial_counts`); remaining: expand probes to cover the rest of the tables/views and add a repeatable "RLS audit" checklist). plan[690-698]
 - [ ] Correctness and performance pass: confirm canonical units semantics, IU behavior, MC determinism with stored seed/snapshot, required indexes, and that daily aggregation semantics are documented and conservative. plan[699-713]
 
 - [ ] Run the full MVP definition-of-done verification, and record evidence snippets/transcripts in `Artifacts and Notes`. plan[729-751]
@@ -1341,9 +1342,9 @@ Evidence captured so far (domain modules):
 Evidence captured so far (RLS probe):
 
     psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/scripts/rls_probe.sql
-    # substances_visible_to_a = 1; substances_visible_to_b = 0
-    # events_visible_to_a = 1; events_visible_to_b = 0
-    # cross-user insert blocked with: "new row violates row-level security policy"
+    # tables: substances/vendors/orders/order_items/vials/device_calibrations/cycle_instances/distributions visible_to_a = 1; visible_to_b = 0
+    # views: v_event_enriched/v_cycle_summary/v_inventory_status/v_model_coverage/v_order_item_vial_counts visible_to_a = 1; visible_to_b = 0
+    # cross-user inserts blocked (substances, vendors) with: "new row violates row-level security policy"
 
 Evidence captured so far (local Supabase):
 
@@ -1658,3 +1659,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Fresh-eyes hardening updates. Recorded and fixed determinism and UX edge cases discovered during review: canonicalized `model_snapshot.compartments[].missing` for stable `mc_seed` hashing; defaulted unknown target-compartment relevance to systemic-only in `/today` coverage UI; and extended device calibration `unit_label` normalization to treat micro symbols as ASCII `u`. Updated `Progress` and `Surprises & Discoveries` accordingly.
 
 2026-02-07: Implemented a minimal `/orders` CRUD surface (vendors, orders, order items) and added typed repos (`vendorsRepo`, `ordersRepo`, `orderItemsRepo`) so later "generate vials" and spend attribution work can build on a consistent data-access layer. Updated `Progress` to reflect the new routes and remaining scope.
+
+2026-02-07: Expanded `supabase/scripts/rls_probe.sql` to probe RLS across additional user-owned tables and key `security_invoker` views (inventory, cycles, model coverage, order-item vial counts). Updated `Progress` and `Artifacts and Notes` with the new evidence.
