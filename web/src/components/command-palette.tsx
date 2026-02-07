@@ -95,7 +95,7 @@ export function CommandPalette() {
         aria-label="Open command palette"
       >
         <span className="hidden sm:inline">Search</span>
-        <span className="font-mono text-xs text-zinc-500">Ctrl+K</span>
+        <span className="font-mono text-xs text-zinc-500">Ctrl/Cmd+K</span>
       </button>
 
       {open ? (
@@ -109,14 +109,12 @@ export function CommandPalette() {
           }}
         >
           <div className="w-full max-w-xl overflow-hidden rounded-xl border bg-white shadow-2xl">
-            <Command
-              label="Command palette"
-              value={query}
-              onValueChange={setQuery}
-            >
+            <Command label="Command palette">
               <div className="border-b p-3">
                 <Command.Input
                   ref={inputRef}
+                  value={query}
+                  onValueChange={setQuery}
                   className="w-full bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
                   placeholder="Type to search..."
                 />
@@ -130,7 +128,8 @@ export function CommandPalette() {
                   {actionItems.map((item) => (
                     <Command.Item
                       key={item.href}
-                      value={[item.label, ...(item.keywords ?? [])].join(' ')}
+                      value={item.label}
+                      keywords={item.keywords}
                       className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-zinc-900 outline-none aria-selected:bg-zinc-100"
                       onSelect={() => runNav(item.href)}
                     >
@@ -143,7 +142,8 @@ export function CommandPalette() {
                   {navItems.map((item) => (
                     <Command.Item
                       key={item.href}
-                      value={[item.label, ...(item.keywords ?? [])].join(' ')}
+                      value={item.label}
+                      keywords={item.keywords}
                       className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-zinc-900 outline-none aria-selected:bg-zinc-100"
                       onSelect={() => runNav(item.href)}
                     >

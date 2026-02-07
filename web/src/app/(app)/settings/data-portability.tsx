@@ -177,7 +177,7 @@ export function DataPortabilitySection() {
               disabled={busy != null}
               onClick={() => runImport('dry-run')}
             >
-              {busy === 'dry-run' ? 'Running…' : 'Dry run'}
+              {busy === 'dry-run' ? 'Running...' : 'Dry run'}
             </button>
             <button
               className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50"
@@ -185,7 +185,7 @@ export function DataPortabilitySection() {
               disabled={busy != null}
               onClick={() => runImport('apply')}
             >
-              {busy === 'apply' ? 'Importing…' : 'Import'}
+              {busy === 'apply' ? 'Importing...' : 'Import'}
             </button>
           </div>
 
@@ -248,7 +248,7 @@ export function DataPortabilitySection() {
             disabled={busy != null || !canDelete}
             onClick={deleteMyData}
           >
-            {busy === 'delete' ? 'Deleting…' : 'Delete all my data'}
+            {busy === 'delete' ? 'Deleting...' : 'Delete all my data'}
           </button>
         </div>
       </div>
