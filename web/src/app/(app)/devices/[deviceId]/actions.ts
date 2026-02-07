@@ -17,7 +17,8 @@ function normalizeUnitLabel(raw: string): string {
   // Keep normalization consistent with `parseQuantity(...).normalizedUnit` so calibration lookups match
   // what users type during logging (first token, lowercased, punctuation stripped, tiny plural heuristic).
   const firstToken = raw.trim().split(/\s+/)[0] ?? ''
-  const t = firstToken.replaceAll('.', '').replaceAll(',', '').toLowerCase()
+  const asciiMicro = firstToken.replaceAll('\u00B5', 'u').replaceAll('\u03BC', 'u')
+  const t = asciiMicro.replaceAll('.', '').replaceAll(',', '').toLowerCase()
   if (t.length > 2 && t.endsWith('s')) return t.slice(0, -1)
   return t
 }
