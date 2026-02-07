@@ -1662,7 +1662,11 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      safe_timezone: { Args: { tz: string }; Returns: string }
+      split_cycle_at_event: {
+        Args: { cycle_instance_id: string; event_id: string }
+        Returns: string
+      }
     }
     Enums: {
       compartment_t: "systemic" | "cns" | "both"

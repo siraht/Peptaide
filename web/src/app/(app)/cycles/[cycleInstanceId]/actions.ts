@@ -3,15 +3,26 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { requireOk } from '@/lib/repos/errors'
 import {
   completeCycleInstance,
-  createCycleInstance,
   getCycleInstanceById,
   getLastCycleForSubstance,
 } from '@/lib/repos/cyclesRepo'
 import { getAdministrationEventById } from '@/lib/repos/eventsRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function splitCycleErrorMessage(raw: string): string {
+  // Keep these strings stable; they come from the DB exception messages in
+  // `supabase/migrations/*_cycle_split_fn.sql`.
+  if (raw.includes('cycle_not_found')) return 'Cycle not found.'
+  if (raw.includes('cycle_not_active')) return 'Only active cycles can be split in the MVP.'
+  if (raw.includes('event_not_found_or_deleted')) return 'Event not found (or deleted).'
+  if (raw.includes('event_not_in_cycle')) return 'Event does not belong to this cycle.'
+  if (raw.includes('cycle_not_most_recent')) {
+    return 'Only the most recent cycle can be split in the MVP.'
+  }
+  return raw
+}
 
 export async function splitCycleAtEventAction(formData: FormData): Promise<void> {
   const cycleInstanceId = String(formData.get('cycle_instance_id') ?? '').trim()
@@ -45,43 +56,27 @@ export async function splitCycleAtEventAction(formData: FormData): Promise<void>
     redirect(`/cycles/${cycleInstanceId}?error=Event%20does%20not%20belong%20to%20this%20cycle.`)
   }
 
-  const splitTs = event.ts
-
-  // Ensure end_ts is never before start_ts (defensive; should not happen for in-cycle events).
-  const start = new Date(cycle.start_ts).getTime()
-  const split = new Date(splitTs).getTime()
-  const safeSplitTs = split < start ? cycle.start_ts : splitTs
-
-  // 1) Complete the old cycle at the split point.
-  await completeCycleInstance(supabase, { cycleInstanceId, endTs: safeSplitTs })
-
-  // 2) Create a new active cycle starting at the split event.
-  const newCycleNumber = cycle.cycle_number + 1
-  const newCycle = await createCycleInstance(supabase, {
-    substanceId: cycle.substance_id,
-    cycleNumber: newCycleNumber,
-    startTs: safeSplitTs,
-    status: 'active',
-    goal: null,
-    notes: null,
+  const rpcRes = await supabase.rpc('split_cycle_at_event', {
+    cycle_instance_id: cycleInstanceId,
+    event_id: eventId,
   })
+  if (rpcRes.error) {
+    const msg = splitCycleErrorMessage(rpcRes.error.message)
+    redirect(`/cycles/${cycleInstanceId}?error=${encodeURIComponent(msg)}`)
+  }
 
-  // 3) Move the split event and all later events to the new cycle (including soft-deleted events so restore is consistent).
-  const updateRes = await supabase
-    .from('administration_events')
-    .update({ cycle_instance_id: newCycle.id })
-    .eq('cycle_instance_id', cycleInstanceId)
-    .gte('ts', safeSplitTs)
-
-  requireOk(updateRes.error, 'administration_events.reassign_cycle_after_split')
+  const newCycleId = rpcRes.data
+  if (!newCycleId) {
+    redirect(`/cycles/${cycleInstanceId}?error=Split%20failed%20(no%20new%20cycle%20id).`)
+  }
 
   revalidatePath('/cycles')
   revalidatePath('/today')
   revalidatePath('/analytics')
   revalidatePath(`/cycles/${cycleInstanceId}`)
-  revalidatePath(`/cycles/${newCycle.id}`)
+  revalidatePath(`/cycles/${newCycleId}`)
 
-  redirect(`/cycles/${newCycle.id}`)
+  redirect(`/cycles/${newCycleId}`)
 }
 
 export async function endCycleNowAction(formData: FormData): Promise<void> {
