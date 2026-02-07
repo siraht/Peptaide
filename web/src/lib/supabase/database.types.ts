@@ -34,6 +34,128 @@ export type Database = {
   }
   public: {
     Tables: {
+      bioavailability_specs: {
+        Row: {
+          base_fraction_dist_id: string
+          compartment: Database["public"]["Enums"]["compartment_t"]
+          created_at: string
+          deleted_at: string | null
+          evidence_source_id: string | null
+          id: string
+          notes: string | null
+          route_id: string
+          substance_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_fraction_dist_id: string
+          compartment: Database["public"]["Enums"]["compartment_t"]
+          created_at?: string
+          deleted_at?: string | null
+          evidence_source_id?: string | null
+          id?: string
+          notes?: string | null
+          route_id: string
+          substance_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          base_fraction_dist_id?: string
+          compartment?: Database["public"]["Enums"]["compartment_t"]
+          created_at?: string
+          deleted_at?: string | null
+          evidence_source_id?: string | null
+          id?: string
+          notes?: string | null
+          route_id?: string
+          substance_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bioavailability_specs_base_fraction_fk"
+            columns: ["user_id", "base_fraction_dist_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "bioavailability_specs_evidence_source_fk"
+            columns: ["user_id", "evidence_source_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_sources"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "bioavailability_specs_route_fk"
+            columns: ["user_id", "route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "bioavailability_specs_substance_fk"
+            columns: ["user_id", "substance_id"]
+            isOneToOne: false
+            referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      component_modifier_specs: {
+        Row: {
+          compartment: Database["public"]["Enums"]["compartment_t"]
+          created_at: string
+          deleted_at: string | null
+          formulation_component_id: string
+          id: string
+          multiplier_dist_id: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          compartment: Database["public"]["Enums"]["compartment_t"]
+          created_at?: string
+          deleted_at?: string | null
+          formulation_component_id: string
+          id?: string
+          multiplier_dist_id: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          compartment?: Database["public"]["Enums"]["compartment_t"]
+          created_at?: string
+          deleted_at?: string | null
+          formulation_component_id?: string
+          id?: string
+          multiplier_dist_id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "component_modifier_specs_component_fk"
+            columns: ["user_id", "formulation_component_id"]
+            isOneToOne: false
+            referencedRelation: "formulation_components"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "component_modifier_specs_multiplier_fk"
+            columns: ["user_id", "multiplier_dist_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       cycle_instances: {
         Row: {
           created_at: string
@@ -183,6 +305,13 @@ export type Database = {
             referencedRelation: "routes"
             referencedColumns: ["user_id", "id"]
           },
+          {
+            foreignKeyName: "device_calibrations_volume_dist_fk"
+            columns: ["user_id", "volume_ml_per_unit_dist_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
+            referencedColumns: ["user_id", "id"]
+          },
         ]
       }
       devices: {
@@ -218,6 +347,63 @@ export type Database = {
           notes?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      distributions: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          dist_type: Database["public"]["Enums"]["distribution_dist_type_t"]
+          evidence_summary: string | null
+          id: string
+          max_value: number | null
+          min_value: number | null
+          name: string
+          p1: number | null
+          p2: number | null
+          p3: number | null
+          quality_score: number
+          units: string | null
+          updated_at: string
+          user_id: string
+          value_type: Database["public"]["Enums"]["distribution_value_type_t"]
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          dist_type: Database["public"]["Enums"]["distribution_dist_type_t"]
+          evidence_summary?: string | null
+          id?: string
+          max_value?: number | null
+          min_value?: number | null
+          name: string
+          p1?: number | null
+          p2?: number | null
+          p3?: number | null
+          quality_score?: number
+          units?: string | null
+          updated_at?: string
+          user_id?: string
+          value_type: Database["public"]["Enums"]["distribution_value_type_t"]
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          dist_type?: Database["public"]["Enums"]["distribution_dist_type_t"]
+          evidence_summary?: string | null
+          id?: string
+          max_value?: number | null
+          min_value?: number | null
+          name?: string
+          p1?: number | null
+          p2?: number | null
+          p3?: number | null
+          quality_score?: number
+          units?: string | null
+          updated_at?: string
+          user_id?: string
+          value_type?: Database["public"]["Enums"]["distribution_value_type_t"]
         }
         Relationships: []
       }
@@ -297,6 +483,64 @@ export type Database = {
             columns: ["user_id", "formulation_id"]
             isOneToOne: false
             referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "formulation_components_modifier_dist_fk"
+            columns: ["user_id", "modifier_dist_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      formulation_modifier_specs: {
+        Row: {
+          compartment: Database["public"]["Enums"]["compartment_t"]
+          created_at: string
+          deleted_at: string | null
+          formulation_id: string
+          id: string
+          multiplier_dist_id: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          compartment: Database["public"]["Enums"]["compartment_t"]
+          created_at?: string
+          deleted_at?: string | null
+          formulation_id: string
+          id?: string
+          multiplier_dist_id: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          compartment?: Database["public"]["Enums"]["compartment_t"]
+          created_at?: string
+          deleted_at?: string | null
+          formulation_id?: string
+          id?: string
+          multiplier_dist_id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formulation_modifier_specs_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "formulation_modifier_specs_multiplier_fk"
+            columns: ["user_id", "multiplier_dist_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
             referencedColumns: ["user_id", "id"]
           },
         ]
@@ -824,6 +1068,13 @@ export type Database = {
             columns: ["user_id", "substance_id"]
             isOneToOne: false
             referencedRelation: "substances"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "vials_volume_override_dist_fk"
+            columns: ["user_id", "volume_ml_per_unit_override_dist_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
             referencedColumns: ["user_id", "id"]
           },
         ]
