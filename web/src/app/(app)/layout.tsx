@@ -28,10 +28,26 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between p-4">
-          <Link className="font-semibold" href="/today">
-            Peptaide
-          </Link>
+        <div className="mx-auto flex max-w-5xl flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <Link className="font-semibold" href="/today">
+              Peptaide
+            </Link>
+            <nav className="flex flex-wrap gap-3 text-sm text-zinc-700">
+              <Link className="hover:text-zinc-900" href="/today">
+                Today
+              </Link>
+              <Link className="hover:text-zinc-900" href="/substances">
+                Substances
+              </Link>
+              <Link className="hover:text-zinc-900" href="/routes">
+                Routes
+              </Link>
+              <Link className="hover:text-zinc-900" href="/formulations">
+                Formulations
+              </Link>
+            </nav>
+          </div>
           <div className="text-sm text-zinc-700">{data.user.email}</div>
         </div>
       </header>
