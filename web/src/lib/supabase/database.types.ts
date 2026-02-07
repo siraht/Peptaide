@@ -1546,8 +1546,13 @@ export type Database = {
       }
       v_order_item_vial_counts: {
         Row: {
+          event_cost_usd_known_count: number | null
+          event_cost_usd_sum: number | null
+          event_count_total: number | null
           order_item_id: string | null
           user_id: string | null
+          vial_cost_usd_known_count: number | null
+          vial_cost_usd_sum: number | null
           vial_count_active: number | null
           vial_count_closed: number | null
           vial_count_discarded: number | null

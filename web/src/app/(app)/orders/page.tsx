@@ -201,7 +201,7 @@ export default async function OrdersPage() {
           <p className="mt-2 text-sm text-zinc-700">No order items yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="min-w-[1200px] border-separate border-spacing-0 text-left text-sm">
+            <table className="min-w-[1500px] border-separate border-spacing-0 text-left text-sm">
               <thead>
                 <tr className="text-xs text-zinc-600">
                   <th className="border-b px-2 py-2 font-medium">Order</th>
@@ -211,6 +211,9 @@ export default async function OrdersPage() {
                   <th className="border-b px-2 py-2 font-medium">Price total</th>
                   <th className="border-b px-2 py-2 font-medium">Expected vials</th>
                   <th className="border-b px-2 py-2 font-medium">Vials (P/A/C/D/T)</th>
+                  <th className="border-b px-2 py-2 font-medium">Vial cost sum</th>
+                  <th className="border-b px-2 py-2 font-medium">Spent</th>
+                  <th className="border-b px-2 py-2 font-medium">Remaining</th>
                   <th className="border-b px-2 py-2 font-medium">Notes</th>
                   <th className="border-b px-2 py-2 font-medium">Actions</th>
                 </tr>
@@ -231,6 +234,15 @@ export default async function OrdersPage() {
                   const discarded = (c?.vial_count_discarded ?? 0) || 0
                   const total = (c?.vial_count_total ?? 0) || 0
 
+                  const vialCostSum = toFiniteNumber(c?.vial_cost_usd_sum ?? null)
+                  const vialCostKnown = (c?.vial_cost_usd_known_count ?? 0) || 0
+
+                  const spentSum = toFiniteNumber(c?.event_cost_usd_sum ?? null)
+                  const spentKnown = (c?.event_cost_usd_known_count ?? 0) || 0
+                  const spentTotal = (c?.event_count_total ?? 0) || 0
+
+                  const remaining = vialCostSum != null && spentSum != null ? vialCostSum - spentSum : null
+
                   return (
                     <tr key={oi.id}>
                       <td className="border-b px-2 py-2 text-zinc-900">{`${vendorName} / ${orderDay}`}</td>
@@ -246,6 +258,19 @@ export default async function OrdersPage() {
                           {planned}/{active}/{closed}/{discarded}/{total}
                         </span>
                       </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        <div>{fmtMoney(vialCostSum)}</div>
+                        {total > 0 ? (
+                          <div className="text-xs text-zinc-500">{`cost known ${vialCostKnown}/${total}`}</div>
+                        ) : null}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        <div>{fmtMoney(spentSum)}</div>
+                        {spentTotal > 0 ? (
+                          <div className="text-xs text-zinc-500">{`cost known ${spentKnown}/${spentTotal}`}</div>
+                        ) : null}
+                      </td>
+                      <td className="border-b px-2 py-2 text-zinc-700">{fmtMoney(remaining)}</td>
                       <td className="border-b px-2 py-2 text-zinc-700">{oi.notes ?? '-'}</td>
                       <td className="border-b px-2 py-2">
                         <form action={deleteOrderItemAction}>
