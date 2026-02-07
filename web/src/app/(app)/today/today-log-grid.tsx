@@ -213,9 +213,15 @@ export function TodayLogGrid(props: {
     e.preventDefault()
     setRows((prev) => {
       const next = [...prev]
+      const seedFormulationId = next[rowIndex]?.formulationId ?? defaultFormulationId
+      const needed = rowIndex + lines.length - next.length
+      if (needed > 0) {
+        for (let i = 0; i < needed; i++) {
+          next.push(blankRow(seedFormulationId))
+        }
+      }
       for (let i = 0; i < lines.length; i++) {
         const idx = rowIndex + i
-        if (idx >= next.length) break
         const current = next[idx]
         if (!current) continue
         next[idx] = { ...current, inputText: lines[i] ?? '', status: 'idle', message: '' }
@@ -272,6 +278,7 @@ export function TodayLogGrid(props: {
                       })
                     }}
                     aria-label={`Formulation row ${idx + 1}`}
+                    disabled={row.status === 'saving'}
                   >
                     {formulations.map((f) => (
                       <option key={f.id} value={f.id}>
