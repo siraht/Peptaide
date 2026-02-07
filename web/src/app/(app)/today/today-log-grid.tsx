@@ -44,6 +44,7 @@ export function TodayLogGrid(props: {
     return Array.from({ length: 8 }, () => blankRow(defaultFormulationId))
   })
   const rowsRef = useRef(rows)
+  const savingRowIndexesRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     rowsRef.current = rows
@@ -57,6 +58,8 @@ export function TodayLogGrid(props: {
   }, [focus])
 
   async function saveRow(rowIndex: number): Promise<void> {
+    if (savingRowIndexesRef.current.has(rowIndex)) return
+
     const row = rowsRef.current[rowIndex]
     if (!row) return
     if (row.status === 'saving') return
@@ -78,6 +81,7 @@ export function TodayLogGrid(props: {
       return
     }
 
+    savingRowIndexesRef.current.add(rowIndex)
     setRows((prev) => {
       const next = [...prev]
       const current = next[rowIndex]
@@ -96,6 +100,8 @@ export function TodayLogGrid(props: {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       res = { status: 'error', message: msg }
+    } finally {
+      savingRowIndexesRef.current.delete(rowIndex)
     }
 
     if (res.status === 'success') {

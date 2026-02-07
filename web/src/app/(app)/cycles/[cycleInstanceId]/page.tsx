@@ -47,6 +47,7 @@ export default async function CycleDetailPage({
     cycle.cycle_instance_id != null &&
     cycle.status === 'active' &&
     lastCycle?.id === cycle.cycle_instance_id
+  const canEnd = cycle.cycle_instance_id != null && cycle.status === 'active'
 
   return (
     <div className="space-y-6">
@@ -130,7 +131,7 @@ export default async function CycleDetailPage({
           </p>
         )}
 
-        {canSplit ? (
+        {canEnd ? (
           <div className="mt-3 flex flex-wrap gap-3">
             <form action={endCycleNowAction}>
               <input type="hidden" name="cycle_instance_id" value={cycleInstanceId} />

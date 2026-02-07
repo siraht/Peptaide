@@ -10,6 +10,16 @@ export type UpdateProfileState =
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
 
+function isValidIanaTimezone(tz: string): boolean {
+  try {
+    // Throws RangeError on invalid IANA names.
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date())
+    return true
+  } catch {
+    return false
+  }
+}
+
 function mustInt(raw: string, label: string): number {
   const t = raw.trim()
   if (!t) {
@@ -41,6 +51,12 @@ export async function updateProfileAction(
   const cycleGapDefaultDaysRaw = String(formData.get('cycle_gap_default_days') ?? '').trim()
 
   if (!timezone) return { status: 'error', message: 'timezone is required.' }
+  if (!isValidIanaTimezone(timezone)) {
+    return {
+      status: 'error',
+      message: 'timezone must be a valid IANA timezone name (e.g. "America/Los_Angeles").',
+    }
+  }
   if (!isMassUnit(defaultMassUnit)) {
     return { status: 'error', message: 'default_mass_unit must be one of: mg, mcg, g.' }
   }
@@ -87,4 +103,3 @@ export async function updateProfileAction(
   revalidatePath('/analytics')
   return { status: 'success', message: 'Updated.' }
 }
-
