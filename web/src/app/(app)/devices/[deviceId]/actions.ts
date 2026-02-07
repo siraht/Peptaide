@@ -14,7 +14,10 @@ export type CreateDeviceCalibrationState =
   | { status: 'success'; message: string }
 
 function normalizeUnitLabel(raw: string): string {
-  const t = raw.trim().toLowerCase()
+  // Keep normalization consistent with `parseQuantity(...).normalizedUnit` so calibration lookups match
+  // what users type during logging (first token, lowercased, punctuation stripped, tiny plural heuristic).
+  const firstToken = raw.trim().split(/\s+/)[0] ?? ''
+  const t = firstToken.replaceAll('.', '').replaceAll(',', '').toLowerCase()
   if (t.length > 2 && t.endsWith('s')) return t.slice(0, -1)
   return t
 }
@@ -40,6 +43,7 @@ export async function createDeviceCalibrationAction(
   }
 
   const unitLabel = normalizeUnitLabel(unitLabelRaw)
+  if (!unitLabel) return { status: 'error', message: 'unit_label is required.' }
 
   const supabase = await createClient()
 
@@ -69,4 +73,3 @@ export async function deleteDeviceCalibrationAction(formData: FormData): Promise
   await softDeleteDeviceCalibration(supabase, { calibrationId })
   revalidatePath(`/devices/${deviceId}`)
 }
-
