@@ -99,3 +99,47 @@ export async function createVial(
 
   return requireData(res.data, res.error, 'vials.insert')
 }
+
+export async function activateVial(
+  supabase: DbClient,
+  opts: { vialId: string; openedAt: string },
+): Promise<void> {
+  const res = await supabase
+    .from('vials')
+    .update({
+      status: 'active',
+      opened_at: opts.openedAt,
+      // If a vial is re-activated (manual correction), clear closed_at for consistency.
+      closed_at: null,
+    })
+    .eq('id', opts.vialId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'vials.activate')
+}
+
+export async function closeVial(
+  supabase: DbClient,
+  opts: { vialId: string; closedAt: string },
+): Promise<void> {
+  const res = await supabase
+    .from('vials')
+    .update({ status: 'closed', closed_at: opts.closedAt })
+    .eq('id', opts.vialId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'vials.close')
+}
+
+export async function discardVial(
+  supabase: DbClient,
+  opts: { vialId: string; closedAt: string },
+): Promise<void> {
+  const res = await supabase
+    .from('vials')
+    .update({ status: 'discarded', closed_at: opts.closedAt })
+    .eq('id', opts.vialId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'vials.discard')
+}
