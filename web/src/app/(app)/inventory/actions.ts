@@ -3,7 +3,14 @@
 import { revalidatePath } from 'next/cache'
 
 import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
-import { createVial, closeActiveVialsForFormulation } from '@/lib/repos/vialsRepo'
+import {
+  activateVial,
+  closeActiveVialsForFormulation,
+  closeVial,
+  createVial,
+  discardVial,
+  getVialById,
+} from '@/lib/repos/vialsRepo'
 import { getFormulationEnrichedById } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
@@ -114,4 +121,53 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
   revalidatePath('/inventory')
   revalidatePath('/today')
   return { status: 'success', message: 'Created.' }
+}
+
+export async function activateVialAction(formData: FormData): Promise<void> {
+  const vialId = String(formData.get('vial_id') ?? '').trim()
+  if (!vialId) return
+
+  const supabase = await createClient()
+  const vial = await getVialById(supabase, { vialId })
+  if (!vial) return
+
+  if (vial.status !== 'active') {
+    await closeActiveVialsForFormulation(supabase, { formulationId: vial.formulation_id })
+    await activateVial(supabase, { vialId, openedAt: new Date().toISOString() })
+  }
+
+  revalidatePath('/inventory')
+  revalidatePath('/today')
+}
+
+export async function closeVialAction(formData: FormData): Promise<void> {
+  const vialId = String(formData.get('vial_id') ?? '').trim()
+  if (!vialId) return
+
+  const supabase = await createClient()
+  const vial = await getVialById(supabase, { vialId })
+  if (!vial) return
+
+  if (vial.status !== 'closed') {
+    await closeVial(supabase, { vialId, closedAt: new Date().toISOString() })
+  }
+
+  revalidatePath('/inventory')
+  revalidatePath('/today')
+}
+
+export async function discardVialAction(formData: FormData): Promise<void> {
+  const vialId = String(formData.get('vial_id') ?? '').trim()
+  if (!vialId) return
+
+  const supabase = await createClient()
+  const vial = await getVialById(supabase, { vialId })
+  if (!vial) return
+
+  if (vial.status !== 'discarded') {
+    await discardVial(supabase, { vialId, closedAt: new Date().toISOString() })
+  }
+
+  revalidatePath('/inventory')
+  revalidatePath('/today')
 }

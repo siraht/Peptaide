@@ -1,4 +1,5 @@
 import { CreateVialForm } from './create-vial-form'
+import { activateVialAction, closeVialAction, discardVialAction } from './actions'
 
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
@@ -52,6 +53,7 @@ export default async function InventoryPage() {
                   <th className="border-b px-2 py-2 font-medium">Remaining mg</th>
                   <th className="border-b px-2 py-2 font-medium">Runway days</th>
                   <th className="border-b px-2 py-2 font-medium">Cost USD</th>
+                  <th className="border-b px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -73,6 +75,41 @@ export default async function InventoryPage() {
                     <td className="border-b px-2 py-2 text-zinc-700">{v.remaining_mass_mg ?? '-'}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{v.runway_days_estimate_mg ?? '-'}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{v.cost_usd ?? '-'}</td>
+                    <td className="border-b px-2 py-2">
+                      {v.status === 'planned' ? (
+                        <div className="flex flex-wrap gap-3">
+                          <form action={activateVialAction}>
+                            <input type="hidden" name="vial_id" value={v.vial_id ?? ''} />
+                            <button className="text-sm text-zinc-700 underline" type="submit">
+                              Activate
+                            </button>
+                          </form>
+                          <form action={discardVialAction}>
+                            <input type="hidden" name="vial_id" value={v.vial_id ?? ''} />
+                            <button className="text-sm text-red-700 underline" type="submit">
+                              Discard
+                            </button>
+                          </form>
+                        </div>
+                      ) : v.status === 'active' ? (
+                        <div className="flex flex-wrap gap-3">
+                          <form action={closeVialAction}>
+                            <input type="hidden" name="vial_id" value={v.vial_id ?? ''} />
+                            <button className="text-sm text-zinc-700 underline" type="submit">
+                              Close
+                            </button>
+                          </form>
+                          <form action={discardVialAction}>
+                            <input type="hidden" name="vial_id" value={v.vial_id ?? ''} />
+                            <button className="text-sm text-red-700 underline" type="submit">
+                              Discard
+                            </button>
+                          </form>
+                        </div>
+                      ) : (
+                        <span className="text-zinc-500">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -83,4 +120,3 @@ export default async function InventoryPage() {
     </div>
   )
 }
-
