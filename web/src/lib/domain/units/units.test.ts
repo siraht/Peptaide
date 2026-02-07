@@ -33,6 +33,13 @@ describe('units.parseQuantity', () => {
     expect(toCanonicalMassMg(q.value, q.unit)).toBeCloseTo(0.25)
   })
 
+  test('parses micrograms (Greek mu μg)', () => {
+    const q = parseQuantity('250 μg')
+    expect(q.kind).toBe('mass')
+    expect(q.normalizedUnit).toBe('mcg')
+    expect(toCanonicalMassMg(q.value, q.unit)).toBeCloseTo(0.25)
+  })
+
   test('parses IU token', () => {
     const q = parseQuantity('200 [iU]')
     expect(q.kind).toBe('iu')
