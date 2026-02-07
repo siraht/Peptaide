@@ -252,7 +252,9 @@ export function TodayLogGrid(props: {
                     }}
                     placeholder='e.g. "0.3mL", "250mcg", "2 sprays"'
                     autoComplete="off"
-                    inputMode="decimal"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     aria-label={`Dose row ${idx + 1}`}
                     disabled={row.status === 'saving'}
                   />

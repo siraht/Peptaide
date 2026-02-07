@@ -25,7 +25,15 @@ export function SettingsForm(props: { profile: ProfileRow }) {
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-zinc-700">Timezone (IANA name)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="timezone" defaultValue={profile.timezone} />
+          <input
+            className="h-10 rounded-md border px-3 text-sm"
+            name="timezone"
+            defaultValue={profile.timezone}
+            placeholder="America/Los_Angeles"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -82,4 +90,3 @@ export function SettingsForm(props: { profile: ProfileRow }) {
     </div>
   )
 }
-
