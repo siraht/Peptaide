@@ -85,9 +85,11 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 06:09Z) Expanded the RLS probe script to cover additional user-owned tables and `security_invoker` views (orders/inventory/cycles/model coverage), and verified user B sees 0 rows across those surfaces. File: `supabase/scripts/rls_probe.sql`. plan[690-698]
 - [x] (2026-02-07 06:14Z) Implemented "Generate vials" from an order item in `/orders` (creates planned vials linked via `vials.order_item_id`, with optional per-vial cost defaulting to `price_total_usd / expected_vials` when set). Extended the vials repo insert helper to accept `orderItemId`. Files: `web/src/app/(app)/orders/actions.ts`, `web/src/app/(app)/orders/generate-vials-form.tsx`, `web/src/lib/repos/vialsRepo.ts`. plan[180-229] plan[500-518]
 - [x] (2026-02-07 06:18Z) Added vial lifecycle actions to `/inventory` so generated planned vials can be promoted to active and active vials can be closed/discarded without creating new rows. Files: `web/src/app/(app)/inventory/page.tsx`, `web/src/app/(app)/inventory/actions.ts`, `web/src/lib/repos/vialsRepo.ts`. plan[180-229] plan[660-676]
+- [x] (2026-02-07 06:26Z) Added a minimal `/settings` page to edit profile defaults (timezone, default units, default MC N, cycle gap days), implemented via a typed repo update helper + Server Action, and linked it in the app nav. Files: `web/src/app/(app)/settings/page.tsx`, `web/src/app/(app)/settings/actions.ts`, `web/src/lib/repos/profilesRepo.ts`, `web/src/app/(app)/layout.tsx`. plan[682-689]
+- [x] (2026-02-07 06:26Z) Added a minimal `/analytics` dashboard backed by the existing SQL views (daily totals + spend rollups), with typed repos for each view, and linked it in the app nav. Files: `web/src/app/(app)/analytics/page.tsx`, `web/src/lib/repos/dailyTotalsRepo.ts`, `web/src/lib/repos/spendRepo.ts`, `web/src/app/(app)/layout.tsx`. plan[556-582] plan[677-681]
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
 
-- [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics). plan[414-421]
+- [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics) (completed: basic header nav links for implemented routes, including `/analytics` + `/settings`; remaining: command palette + keyboard-first global actions). plan[414-421]
 
 - [ ] UI: implement Setup Wizard A1-A6 (preferences, bulk add substances, bulk add routes, bulk add formulations, bulk add vials and/or generate from orders, base BA + modifiers entry). plan[422-461]
 - [ ] UI: implement `/substances` list + bulk add + detail page (formulations, BA specs, recommendations, analytics links) (completed: basic `/substances` list + create + soft delete; added a minimal substance detail page to set base BA specs; remaining: bulk grid/paste, aliases, and the rest of the detail page (formulations, recommendations, analytics links)). plan[644-652]
@@ -100,9 +102,9 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [ ] UI: implement `/recommendations` surfaces within substance detail (manual entry now; clearly labeled as user-entered reference ranges, not advice) and comparisons shown in cycle detail. plan[283-303] plan[541-555]
 
-- [ ] UI: implement `/analytics` dashboard: today summary, calendar, trends, cycles/breaks analytics, inventory runway, spend (USD/day/week/month) including uncertainty bands where applicable. plan[556-582] plan[677-681]
+- [ ] UI: implement `/analytics` dashboard: today summary, calendar, trends, cycles/breaks analytics, inventory runway, spend (USD/day/week/month) including uncertainty bands where applicable (completed: minimal read-only `/analytics` surface backed by daily totals + spend views; remaining: richer dashboards (calendar/trends), cycle/break analytics, inventory runway summaries, and uncertainty-band UX). plan[556-582] plan[677-681]
 
-- [ ] UI: implement `/settings` including profile defaults (units, default MC N, cycle defaults) and data import/export with dry-run validation and dedupe. plan[583-595] plan[682-689]
+- [ ] UI: implement `/settings` including profile defaults (units, default MC N, cycle defaults) and data import/export with dry-run validation and dedupe (completed: profile defaults editor for timezone/units/MC N/cycle gap; remaining: import/export UX + validation + dedupe). plan[583-595] plan[682-689]
 
 - [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked (completed: expanded `supabase/scripts/rls_probe.sql` to exercise cross-user isolation across core tables (`substances`, `vendors`/`orders`/`order_items`/`vials`, `device_calibrations`, `cycle_instances`, `distributions`) and key `security_invoker` views (`v_event_enriched`, `v_cycle_summary`, `v_inventory_status`, `v_model_coverage`, `v_order_item_vial_counts`); remaining: expand probes to cover the rest of the tables/views and add a repeatable "RLS audit" checklist). plan[690-698]
 - [ ] Correctness and performance pass: confirm canonical units semantics, IU behavior, MC determinism with stored seed/snapshot, required indexes, and that daily aggregation semantics are documented and conservative. plan[699-713]
@@ -415,6 +417,18 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: The summed-percentiles band is easy to compute and explain, but quantiles are not additive in general; overstating these as true quantiles would be misleading. If accurate day-level quantiles are needed, implement day-level MC of summed samples.
   Date/Author: 2026-02-07 / Codex
 
+- Decision: For MVP, generating vials from an order item requires `order_items.formulation_id` to be set; otherwise the UI refuses to generate vials.
+  Rationale: `vials.formulation_id` is required for inventory/runway and for linking event cost attribution to inventory. Allowing vials without a formulation would create inconsistent downstream behavior.
+  Date/Author: 2026-02-07 / Codex
+
+- Decision: For MVP, order-item vial generation creates vials in `planned` status, links them via `vials.order_item_id`, and defaults `vials.cost_usd` only when both `order_items.price_total_usd` and a positive `order_items.expected_vials` are present (cost per vial = price_total_usd / expected_vials). Shipping is tracked on the order but not auto-allocated.
+  Rationale: Keeps the initial cost model simple and auditable while still enabling spend attribution once vials are activated and used. Shipping allocation is a product decision that should be made explicitly, not implied.
+  Date/Author: 2026-02-07 / Codex
+
+- Decision: `/settings` constrains `profiles.default_mass_unit` choices to true mass units (mg, mcg, g) and keeps IU out of mass defaults.
+  Rationale: IU is not a mass unit and IU->mg conversion is substance-specific; treating IU as mass would violate unit correctness and create incorrect analytics.
+  Date/Author: 2026-02-07 / Codex
+
 ## Outcomes & Retrospective
 
 2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion + auto-start decision helper, but not DB orchestration yet). A `/today` prototyping surface exists to exercise the end-to-end event pipeline (not the final virtualized grid yet).
@@ -427,11 +441,14 @@ What exists now:
 4. The MVP schema is migrated locally under `supabase/migrations/` through reference data, inventory, cycles, recommendations, uncertainty distributions/specs, administration events (plus `event_revisions` audit), and the dashboard/coverage SQL views. All user-owned tables have RLS enabled with own-row policies. DB types are generated at `web/src/lib/supabase/database.types.ts`.
 5. Pure domain logic modules exist under `web/src/lib/domain/` with unit tests: `units/`, `uncertainty/`, `dose/`, and `cost/` are implemented; `cycles/` currently only includes gap-based suggestions and the "auto-start first cycle" decision helper.
 6. A `/today` prototype exists that can seed demo reference data, log events via Server Actions, and render recent events from `public.v_event_enriched`. It exercises parsing, canonical dose computation, MC percentiles (when BA specs exist), and `model_snapshot` persistence.
+7. Setup/scaffolding CRUD pages exist for reference data and model inputs: `/substances` (+ detail BA spec editor), `/routes`, `/devices` (+ calibrations), `/formulations` (+ components), `/distributions`, plus `/cycles` (summary) and `/inventory`.
+8. Orders/inventory scaffolding exists: `/orders` can create vendors/orders/order items and generate planned vials; `/inventory` can create vials and supports vial lifecycle actions (activate, close, discard).
+9. Minimal read-only dashboards exist: `/analytics` (daily totals + spend rollups) and `/settings` (profile defaults editor).
 
 What remains (next highest-leverage work):
 
 1. Manually validate the sign-in flow end-to-end in a browser (send link, open Mailpit, click link, confirm `/today`, sign out). Note: in this workspace, `next dev` bound to port 3001 because port 3000 was already in use.
-2. Security verification pass: add explicit probes/tests that demonstrate cross-user reads/writes are blocked by RLS (Milestone 1 tail work).
+2. Security verification pass: expand the RLS probe/checklist to cover every user-owned table and every view surfaced by the UI (a solid probe exists already, but coverage is not complete yet).
 3. Implement thin, typed data-access modules (repos) for all tables and views, and route all app data access through them (Milestone 3+ foundation).
 4. Finish cycles logic beyond "suggestion" (auto-start/assignment orchestration and split-at-event correction mechanics).
 5. Start the core UI flows: Setup Wizard (bulk add + model specs) and Today Log end-to-end.
@@ -1667,3 +1684,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Implemented an initial "generate planned vials" flow from order items in `/orders` and extended the vials repo insert helper to persist `order_item_id`. Updated `Progress` to reflect that "generate vials" is now partially implemented (remaining work: vial lifecycle actions and cost allocation preview).
 
 2026-02-07: Implemented basic vial lifecycle actions in `/inventory` (activate planned vials; close/discard vials) and added corresponding repo helpers. Updated `Progress` to reflect reduced remaining scope for inventory workflows.
+
+2026-02-07: Added minimal read-only `/analytics` (daily totals + spend rollups) and a minimal `/settings` page (profile defaults editor), plus header nav links for both. Updated `Progress`, `Decision Log`, and `Outcomes & Retrospective` to reflect the new surfaces and remaining work (notably import/export and richer analytics).
