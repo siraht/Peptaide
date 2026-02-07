@@ -77,7 +77,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [ ] UI: implement `/settings` including profile defaults (units, default MC N, cycle defaults) and data import/export with dry-run validation and dedupe. plan[583-595] plan[682-689]
 
-- [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked. plan[690-698]
+- [ ] Security verification pass: confirm RLS is enabled and correct on every user-owned table; add explicit probes/tests that demonstrate cross-user reads/writes are blocked (completed: added `supabase/scripts/rls_probe.sql` exercising cross-user isolation on `substances` and the `v_event_enriched` view; remaining: expand probes to cover the rest of the tables/views and add a repeatable "RLS audit" checklist). plan[690-698]
 - [ ] Correctness and performance pass: confirm canonical units semantics, IU behavior, MC determinism with stored seed/snapshot, required indexes, and that daily aggregation semantics are documented and conservative. plan[699-713]
 
 - [ ] Run the full MVP definition-of-done verification, and record evidence snippets/transcripts in `Artifacts and Notes`. plan[729-751]
@@ -1304,6 +1304,13 @@ Evidence captured so far (domain modules):
     cd /data/projects/peptaide/web
     npm run typecheck
     # exits 0 (no errors)
+
+Evidence captured so far (RLS probe):
+
+    psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/scripts/rls_probe.sql
+    # substances_visible_to_a = 1; substances_visible_to_b = 0
+    # events_visible_to_a = 1; events_visible_to_b = 0
+    # cross-user insert blocked with: "new row violates row-level security policy"
 
 Evidence captured so far (local Supabase):
 
