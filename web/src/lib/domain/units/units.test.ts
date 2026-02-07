@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { toCanonicalMassMg, toCanonicalVolumeMl } from './canonicalize'
-import { parseQuantity } from './types'
+import { normalizeDeviceUnitLabel, parseQuantity } from './types'
 
 describe('units.parseQuantity', () => {
   test('parses volume with no space (0.3mL)', () => {
@@ -46,6 +46,12 @@ describe('units.parseQuantity', () => {
     expect(q.value).toBe(2)
     expect(q.normalizedUnit).toBe('spray')
   })
+
+  test('normalizes device unit labels for calibration keys', () => {
+    expect(normalizeDeviceUnitLabel('Sprays')).toBe('spray')
+    expect(normalizeDeviceUnitLabel('sprays,')).toBe('spray')
+    expect(normalizeDeviceUnitLabel('  clicks per nostril')).toBe('click')
+  })
 })
 
 describe('units.canonicalize', () => {
@@ -57,4 +63,3 @@ describe('units.canonicalize', () => {
     expect(toCanonicalMassMg(1.5, 'g')).toBeCloseTo(1500)
   })
 })
-

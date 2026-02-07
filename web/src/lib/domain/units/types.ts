@@ -45,6 +45,15 @@ function normalizeDeviceUnit(rawUnit: string): string {
   return token
 }
 
+export function normalizeDeviceUnitLabel(raw: string): string {
+  // Keep this normalization consistent with `parseQuantity(...).normalizedUnit` so that:
+  // - calibration keys match what users type during logging
+  // - comparisons can remain ASCII-based (micro symbols normalized to 'u')
+  // - unit tokens are stable (lowercased, punctuation stripped, small plural heuristic)
+  const firstToken = raw.trim().split(/\s+/)[0] ?? ''
+  return normalizeDeviceUnit(firstToken)
+}
+
 function parseNumber(raw: string): number {
   const cleaned = raw.replaceAll(',', '')
   const value = Number.parseFloat(cleaned)
@@ -114,4 +123,3 @@ export function parseQuantity(inputText: string): ParsedQuantity {
     normalizedUnit: normalizeDeviceUnit(unit),
   }
 }
-

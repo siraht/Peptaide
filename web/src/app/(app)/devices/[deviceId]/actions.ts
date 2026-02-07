@@ -6,22 +6,13 @@ import {
   createDeviceCalibration,
   softDeleteDeviceCalibration,
 } from '@/lib/repos/deviceCalibrationsRepo'
+import { normalizeDeviceUnitLabel } from '@/lib/domain/units/types'
 import { createClient } from '@/lib/supabase/server'
 
 export type CreateDeviceCalibrationState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
-
-function normalizeUnitLabel(raw: string): string {
-  // Keep normalization consistent with `parseQuantity(...).normalizedUnit` so calibration lookups match
-  // what users type during logging (first token, lowercased, punctuation stripped, tiny plural heuristic).
-  const firstToken = raw.trim().split(/\s+/)[0] ?? ''
-  const asciiMicro = firstToken.replaceAll('\u00B5', 'u').replaceAll('\u03BC', 'u')
-  const t = asciiMicro.replaceAll('.', '').replaceAll(',', '').toLowerCase()
-  if (t.length > 2 && t.endsWith('s')) return t.slice(0, -1)
-  return t
-}
 
 export async function createDeviceCalibrationAction(
   _prev: CreateDeviceCalibrationState,
@@ -40,10 +31,10 @@ export async function createDeviceCalibrationAction(
     return {
       status: 'error',
       message: 'volume_ml_per_unit_dist_id is required (create a volume_ml_per_unit distribution first).',
-    }
+      }
   }
 
-  const unitLabel = normalizeUnitLabel(unitLabelRaw)
+  const unitLabel = normalizeDeviceUnitLabel(unitLabelRaw)
   if (!unitLabel) return { status: 'error', message: 'unit_label is required.' }
 
   const supabase = await createClient()

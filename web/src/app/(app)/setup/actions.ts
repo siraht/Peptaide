@@ -3,10 +3,17 @@
 import { revalidatePath } from 'next/cache'
 
 import { setBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
+import { createDeviceCalibration } from '@/lib/repos/deviceCalibrationsRepo'
+import { normalizeDeviceUnitLabel } from '@/lib/domain/units/types'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
 export type SetupSetBioavailabilitySpecState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | { status: 'success'; message: string }
+
+export type SetupCreateDeviceCalibrationState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
@@ -54,3 +61,46 @@ export async function setupSetBioavailabilitySpecAction(
   return { status: 'success', message: 'Saved.' }
 }
 
+export async function setupCreateDeviceCalibrationAction(
+  _prev: SetupCreateDeviceCalibrationState,
+  formData: FormData,
+): Promise<SetupCreateDeviceCalibrationState> {
+  const deviceId = String(formData.get('device_id') ?? '').trim()
+  const routeId = String(formData.get('route_id') ?? '').trim()
+  const unitLabelRaw = String(formData.get('unit_label') ?? '').trim()
+  const volumeDistId = String(formData.get('volume_ml_per_unit_dist_id') ?? '').trim()
+  const notes = String(formData.get('notes') ?? '').trim()
+
+  if (!deviceId) return { status: 'error', message: 'device_id is required.' }
+  if (!routeId) return { status: 'error', message: 'route_id is required.' }
+  if (!unitLabelRaw) return { status: 'error', message: 'unit_label is required.' }
+  if (!volumeDistId) {
+    return {
+      status: 'error',
+      message: 'volume_ml_per_unit_dist_id is required (create a volume_ml_per_unit distribution first).',
+    }
+  }
+
+  const unitLabel = normalizeDeviceUnitLabel(unitLabelRaw)
+  if (!unitLabel) return { status: 'error', message: 'unit_label is required.' }
+
+  const supabase = await createClient()
+
+  try {
+    await createDeviceCalibration(supabase, {
+      deviceId,
+      routeId,
+      unitLabel,
+      volumeMlPerUnitDistId: volumeDistId,
+      notes: notes || null,
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+
+  revalidatePath('/setup')
+  revalidatePath('/today')
+  revalidatePath(`/devices/${deviceId}`)
+  return { status: 'success', message: 'Created.' }
+}

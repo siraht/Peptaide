@@ -6,6 +6,7 @@ import { BulkAddRoutesForm } from '@/app/(app)/routes/bulk-add-routes-form'
 import { BulkAddSubstancesForm } from '@/app/(app)/substances/bulk-add-substances-form'
 import { CreateVialForm } from '@/app/(app)/inventory/create-vial-form'
 import { SetupBaseBioavailabilitySpecForm } from '@/app/(app)/setup/base-ba-spec-form'
+import { SetupDeviceCalibrationForm } from '@/app/(app)/setup/device-calibration-form'
 import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
@@ -34,6 +35,8 @@ export default async function SetupPage() {
   ])
 
   const fractionDists = dists.filter((d) => d.value_type === 'fraction')
+  const volumeDists = dists.filter((d) => d.value_type === 'volume_ml_per_unit')
+  const calibrationRoutes = routes.filter((r) => r.supports_device_calibration)
 
   const formulationOptions = formulations.map((f) => {
     const substance = f.substance?.display_name ?? 'Unknown substance'
@@ -216,6 +219,40 @@ export default async function SetupPage() {
               substances={substances}
               routes={routes}
               fractionDistributions={fractionDists}
+            />
+          </div>
+        )}
+
+        {devices.length === 0 ? (
+          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            Add at least one device first (see{' '}
+            <Link className="underline hover:text-zinc-900" href="/devices">
+              Devices
+            </Link>
+            ).
+          </div>
+        ) : calibrationRoutes.length === 0 ? (
+          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            No routes support device calibration yet. Enable it on a route (see{' '}
+            <Link className="underline hover:text-zinc-900" href="/routes">
+              Routes
+            </Link>
+            ).
+          </div>
+        ) : volumeDists.length === 0 ? (
+          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+            Create at least one <span className="font-mono">volume_ml_per_unit</span> distribution first (see{' '}
+            <Link className="underline hover:text-zinc-900" href="/distributions">
+              Distributions
+            </Link>
+            ).
+          </div>
+        ) : (
+          <div className="mt-3">
+            <SetupDeviceCalibrationForm
+              devices={devices}
+              routes={calibrationRoutes}
+              volumeDistributions={volumeDists}
             />
           </div>
         )}
