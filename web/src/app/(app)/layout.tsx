@@ -15,6 +15,16 @@ export default async function AppLayout({
     redirect('/sign-in')
   }
 
+  // Ensure a profile row exists for the signed-in user. This is idempotent and relies on DB defaults
+  // so it will not overwrite user preferences once a profile is configured.
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({ user_id: data.user.id }, { onConflict: 'user_id', ignoreDuplicates: true })
+
+  if (profileError) {
+    console.error('Failed to ensure profile row exists', profileError)
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b bg-white">
@@ -29,4 +39,3 @@ export default async function AppLayout({
     </div>
   )
 }
-

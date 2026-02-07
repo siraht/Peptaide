@@ -37,9 +37,9 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [x] (2026-02-07 02:44Z) Initialized SQL migrations under `supabase/migrations/` and added the DB foundation migration `supabase/migrations/20260207023143_001_foundation.sql` (pgcrypto, shared enum types, `public.set_updated_at()` trigger helper). Evidence: local DB contains the expected enum types (see `Artifacts and Notes`). plan[105-117]
 - [x] (2026-02-07 02:44Z) Implemented `profiles` (identity + defaults) with RLS via `supabase/migrations/20260207023215_010_profiles.sql` and applied it locally. Evidence: `public.profiles` exists and RLS is enabled with own-row policies (see `Artifacts and Notes`). plan[118-129]
-- [ ] Add app logic to ensure a `profiles` row exists for each user (insert-on-first-login using DB defaults; do not overwrite existing user preferences). plan[118-129]
-- [ ] Commit the new migrations under `supabase/migrations/` to git. (This repo requires frequent commits.)
-- [ ] Generate DB TypeScript types into `web/src/lib/supabase/database.types.ts` (local: `supabase gen types typescript --local`) after each schema milestone so app code stays typed. plan[105-129]
+- [x] (2026-02-07 02:49Z) Added app logic to ensure a `profiles` row exists for each user (insert-on-first-login using DB defaults; do not overwrite existing user preferences). Implementation: idempotent upsert in `web/src/app/(app)/layout.tsx`. plan[118-129]
+- [x] (2026-02-07 02:47Z) Committed the new migrations under `supabase/migrations/` to git (`4a8ff2a`). (This repo requires frequent commits.)
+- [x] (2026-02-07 02:49Z) Generated DB TypeScript types into `web/src/lib/supabase/database.types.ts` (local: `supabase gen types typescript --local`) so app code stays typed. plan[105-129]
 
 - [ ] Implement reference-data tables (substances, substance_aliases, routes, devices, device_calibrations, formulations, formulation_components) including uniqueness-by-user constraints and RLS policies. plan[130-179]
 - [ ] Implement inventory + commerce tables (vendors, orders, order_items, vials) including the partial unique index that enforces one active vial per (user, formulation). plan[180-229]
