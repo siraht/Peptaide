@@ -6,6 +6,21 @@ import type { Database } from '@/lib/supabase/database.types'
 export type CycleRuleRow = Database['public']['Tables']['cycle_rules']['Row']
 export type CycleInstanceRow = Database['public']['Tables']['cycle_instances']['Row']
 
+export async function getCycleInstanceById(
+  supabase: DbClient,
+  opts: { cycleInstanceId: string },
+): Promise<CycleInstanceRow | null> {
+  const res = await supabase
+    .from('cycle_instances')
+    .select('*')
+    .eq('id', opts.cycleInstanceId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  requireOk(res.error, 'cycle_instances.select_by_id')
+  return res.data
+}
+
 export async function getCycleRuleForSubstance(
   supabase: DbClient,
   opts: { substanceId: string },
@@ -92,4 +107,3 @@ export async function completeCycleInstance(
 
   requireOk(res.error, 'cycle_instances.complete')
 }
-

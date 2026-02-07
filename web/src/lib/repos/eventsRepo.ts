@@ -4,6 +4,21 @@ import { requireData, requireOk } from './errors'
 import type { Database } from '@/lib/supabase/database.types'
 
 export type EventEnrichedRow = Database['public']['Views']['v_event_enriched']['Row']
+export type AdministrationEventRow = Database['public']['Tables']['administration_events']['Row']
+
+export async function getAdministrationEventById(
+  supabase: DbClient,
+  opts: { eventId: string },
+): Promise<AdministrationEventRow | null> {
+  const res = await supabase
+    .from('administration_events')
+    .select('*')
+    .eq('id', opts.eventId)
+    .maybeSingle()
+
+  requireOk(res.error, 'administration_events.select_by_id')
+  return res.data
+}
 
 export async function listEventsEnrichedInRange(
   supabase: DbClient,
@@ -19,6 +34,23 @@ export async function listEventsEnrichedInRange(
     .lt('ts', endTs)
     .order('ts', { ascending: true })
   return requireData(res.data, res.error, 'v_event_enriched.select_range')
+}
+
+export async function listEventsEnrichedForCycle(
+  supabase: DbClient,
+  opts: { cycleInstanceId: string; includeDeleted?: boolean },
+): Promise<EventEnrichedRow[]> {
+  const { cycleInstanceId, includeDeleted = false } = opts
+  if (!cycleInstanceId) return []
+
+  let q = supabase.from('v_event_enriched').select('*').eq('cycle_instance_id', cycleInstanceId)
+  if (!includeDeleted) {
+    q = q.is('deleted_at', null)
+  }
+
+  const res = await q.order('ts', { ascending: true })
+  requireOk(res.error, 'v_event_enriched.select_for_cycle')
+  return res.data ?? []
 }
 
 export async function listRecentEventsEnriched(

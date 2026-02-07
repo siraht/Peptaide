@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { listCycleSummary } from '@/lib/repos/cycleSummaryRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -56,7 +58,15 @@ export default async function CyclesPage() {
                   return (
                     <tr key={rowKey}>
                       <td className="border-b px-2 py-2 text-zinc-900">{c.substance_name ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.cycle_number)}</td>
+                      <td className="border-b px-2 py-2 text-zinc-700">
+                        {c.cycle_instance_id ? (
+                          <Link className="underline hover:text-zinc-900" href={`/cycles/${c.cycle_instance_id}`}>
+                            {fmt(c.cycle_number)}
+                          </Link>
+                        ) : (
+                          <span>{fmt(c.cycle_number)}</span>
+                        )}
+                      </td>
                       <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.start_ts)}</td>
                       <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.end_ts)}</td>
                       <td className="border-b px-2 py-2 text-zinc-700">{fmt(c.cycle_length_days)}</td>
