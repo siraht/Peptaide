@@ -43,6 +43,9 @@ export default async function AppLayout({
               <Link className="hover:text-zinc-900" href="/routes">
                 Routes
               </Link>
+              <Link className="hover:text-zinc-900" href="/devices">
+                Devices
+              </Link>
               <Link className="hover:text-zinc-900" href="/formulations">
                 Formulations
               </Link>
