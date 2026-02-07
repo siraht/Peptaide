@@ -57,14 +57,16 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [ ] Implement cycles domain module for gap-based suggestion, auto-starting first cycle, and "split cycle at event" corrections (completed: `web/src/lib/domain/cycles/suggest.ts` + tests, including `suggestCycleAction` for auto-start + gap-based suggestion; remaining: cycle assignment orchestration on real DB rows and split-at-event mechanics in the repo/server layer). plan[261-282] plan[462-540] plan[596-617]
 - [x] (2026-02-07 03:35Z) Fixed `npm run typecheck` failing with `TS2737` BigInt literal errors by disabling `tsc` incremental compilation in `web/tsconfig.json` (stale `tsconfig.tsbuildinfo` from the earlier compiler target was causing a false "target < ES2020" error). Evidence: `npm run typecheck` now succeeds.
 
-- [ ] Implement thin, typed data-access modules (repos) for all tables and views, and make them the only place that performs SQL queries from app code (completed: repo scaffolding + initial repos in `web/src/lib/repos/` for profiles/formulations/vials/distributions/events; remaining: repos for the rest of the tables/views and refactor all app DB access to go through repos). plan[618-621]
+- [ ] Implement thin, typed data-access modules (repos) for all tables and views, and make them the only place that performs SQL queries from app code (completed: repo scaffolding + initial repos in `web/src/lib/repos/` for profiles/formulations/vials/distributions/events, plus repos for BA specs/modifiers/components/calibrations needed for event modeling; remaining: repos for the rest of the tables/views and refactor all app DB access to go through repos). plan[618-621]
+- [x] (2026-02-07 04:09Z) Implemented a `/today` prototyping surface to exercise the end-to-end event pipeline (without the final virtualized grid yet): demo-data seeding action, a quick log form using Server Actions, and a recent-events table backed by `public.v_event_enriched`. The server action parses `input_text`, computes canonical dose (mg/mL when possible), computes MC percentiles when BA specs exist, and persists `model_snapshot`. Files: `web/src/app/(app)/today/page.tsx`, `web/src/app/(app)/today/actions.ts`, `web/src/app/(app)/today/today-log-form.tsx`. plan[462-499] plan[638-643]
+- [x] (2026-02-07 04:16Z) Implemented basic reference-data CRUD pages and navigation needed for setup: `/substances` (create/list/soft-delete), `/routes` (create/list/soft-delete), and `/formulations` (create/list). Added header navigation links in `web/src/app/(app)/layout.tsx`. These are scaffolding toward the bulk-first Setup Wizard and detail pages. plan[422-461] plan[644-659]
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
 
 - [ ] UI: implement global navigation and a command palette (Ctrl+K / Cmd+K) for common actions (log, create substance/formulation, open today, jump to analytics). plan[414-421]
 
 - [ ] UI: implement Setup Wizard A1-A6 (preferences, bulk add substances, bulk add routes, bulk add formulations, bulk add vials and/or generate from orders, base BA + modifiers entry). plan[422-461]
-- [ ] UI: implement `/substances` list + bulk add + detail page (formulations, BA specs, recommendations, analytics links). plan[644-652]
-- [ ] UI: implement `/formulations` list + bulk add + detail page (components + modifier distributions, default device/vial settings). plan[653-659]
+- [ ] UI: implement `/substances` list + bulk add + detail page (formulations, BA specs, recommendations, analytics links) (completed: basic `/substances` list + create + soft delete; remaining: bulk grid/paste, aliases, detail page + linked CRUD). plan[644-652]
+- [ ] UI: implement `/formulations` list + bulk add + detail page (components + modifier distributions, default device/vial settings) (completed: basic `/formulations` list + create; remaining: bulk grid/paste, detail page + components/specs editing, default device/vial settings). plan[653-659]
 
 - [ ] UI: implement `/orders` and `/inventory` flows including order entry, order items, cost allocation preview, generate vials, set active vial, close/discard vial, runway estimates. plan[500-518] plan[660-676]
 
@@ -382,7 +384,7 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 ## Outcomes & Retrospective
 
-2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion helper only so far).
+2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion + auto-start decision helper, but not DB orchestration yet). A `/today` prototyping surface exists to exercise the end-to-end event pipeline (not the final virtualized grid yet).
 
 What exists now:
 
@@ -390,7 +392,8 @@ What exists now:
 2. Local Supabase is initialized (`supabase/config.toml`) and can be started via `supabase start`. For local email sign-in, Mailpit runs at `http://127.0.0.1:54324`.
 3. Supabase SSR auth skeleton is in place: `web/middleware.ts` performs session refresh, `/sign-in` sends OTP/magic-link email, `/auth/callback` exchanges the code for a session, `/today` is protected by the `(app)` layout, and a server-action sign-out exists.
 4. The MVP schema is migrated locally under `supabase/migrations/` through reference data, inventory, cycles, recommendations, uncertainty distributions/specs, administration events (plus `event_revisions` audit), and the dashboard/coverage SQL views. All user-owned tables have RLS enabled with own-row policies. DB types are generated at `web/src/lib/supabase/database.types.ts`.
-5. Pure domain logic modules exist under `web/src/lib/domain/` with unit tests: `units/`, `uncertainty/`, `dose/`, and `cost/` are implemented; `cycles/` currently only includes the gap-based suggestion helper.
+5. Pure domain logic modules exist under `web/src/lib/domain/` with unit tests: `units/`, `uncertainty/`, `dose/`, and `cost/` are implemented; `cycles/` currently only includes gap-based suggestions and the "auto-start first cycle" decision helper.
+6. A `/today` prototype exists that can seed demo reference data, log events via Server Actions, and render recent events from `public.v_event_enriched`. It exercises parsing, canonical dose computation, MC percentiles (when BA specs exist), and `model_snapshot` persistence.
 
 What remains (next highest-leverage work):
 
@@ -408,7 +411,7 @@ Repository state today:
 2. A Next.js 16 App Router app exists in `web/` (TypeScript, Tailwind, ESLint) with `npm run build`, `npm run lint`, `npm run test` (Vitest), and `npm run typecheck` (tsc --noEmit).
 3. Supabase local dev is initialized under `supabase/` (`supabase/config.toml`). Local Supabase can be started with `supabase start` and inspected with `supabase status`.
 4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. The MVP schema is migrated locally under `supabase/migrations/` through `administration_events` and the dashboard/coverage views, and TypeScript DB types are generated at `web/src/lib/supabase/database.types.ts`.
-5. Pure domain logic modules exist under `web/src/lib/domain/` with unit tests (Milestone 2): units/uncertainty/dose/cost are implemented; cycles is partially implemented (gap-based suggestion helper only so far). These modules are designed to be imported by server actions and UI without embedding business logic in React components.
+5. Pure domain logic modules exist under `web/src/lib/domain/` with unit tests (Milestone 2): units/uncertainty/dose/cost are implemented; cycles is partially implemented (gap-based suggestion and the auto-start-first-cycle decision helper only so far). These modules are designed to be imported by server actions and UI without embedding business logic in React components.
 
 Core concepts and definitions (plain language):
 
