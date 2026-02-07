@@ -38,7 +38,12 @@ export default async function OrdersPage() {
   const orderIds = new Set(orders.map((o) => o.id))
   const visibleItems = orderItems.filter((oi) => orderIds.has(oi.order_id))
 
-  const counts = await listOrderItemVialCounts(supabase, { orderItemIds: visibleItems.map((oi) => oi.id) })
+  const vendorIds = [...new Set(orders.map((o) => o.vendor_id))]
+  const [counts, vendorsForOrders] = await Promise.all([
+    listOrderItemVialCounts(supabase, { orderItemIds: visibleItems.map((oi) => oi.id) }),
+    listVendorsById(supabase, { vendorIds, includeDeleted: true }),
+  ])
+
   const countsByOrderItemId = new Map<string, (typeof counts)[number]>()
   for (const c of counts) {
     if (c.order_item_id) {
@@ -46,8 +51,6 @@ export default async function OrdersPage() {
     }
   }
 
-  const vendorIds = [...new Set(orders.map((o) => o.vendor_id))]
-  const vendorsForOrders = await listVendorsById(supabase, { vendorIds, includeDeleted: true })
   const vendorById = new Map(vendorsForOrders.map((v) => [v.id, v] as const))
 
   const substanceById = new Map(substances.map((s) => [s.id, s] as const))
