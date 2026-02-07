@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { CreateDistributionState } from './actions'
 import { createDistributionAction } from './actions'
@@ -12,6 +13,13 @@ export function CreateDistributionForm() {
     createDistributionAction,
     { status: 'idle' },
   )
+
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+  }, [router, state.status])
 
   const paramHelp = useMemo(() => {
     switch (distType) {
