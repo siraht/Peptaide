@@ -84,3 +84,65 @@ export async function listFormulationsEnriched(
   }))
 }
 
+export async function getFormulationEnrichedById(
+  supabase: DbClient,
+  opts: { formulationId: string },
+): Promise<FormulationEnriched | null> {
+  const formulationRes = await supabase
+    .from('formulations')
+    .select('*')
+    .eq('id', opts.formulationId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  requireOk(formulationRes.error, 'formulations.select_by_id')
+
+  const formulation = formulationRes.data
+  if (!formulation) return null
+
+  const [substanceRes, routeRes, deviceRes] = await Promise.all([
+    supabase.from('substances').select('*').eq('id', formulation.substance_id).maybeSingle(),
+    supabase.from('routes').select('*').eq('id', formulation.route_id).maybeSingle(),
+    formulation.device_id
+      ? supabase.from('devices').select('*').eq('id', formulation.device_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ])
+
+  requireOk(substanceRes.error, 'substances.select_by_id')
+  requireOk(routeRes.error, 'routes.select_by_id')
+  requireOk(deviceRes.error, 'devices.select_by_id')
+
+  return {
+    formulation,
+    substance: substanceRes.data ?? null,
+    route: routeRes.data ?? null,
+    device: deviceRes.data ?? null,
+  }
+}
+
+export async function createFormulation(
+  supabase: DbClient,
+  opts: {
+    substanceId: string
+    routeId: string
+    deviceId: string | null
+    name: string
+    isDefaultForRoute: boolean
+    notes: string | null
+  },
+): Promise<FormulationRow> {
+  const { substanceId, routeId, deviceId, name, isDefaultForRoute, notes } = opts
+
+  const res = await supabase
+    .from('formulations')
+    .insert({
+      substance_id: substanceId,
+      route_id: routeId,
+      device_id: deviceId,
+      name,
+      is_default_for_route: isDefaultForRoute,
+      notes,
+    })
+    .select('*')
+    .single()
+  return requireData(res.data, res.error, 'formulations.insert')
+}

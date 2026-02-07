@@ -1,13 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+import type { Database } from './database.types'
 import { getSupabaseEnv } from './env'
 
 export async function createClient() {
   const { url, anonKey } = getSupabaseEnv()
   const cookieStore = await cookies()
 
-  return createServerClient(url, anonKey, {
+  return createServerClient<Database>(url, anonKey, {
     auth: {
       flowType: 'pkce',
     },
