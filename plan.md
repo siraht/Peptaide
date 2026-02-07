@@ -120,7 +120,7 @@ If `administration_events` stores both `formulation_id` and `substance_id/route_
 **profiles**
 * `user_id` (PK/FK → auth.users)
 * `timezone` (IANA string)
-* `default_mass_unit` (text; e.g. mg, mcg, IU)
+* `default_mass_unit` (text; e.g. mg, mcg; IU is handled separately as `input_kind=IU` and is not a mass unit)
 * `default_volume_unit` (text; e.g. mL)
 * `default_simulation_n` (int; default 2048)
 * `cycle_gap_default_days` (int; default 7)
@@ -194,7 +194,7 @@ If `administration_events` stores both `formulation_id` and `substance_id/route_
 **order_items**
 * `order_id` (FK)
 * `substance_id` (FK)
-* `formulation_id` (FK nullable) — link if known at purchase time
+* `formulation_id` (FK nullable) — link if known at purchase time (if set, must match `substance_id`)
 * `qty` (int) — “how many units purchased”
 * `unit_label` (text; “vial”, “kit”, etc.)
 * `price_total_usd` (numeric) — total for this line item (less ambiguous than price_per_unit)
@@ -202,7 +202,7 @@ If `administration_events` stores both `formulation_id` and `substance_id/route_
 * `notes`
 
 **vials**
-* `substance_id` (FK)
+* `substance_id` (FK; must match the linked formulation’s `substance_id`)
 * `formulation_id` (FK)
 * `order_item_id` (FK nullable)
 * `lot` (text nullable)
@@ -215,7 +215,7 @@ If `administration_events` stores both `formulation_id` and `substance_id/route_
   * `content_mass_unit` (text; mg/mcg/IU/etc)
   * `total_volume_value` (numeric nullable)
   * `total_volume_unit` (text nullable; mL etc)
-  * `concentration_mg_per_ml` (numeric nullable; stored for speed, computed if mass+volume known)
+  * `concentration_mg_per_ml` (numeric nullable; stored for speed, computed if mass+volume known and mass is convertible to mg; leave null for IU-only vials)
 * **Calibration overrides** (per-vial if needed)
   * `volume_ml_per_unit_override_dist_id` (FK → distributions; nullable)
 * **Cost**
@@ -249,7 +249,7 @@ If `administration_events` stores both `formulation_id` and `substance_id/route_
   * `mc_seed` (bigint nullable) — deterministic recomputation
   * `model_snapshot` (jsonb nullable) — selected distribution IDs + resolved params at log time
 * **Cost attribution (optional but powerful)**
-  * `cost_usd` (numeric nullable) — derived from vial cost × fraction used
+  * `cost_usd` (numeric nullable) — derived from vial cost × fraction used (prefer mg fraction; fall back to volume fraction if needed)
 * `tags` (text[])
 * `notes`
 * `deleted_at` (timestamptz nullable)
@@ -359,26 +359,26 @@ Outputs stored:
 
 ### 5.2 Distribution choices (simple + correct)
 
-* Fractions in \[0,1\]: prefer **beta-PERT** (parameterized by min/mode/max).
-* Multipliers ≥ 0: prefer **lognormal** (or triangular if you only know rough bounds).
+* Fractions in \[0,1\]: prefer **beta-PERT** (parameterized by min/mode/max; use a fixed lambda=4).
+* Multipliers ≥ 0: prefer **lognormal** (parameterized by median + log_sigma; or triangular if you only know rough bounds).
 * Uniform/range is allowed but should be visually flagged as low-quality evidence.
 
 ### 5.3 Determinism (so you can reproduce results)
 
-* `mc_seed = hash(user_id, event_id, model_version_ids...)`
+* `mc_seed = hash(user_id, event_id, canonical_model_snapshot)` (where `canonical_model_snapshot` includes the chosen distribution IDs and resolved numeric params)
 * Changing a model triggers optional “recompute affected events” action.
 
 ### 5.4 When to run MC
 
 * On event save:
   * compute canonical dose (mg/mL)
-  * run MC with `default_simulation_n` (e.g., 2048)
+  * run MC with `default_simulation_n` (e.g., 2048) when `dose_admin_mg` is available and required distributions exist; otherwise persist null percentiles and show non-blocking coverage warnings
   * persist percentiles
 * On dashboards:
   * aggregate using p50 for “central” and p05/p95 for bands
   * optionally run “day-level MC” later; MVP can do percentile aggregation conservatively:
     * day_p05 = sum(event_p05), day_p50 = sum(event_p50), day_p95 = sum(event_p95)
-    * (not perfect statistically, but safe and monotone; you can add correlated sampling later)
+    * (heuristic band only: monotone but not statistically correct quantiles; add day-level MC and/or correlated sampling later)
 
 ---
 
@@ -758,4 +758,3 @@ The MVP is done when:
 [Prisma ORM 7 announcement]: https://www.prisma.io/blog/announcing-prisma-orm-7-0-0
 [UCUM]: https://ucum.org/ucum
 [ucum.js]: https://github.com/jmandel/ucum.js/
-

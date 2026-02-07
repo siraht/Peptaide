@@ -24,6 +24,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 01:22Z) Fresh-eyes pass: audited `ExecPlan.md` against `plan.md` and patched omissions (explicit unit synonyms including `[iU]` and micro-unit variants; vials/events field grouping labels; `formulation_id` quick-add note; clarified `price_total_usd` rationale; restored the plan's reference URLs verbatim; noted optional mean/std in MC outputs). plan[180-260] plan[344-409] plan[752-761]
 - [x] (2026-02-07 01:39Z) Fresh-eyes correctness audit: removed self-containment footguns (milestones no longer depend on `plan.md`), tightened probability/MC semantics (distribution parameterization + safety constraints, deterministic percentiles definition, explicit non-quantile labeling for summed-percentile day bands), clarified deterministic seeding via `model_snapshot`, fixed cost attribution to use administered dose with mg-or-volume fallback, and added key uniqueness/consistency constraints to prevent schema drift. plan[105-411] plan[500-635] plan[690-713]
 - [x] (2026-02-07 01:49Z) Fresh-eyes environment probe: recorded local runtime/repo surprises (Bun `node` wrapper, repo not a git worktree) with evidence and updated this ExecPlan so concrete steps are executable in this workspace.
+- [x] (2026-02-07 02:44Z) Fresh-eyes audit: re-checked `plan.md` vs `ExecPlan.md` coverage and fixed remaining probability/units footguns in `plan.md` (seed definition, distribution parameterization, IU vs mass-unit semantics, daily band labeling). Also updated this ExecPlan's `Progress`, `Artifacts and Notes`, and "Repository state today" so they match the actual working tree (migrations exist and are applied locally). plan[105-411]
 
 - [ ] (H1) **HUMAN ACTION**: Choose and provision the hosted Supabase environment for deployment (local Supabase is already used for dev in this workspace), and provide the production environment variables. Evidence: the deployed web app can sign in, run migrations, and successfully query user-scoped tables with RLS enabled. Required env vars (deploy: hosting environment): `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Optional (avoid unless truly needed): a server-only `SUPABASE_SERVICE_ROLE_KEY` for offline admin scripts that cannot run in a user session; it must never be exposed to the browser and must not be used for normal app requests (to avoid bypassing RLS). If running direct SQL scripts/tests against hosted Supabase, also provide `SUPABASE_DB_URL` (a Postgres connection string with sufficient rights for migrations in the chosen environment). plan[17-29] plan[690-698]
 - [ ] (H2) **HUMAN ACTION**: For hosted Supabase, configure Auth settings for the chosen sign-in method(s) and redirect URLs for production (and confirm local dev redirects are correct). Evidence: users can complete sign-in and return to `/today` without redirect errors, and sign-out invalidates the session. plan[17-29] plan[636-689]
@@ -34,8 +35,11 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 02:12Z) Initialized and started local Supabase (`supabase init`, `supabase start`) and configured `web/.env.local` with the local Supabase URL + publishable key for dev auth and API access. plan[17-29] plan[690-698]
 - [x] (2026-02-07 02:12Z) Added Supabase client wiring for Next.js using `@supabase/ssr`, and implemented authentication pages plus route protection for all app pages (middleware session refresh, `/sign-in`, `/auth/callback`, and a protected `/today`). plan[17-29] plan[690-698]
 
-- [ ] Initialize SQL migrations under `supabase/migrations/` and add a DB foundation migration: extensions, common trigger function for `updated_at`, and basic enum types used across the schema. plan[105-117]
-- [ ] Implement `profiles` (identity + defaults) with RLS, and add app logic to ensure a profile row exists for each user with sane defaults (timezone, units, default MC N, cycle gap). plan[118-129]
+- [x] (2026-02-07 02:44Z) Initialized SQL migrations under `supabase/migrations/` and added the DB foundation migration `supabase/migrations/20260207023143_001_foundation.sql` (pgcrypto, shared enum types, `public.set_updated_at()` trigger helper). Evidence: local DB contains the expected enum types (see `Artifacts and Notes`). plan[105-117]
+- [x] (2026-02-07 02:44Z) Implemented `profiles` (identity + defaults) with RLS via `supabase/migrations/20260207023215_010_profiles.sql` and applied it locally. Evidence: `public.profiles` exists and RLS is enabled with own-row policies (see `Artifacts and Notes`). plan[118-129]
+- [ ] Add app logic to ensure a `profiles` row exists for each user (insert-on-first-login using DB defaults; do not overwrite existing user preferences). plan[118-129]
+- [ ] Commit the new migrations under `supabase/migrations/` to git. (This repo requires frequent commits.)
+- [ ] Generate DB TypeScript types into `web/src/lib/supabase/database.types.ts` (local: `supabase gen types typescript --local`) after each schema milestone so app code stays typed. plan[105-129]
 
 - [ ] Implement reference-data tables (substances, substance_aliases, routes, devices, device_calibrations, formulations, formulation_components) including uniqueness-by-user constraints and RLS policies. plan[130-179]
 - [ ] Implement inventory + commerce tables (vendors, orders, order_items, vials) including the partial unique index that enforces one active vial per (user, formulation). plan[180-229]
@@ -377,7 +381,7 @@ What exists now:
 What remains (next highest-leverage work):
 
 1. Manually validate the sign-in flow end-to-end in a browser (send link, open Mailpit, click link, confirm `/today`, sign out). Note: in this workspace, `next dev` bound to port 3001 because port 3000 was already in use.
-2. Implement the full SQL schema + RLS under `supabase/migrations/` and generate DB types (Milestone 1).
+2. Continue implementing the full SQL schema + RLS under `supabase/migrations/` (foundation + `profiles` are already migrated locally) and generate DB types (Milestone 1).
 3. Implement the pure domain logic modules (Milestone 2) before building the complex UI surfaces.
 
 ## Context and Orientation
@@ -387,8 +391,8 @@ Repository state today:
 1. The repo is a git worktree and contains the core docs: `AGENTS.md`, the source design doc `plan.md` (Feb 2026), this living spec `ExecPlan.md`, and the ExecPlan format authority `.agent/PLANSwHD.md`.
 2. A Next.js 16 App Router app exists in `web/` (TypeScript, Tailwind, ESLint) with a minimal Vitest harness (`npm run test`).
 3. Supabase local dev is initialized under `supabase/` (`supabase/config.toml`). Local Supabase can be started with `supabase start` and inspected with `supabase status`.
-4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. The MVP database schema has not been migrated yet (no `supabase/migrations/*` have been authored).
-5. No domain logic modules have been implemented yet beyond a smoke test; the next major milestone is authoring the SQL schema + RLS and generating typed DB types.
+4. Auth skeleton is implemented in the web app (middleware session refresh, `/sign-in`, `/auth/callback`, protected `/today`) using `@supabase/ssr`. SQL migrations now exist under `supabase/migrations/` for the DB foundation and `profiles`, and they have been applied to local Supabase; the remainder of the MVP schema is still pending.
+5. No domain logic modules have been implemented yet beyond a smoke test; the next major milestone is finishing the SQL schema + RLS (Milestone 1) and generating typed DB types.
 
 Core concepts and definitions (plain language):
 
@@ -510,7 +514,7 @@ The table definitions below list only the business-specific columns. Unless a ta
 
 1. `user_id` (primary key; foreign key to `auth.users`)
 2. `timezone` (IANA string)
-3. `default_mass_unit` (text, e.g. mg, mcg, IU)
+3. `default_mass_unit` (text, e.g. mg, mcg; IU is handled separately as `input_kind = iu` and is not a mass unit)
 4. `default_volume_unit` (text, e.g. mL)
 5. `default_simulation_n` (int, default 2048)
 6. `cycle_gap_default_days` (int, default 7)
@@ -1262,6 +1266,24 @@ This plan should be safe to run repeatedly.
 
 As implementation proceeds, paste short, focused evidence here (no giant logs). Keep outputs that prove correctness.
 
+Evidence captured so far (local Supabase):
+
+    psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "select table_schema, table_name from information_schema.tables where table_schema='public' order by table_name;"
+
+     table_schema | table_name
+    --------------+------------
+     public       | profiles
+    (1 row)
+
+    psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "select typname from pg_type where typnamespace = 'public'::regnamespace and typname in ('compartment_t','input_kind_t','distribution_dist_type_t') order by typname;"
+
+              typname
+    ----------------------------
+     compartment_t
+     distribution_dist_type_t
+     input_kind_t
+    (3 rows)
+
 Recommended artifacts to record:
 
 1. A short transcript showing migrations applied.
@@ -1416,3 +1438,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Updated the living plan to reflect real implementation progress (git worktree created; Next.js app and local Supabase initialized; Supabase SSR auth skeleton implemented). Updated `Progress`, `Surprises & Discoveries`, `Outcomes & Retrospective`, and the "Repository state today" orientation to match the current working tree.
 
 2026-02-07: Auth integration hardening. Updates: configured Supabase clients to use PKCE flow, adjusted `/auth/callback` to attach cookies to the redirect response, updated local Supabase redirect allow-list in `supabase/config.toml` to include common local dev origins and `/auth/callback`, and captured the redirect allow-list + PKCE verifier-cookie implications in `Surprises & Discoveries`.
+
+2026-02-07: Milestone 1 started. Updates: added and applied local DB migrations for the schema foundation and `profiles` (with RLS), updated `Progress`, `Outcomes & Retrospective`, and "Repository state today" to match reality, and captured initial migration evidence in `Artifacts and Notes`. Also tightened a few plan-level semantics in `plan.md` (seed definition, distribution parameterization, IU/mg clarifications, and labeling for summed-percentile daily bands) so the source plan no longer contains probability-theory footguns.
