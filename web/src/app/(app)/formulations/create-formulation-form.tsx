@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import type { CreateFormulationState } from './actions'
 import { createFormulationAction } from './actions'
@@ -18,6 +18,7 @@ export function CreateFormulationForm(props: {
     status: 'idle',
   })
 
+  const router = useRouter()
   const nameRef = useRef<HTMLInputElement | null>(null)
   const focus = useSearchParams().get('focus')
 
@@ -25,6 +26,12 @@ export function CreateFormulationForm(props: {
     if (focus !== 'new') return
     nameRef.current?.focus()
   }, [focus])
+
+  useEffect(() => {
+    if (state.status !== 'success') return
+    router.refresh()
+    nameRef.current?.focus()
+  }, [router, state.status])
 
   return (
     <div className="rounded-lg border bg-white p-4">

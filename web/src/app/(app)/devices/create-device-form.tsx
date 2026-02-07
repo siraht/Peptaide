@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 
 import type { CreateDeviceState } from './actions'
 import { createDeviceAction } from './actions'
@@ -10,12 +11,14 @@ export function CreateDeviceForm() {
     status: 'idle',
   })
 
+  const router = useRouter()
   const nameRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (state.status !== 'success') return
+    router.refresh()
     nameRef.current?.focus()
-  }, [state.status])
+  }, [router, state.status])
 
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -64,4 +67,3 @@ export function CreateDeviceForm() {
     </div>
   )
 }
-
