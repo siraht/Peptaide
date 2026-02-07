@@ -14,6 +14,13 @@ function fmt(x: unknown): string {
   return String(x)
 }
 
+function fmtRange(min: number | null | undefined, max: number | null | undefined): string {
+  if (min == null && max == null) return '-'
+  if (min != null && max != null) return `${fmt(min)} - ${fmt(max)}`
+  if (min != null) return `>= ${fmt(min)}`
+  return `<= ${fmt(max)}`
+}
+
 export default async function CycleDetailPage({
   params,
   searchParams,
@@ -84,7 +91,28 @@ export default async function CycleDetailPage({
             <div className="text-xs text-zinc-500">Administered mg</div>
             <div className="text-zinc-900">{fmt(cycle.administered_mg_total)}</div>
           </div>
+          <div>
+            <div className="text-xs text-zinc-500">Rec cycle days</div>
+            <div className="text-zinc-900">
+              {fmtRange(cycle.recommended_cycle_days_min, cycle.recommended_cycle_days_max)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-zinc-500">Rec break days</div>
+            <div className="text-zinc-900">
+              {fmtRange(cycle.recommended_break_days_min, cycle.recommended_break_days_max)}
+            </div>
+          </div>
         </div>
+        {cycle.substance_id ? (
+          <p className="mt-3 text-sm text-zinc-700">
+            Edit recommendations on{' '}
+            <Link className="underline hover:text-zinc-900" href={`/substances/${cycle.substance_id}`}>
+              the substance page
+            </Link>
+            .
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-lg border bg-white p-4">

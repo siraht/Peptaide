@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { setBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
+import { createSubstanceRecommendation, softDeleteSubstanceRecommendation } from '@/lib/repos/substanceRecommendationsRepo'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -11,10 +12,31 @@ export type SetBioavailabilitySpecState =
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
 
+export type CreateSubstanceRecommendationState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | { status: 'success'; message: string }
+
 function isCompartment(
   x: string,
 ): x is Extract<Database['public']['Enums']['compartment_t'], 'systemic' | 'cns'> {
   return x === 'systemic' || x === 'cns'
+}
+
+function isRecommendationCategory(
+  x: string,
+): x is Database['public']['Enums']['recommendation_category_t'] {
+  return x === 'cycle_length_days' || x === 'break_length_days' || x === 'dosing' || x === 'frequency'
+}
+
+function parseOptionalNumber(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n)) {
+    throw new Error(`Invalid number: "${raw}"`)
+  }
+  return n
 }
 
 export async function setBioavailabilitySpecAction(
@@ -52,3 +74,70 @@ export async function setBioavailabilitySpecAction(
   return { status: 'success', message: 'Saved.' }
 }
 
+export async function createSubstanceRecommendationAction(
+  _prev: CreateSubstanceRecommendationState,
+  formData: FormData,
+): Promise<CreateSubstanceRecommendationState> {
+  const substanceId = String(formData.get('substance_id') ?? '').trim()
+  const categoryRaw = String(formData.get('category') ?? '').trim()
+  const routeIdRaw = String(formData.get('route_id') ?? '').trim()
+  const minValueRaw = String(formData.get('min_value') ?? '').trim()
+  const maxValueRaw = String(formData.get('max_value') ?? '').trim()
+  const unit = String(formData.get('unit') ?? '').trim()
+  const notes = String(formData.get('notes') ?? '').trim()
+
+  if (!substanceId) return { status: 'error', message: 'Missing substance_id.' }
+  if (!isRecommendationCategory(categoryRaw)) return { status: 'error', message: 'Invalid category.' }
+  if (!unit) return { status: 'error', message: 'unit is required.' }
+
+  let minValue: number | null = null
+  let maxValue: number | null = null
+
+  try {
+    minValue = parseOptionalNumber(minValueRaw)
+    maxValue = parseOptionalNumber(maxValueRaw)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+
+  if (minValue == null && maxValue == null) {
+    return { status: 'error', message: 'Provide min and/or max.' }
+  }
+  if (minValue != null && maxValue != null && minValue > maxValue) {
+    return { status: 'error', message: 'min must be <= max when both are provided.' }
+  }
+
+  const supabase = await createClient()
+
+  try {
+    await createSubstanceRecommendation(supabase, {
+      substanceId,
+      category: categoryRaw,
+      routeId: routeIdRaw ? routeIdRaw : null,
+      minValue,
+      maxValue,
+      unit,
+      notes: notes || null,
+      evidenceSourceId: null,
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: msg }
+  }
+
+  revalidatePath(`/substances/${substanceId}`)
+  revalidatePath('/cycles')
+  return { status: 'success', message: 'Saved.' }
+}
+
+export async function deleteSubstanceRecommendationAction(formData: FormData): Promise<void> {
+  const substanceId = String(formData.get('substance_id') ?? '').trim()
+  const recommendationId = String(formData.get('recommendation_id') ?? '').trim()
+  if (!substanceId || !recommendationId) return
+
+  const supabase = await createClient()
+  await softDeleteSubstanceRecommendation(supabase, { recommendationId })
+  revalidatePath(`/substances/${substanceId}`)
+  revalidatePath('/cycles')
+}

@@ -2,10 +2,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { BaseBioavailabilitySpecForm } from './base-ba-form'
+import { deleteSubstanceRecommendationAction } from './actions'
+import { SubstanceRecommendationsForm } from './recommendations-form'
 
 import { listBioavailabilitySpecsForSubstance } from '@/lib/repos/bioavailabilitySpecsRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { listRoutes } from '@/lib/repos/routesRepo'
+import { listSubstanceRecommendationsForSubstance } from '@/lib/repos/substanceRecommendationsRepo'
 import { getSubstanceById } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -33,6 +36,13 @@ function summarizeDist(dist: {
   }
 }
 
+function fmtRange(min: number | null | undefined, max: number | null | undefined): string {
+  if (min == null && max == null) return '-'
+  if (min != null && max != null) return `${min} - ${max}`
+  if (min != null) return `>= ${min}`
+  return `<= ${max}`
+}
+
 export default async function SubstanceDetailPage({
   params,
 }: {
@@ -42,11 +52,12 @@ export default async function SubstanceDetailPage({
 
   const supabase = await createClient()
 
-  const [substance, routes, dists, specs] = await Promise.all([
+  const [substance, routes, dists, specs, recs] = await Promise.all([
     getSubstanceById(supabase, { substanceId }),
     listRoutes(supabase),
     listDistributions(supabase),
     listBioavailabilitySpecsForSubstance({ supabase, substanceId }),
+    listSubstanceRecommendationsForSubstance(supabase, { substanceId }),
   ])
 
   if (!substance) {
@@ -78,6 +89,57 @@ export default async function SubstanceDetailPage({
         routes={routes}
         fractionDistributions={fractionDists}
       />
+
+      <SubstanceRecommendationsForm substanceId={substanceId} routes={routes} />
+
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Recommendations</h2>
+        {recs.length === 0 ? (
+          <p className="mt-2 text-sm text-zinc-700">No recommendations yet.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm">
+              <thead>
+                <tr className="text-xs text-zinc-600">
+                  <th className="border-b px-2 py-2 font-medium">Category</th>
+                  <th className="border-b px-2 py-2 font-medium">Route</th>
+                  <th className="border-b px-2 py-2 font-medium">Range</th>
+                  <th className="border-b px-2 py-2 font-medium">Unit</th>
+                  <th className="border-b px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b px-2 py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recs.map((r) => (
+                  <tr key={r.id}>
+                    <td className="border-b px-2 py-2 text-zinc-900">{r.category}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {r.route_id ? routeById.get(r.route_id)?.name ?? r.route_id : '-'}
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">
+                      {fmtRange(
+                        r.min_value == null ? null : Number(r.min_value),
+                        r.max_value == null ? null : Number(r.max_value),
+                      )}
+                    </td>
+                    <td className="border-b px-2 py-2 text-zinc-700">{r.unit}</td>
+                    <td className="border-b px-2 py-2 text-zinc-700">{r.notes ?? '-'}</td>
+                    <td className="border-b px-2 py-2">
+                      <form action={deleteSubstanceRecommendationAction}>
+                        <input type="hidden" name="substance_id" value={substanceId} />
+                        <input type="hidden" name="recommendation_id" value={r.id} />
+                        <button className="text-sm text-red-700" type="submit">
+                          Delete
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Base BA specs</h2>
