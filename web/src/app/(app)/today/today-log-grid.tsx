@@ -18,6 +18,8 @@ type GridRow = {
   message: string
 }
 
+type FocusDirection = 'next' | 'prev' | 'none'
+
 function blankRow(formulationId: string): GridRow {
   return { formulationId, inputText: '', status: 'idle', message: '' }
 }
@@ -57,7 +59,12 @@ export function TodayLogGrid(props: {
     inputRefs.current[0]?.focus()
   }, [focus])
 
-  async function saveRow(rowIndex: number): Promise<void> {
+  function focusRowInput(rowIndex: number): void {
+    const idx = Math.max(0, Math.min(rowIndex, rowsRef.current.length - 1))
+    inputRefs.current[idx]?.focus()
+  }
+
+  async function saveRow(rowIndex: number, opts: { focusDirection: FocusDirection }): Promise<void> {
     if (savingRowIndexesRef.current.has(rowIndex)) return
 
     const row = rowsRef.current[rowIndex]
@@ -112,9 +119,9 @@ export function TodayLogGrid(props: {
         next[rowIndex] = { ...current, inputText: '', status: 'success', message: res.message }
         return next
       })
-      // Focus next row input for rapid entry.
-      const nextIndex = Math.min(rowIndex + 1, rowsRef.current.length - 1)
-      inputRefs.current[nextIndex]?.focus()
+      if (opts.focusDirection !== 'none') {
+        focusRowInput(opts.focusDirection === 'prev' ? rowIndex - 1 : rowIndex + 1)
+      }
       return
     }
 
@@ -143,7 +150,7 @@ export function TodayLogGrid(props: {
       const row = rowsRef.current[i]
       if (!row) continue
       if (!row.inputText.trim()) continue
-      await saveRow(i)
+      await saveRow(i, { focusDirection: 'none' })
     }
   }
 
@@ -246,9 +253,25 @@ export function TodayLogGrid(props: {
                     }}
                     onPaste={(e) => handlePaste(e, idx)}
                     onKeyDown={(e) => {
-                      if (e.key !== 'Enter') return
-                      e.preventDefault()
-                      void saveRow(idx)
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (!row.inputText.trim()) {
+                          focusRowInput(e.shiftKey ? idx - 1 : idx + 1)
+                          return
+                        }
+                        void saveRow(idx, { focusDirection: e.shiftKey ? 'prev' : 'next' })
+                        return
+                      }
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        focusRowInput(idx + 1)
+                        return
+                      }
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        focusRowInput(idx - 1)
+                        return
+                      }
                     }}
                     placeholder='e.g. "0.3mL", "250mcg", "2 sprays"'
                     autoComplete="off"
