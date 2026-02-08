@@ -8,6 +8,11 @@ project_id = "peptaide"
 enabled = true
 # Port to use for the API URL.
 port = 54321
+# External URL of the API gateway. This is used by Supabase Auth when constructing
+# verification links in emails (magic links, invites, recovery, etc). It must be
+# reachable from the user's browser (e.g. via Tailscale Serve, a reverse proxy,
+# or a public hostname).
+external_url = "https://flywheel.tail3be29.ts.net:15432"
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
 schemas = ["public", "graphql_public"]
