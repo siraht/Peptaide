@@ -115,7 +115,9 @@ async function resetLocalSupabaseDb() {
   logLine('supabase: ensuring local dev stack is running')
   runCmd('supabase', ['start'], { cwd: REPO_ROOT, allowFailure: true })
 
-  const maxAttempts = 5
+  // `supabase db reset` can transiently 502 while the local gateway restarts. Prefer a longer
+  // retry loop so the "conclusive" run is resilient to local infra flakiness.
+  const maxAttempts = 10
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     logLine(`supabase: db reset (local) --yes (attempt ${attempt}/${maxAttempts})`)
     const res = runCmd('supabase', ['db', 'reset', '--yes'], { cwd: REPO_ROOT, allowFailure: true })
@@ -130,7 +132,7 @@ async function resetLocalSupabaseDb() {
     }
 
     if (attempt < maxAttempts) {
-      const waitMs = 2000 + attempt * 1500
+      const waitMs = 4000 + attempt * 2500
       logLine(`supabase: transient 502 during reset; retrying after ${waitMs}ms`)
       await sleep(waitMs)
     }
@@ -332,9 +334,32 @@ function setViewport(width, height) {
   runAgentBrowser(['set', 'viewport', String(width), String(height)])
 }
 
+function isRetryableNavigationError(e) {
+  const msg = e instanceof Error ? e.message : String(e)
+  return (
+    msg.includes('net::ERR_NETWORK_CHANGED') ||
+    msg.includes('net::ERR_CONNECTION_RESET') ||
+    msg.includes('net::ERR_INTERNET_DISCONNECTED')
+  )
+}
+
 function open(url) {
-  clearDiagnostics()
-  runAgentBrowser(['open', url])
+  const retries = 3
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      clearDiagnostics()
+      runAgentBrowser(['open', url])
+      return
+    } catch (e) {
+      if (attempt < retries && isRetryableNavigationError(e)) {
+        const waitMs = 250 + attempt * 250
+        logLine(`nav: transient error; retrying open after ${waitMs}ms`)
+        sleepSync(waitMs)
+        continue
+      }
+      throw e
+    }
+  }
 }
 
 function waitFor(selectorOrMs) {
