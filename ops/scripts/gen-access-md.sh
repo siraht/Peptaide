@@ -102,6 +102,12 @@ Disable Tailscale Serve endpoints (if needed):
 
 This VPS currently has \`ufw\` enabled with default \`deny (incoming)\` and a blanket allow on \`tailscale0\`.
 That means ports bound to \`0.0.0.0\` (like 3002/54321/54324) are reachable from your tailnet but not the public internet.
+
+## Future: Nginx Proxy Manager (public hosting)
+
+When you add Nginx Proxy Manager (NPM) later, proxy to the web app on \`http://127.0.0.1:${web_port}\` (or to the host IP).
+If you run NPM in Docker on Linux, the simplest option is \`network_mode: host\` so it can reach \`127.0.0.1\` on the VPS.
+Avoid using Tailscale Serve on ports 80/443 if NPM is binding those ports.
 EOF
 
 echo "Wrote ${REPO_ROOT}/ACCESS.md"
