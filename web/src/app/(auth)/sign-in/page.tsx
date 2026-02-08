@@ -17,11 +17,10 @@ export default async function SignInPage() {
       <div className="w-full max-w-sm rounded-lg border bg-white p-6 shadow-sm">
         <h1 className="text-xl font-semibold">Sign in</h1>
         <p className="mt-2 text-sm text-zinc-700">
-          Enter your email to receive a sign-in link.
+          Enter your email to receive a sign-in link and code.
         </p>
         <SignInForm />
       </div>
     </div>
   )
 }
-
