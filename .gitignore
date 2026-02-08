@@ -33,3 +33,6 @@ supabase/.env
 
 # Local agent tooling
 .ntm/
+
+# Local access notes (machine-specific; contains URLs/ports)
+ACCESS.md

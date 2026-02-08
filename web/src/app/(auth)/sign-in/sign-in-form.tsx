@@ -33,8 +33,9 @@ export function SignInForm() {
     }
 
     setStatus('sent')
+    const mailpitUrl = `http://${window.location.hostname}:54324`
     setMessage(
-      'Check your email for a sign-in link. For local Supabase, open Mailpit at http://127.0.0.1:54324.',
+      `Check your email for a sign-in link. For local Supabase, open Mailpit at ${mailpitUrl}.`,
     )
   }
 

@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
 
-import { getSupabaseEnv } from '@/lib/supabase/env'
+import { getSupabaseServerEnv } from '@/lib/supabase/env'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const { url, anonKey } = getSupabaseEnv()
+  const { url, anonKey } = getSupabaseServerEnv()
 
   const supabase = createServerClient(url, anonKey, {
     auth: {

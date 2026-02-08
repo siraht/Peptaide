@@ -1,0 +1,24 @@
+[Unit]
+Description=Peptaide Tailscale Serve (web + local Supabase)
+After=tailscaled.service network-online.target
+Wants=tailscaled.service network-online.target
+
+[Service]
+Type=oneshot
+
+# Web app (https://<ts-dns>:13002 -> http://127.0.0.1:3002)
+ExecStart=/usr/bin/tailscale serve --https=13002 --bg --yes http://127.0.0.1:3002
+
+# Local Supabase API (https://<ts-dns>:15432 -> http://127.0.0.1:54321)
+# Needed so the browser can talk to Supabase without mixed-content issues when the web app is on https.
+ExecStart=/usr/bin/tailscale serve --https=15432 --bg --yes http://127.0.0.1:54321
+
+# Local Mailpit UI (https://<ts-dns>:15433 -> http://127.0.0.1:54324)
+# Convenience for remote sign-in when using local Supabase email testing.
+ExecStart=/usr/bin/tailscale serve --https=15433 --bg --yes http://127.0.0.1:54324
+
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+

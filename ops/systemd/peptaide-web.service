@@ -1,0 +1,28 @@
+[Unit]
+Description=Peptaide web (Next.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/data/projects/peptaide/web
+
+# Machine-local env file (do not commit). See ops/scripts/gen-access-md.sh.
+EnvironmentFile=/etc/peptaide/web.env
+
+# Ensure we use real Node.js (not Bun's node wrapper).
+Environment=PATH=/home/ubuntu/.nvm/versions/node/v22.21.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Build at service start. For faster restarts, run build manually and remove this line.
+ExecStartPre=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run build
+
+# Expose on a fixed port + host (defaults come from /etc/peptaide/web.env).
+ExecStart=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run start -- -p ${PORT} -H ${HOST}
+
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+

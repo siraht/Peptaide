@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
 
-import { getSupabaseEnv } from '@/lib/supabase/env'
+import { getSupabaseServerEnv } from '@/lib/supabase/env'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL(next, url.origin))
 
   if (code) {
-    const { url: supabaseUrl, anonKey } = getSupabaseEnv()
+    const { url: supabaseUrl, anonKey } = getSupabaseServerEnv()
     const supabase = createServerClient(supabaseUrl, anonKey, {
       auth: {
         flowType: 'pkce',
