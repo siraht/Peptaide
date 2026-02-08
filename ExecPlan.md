@@ -216,6 +216,8 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-08 06:43Z) Auth: added "login with code" support on `/sign-in` using Supabase `verifyOtp` (`type: 'email'`) so users can sign in even when they cannot open the magic link. Evidence: commit `a45d01d`; browser harness signs in user B using the OTP code.
 - [x] (2026-02-08 06:43Z) Proxy correctness: fixed `/auth/callback` redirects and server-side same-origin enforcement to honor `x-forwarded-proto` / `x-forwarded-host` (and Host) instead of relying on `request.url` (which can appear as `0.0.0.0` when Next binds to `0.0.0.0`). This unblocks PKCE magic-link completion and settings mutations (delete/import) under Tailscale Serve and future reverse proxies. Evidence: commit `d99a419`.
 - [x] (2026-02-08 06:43Z) Testing: updated the conclusive t-browser harness (`npm run e2e:browser`) to cover both magic-link and OTP-code login flows, to assert magic-link host correctness when the web origin is remote (non-local hostname), and to harden against transient local tooling flakes (Supabase `db reset` 502s and agent-browser daemon EAGAINs). Ran and confirmed PASS on both direct port and Tailscale Serve origins. Evidence: commit `f1dfffb`; PASS artifacts at `/tmp/peptaide-e2e-2026-02-08T06-34-14-609Z` (direct port) and `/tmp/peptaide-e2e-2026-02-08T06-37-32-098Z` (Tailscale Serve).
+- [x] (2026-02-08 06:57Z) Auth UX: on `/sign-in`, only show a Mailpit link hint when it is likely reachable (localhost/127.0.0.1 -> `http://...:54324`, `.ts.net` -> `https://...:15433`), avoiding misleading `http://<prod-host>:54324` hints in non-dev environments. Evidence: commit `17be6dd`.
+- [x] (2026-02-08 06:57Z) Testing: reran web quality gates after the auth UX tweak (`npm run typecheck && npm test && npm run lint && npm run build`) and reran the conclusive browser harness to PASS on both direct-port and Tailscale Serve origins. Evidence: PASS artifacts at `/tmp/peptaide-e2e-2026-02-08T06-53-16-065Z` (direct port) and `/tmp/peptaide-e2e-2026-02-08T06-56-28-277Z` (Tailscale Serve).
 
 ## Milestones
 
@@ -521,6 +523,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 - Decision: Support email OTP code sign-in (in addition to clicking the magic link) by adding a code entry field on `/sign-in` that calls `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
   Rationale: In some environments the magic link is not clickable/usable (for example when the verify URL host is not reachable from the client, or when opening links is inconvenient). The 6-digit OTP code provides a reliable fallback path that still uses the user's session and keeps RLS enforced.
+  Date/Author: 2026-02-08 / Codex
+
+- Decision: Only show Mailpit "open your inbox" hints on `/sign-in` when the app is running on a host where Mailpit is expected to be reachable (localhost/127.0.0.1 or a `.ts.net` tailnet hostname).
+  Rationale: Mailpit is a local-dev inbox; in production (hosted Supabase SMTP) the suggested URL is wrong and confusing. Showing it only in likely-local contexts keeps the UI correct across local dev, Tailscale Serve, and future public hosting.
   Date/Author: 2026-02-08 / Codex
 
 - Decision: For Supabase SSR auth/session handling, the server and browser must use a Supabase URL with the same hostname (project ref) so cookie names match. Only use an "internal" Supabase URL when it keeps the same hostname; otherwise use the public URL.
@@ -1599,7 +1605,7 @@ Evidence captured so far (domain modules):
 
     cd /data/projects/peptaide/web
     npm run test
-    # 30 tests passed (units/uncertainty/dose/cost/cycles + smoke)
+    # 52 tests passed (units/uncertainty/dose/cost/cycles + import/CSRF + smoke)
 
     cd /data/projects/peptaide/web
     npm run typecheck
@@ -1658,6 +1664,18 @@ Evidence captured so far (conclusive browser harness, VPS/tailnet auth fixes):
       npm run e2e:browser
     # PASS: conclusive browser verification completed
     # artifacts_dir: /tmp/peptaide-e2e-2026-02-08T06-37-32-098Z
+
+    cd /data/projects/peptaide/web
+    npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-08T06-53-16-065Z
+
+    cd /data/projects/peptaide/web
+    E2E_BASE_URL="https://flywheel.tail3be29.ts.net:13002" \
+    E2E_MAILPIT_URL="https://flywheel.tail3be29.ts.net:15433" \
+      npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-08T06-56-28-277Z
 
 Evidence captured so far (RLS probe):
 
@@ -2067,3 +2085,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-08: Testing: implemented the conclusive `agent-browser`-based harness (`npm run e2e:browser`) under `web/scripts/tbrowser/` (commit `77b009f`), ran it to PASS on desktop + mobile sweeps, and captured diagnostic proof excerpts (0 console errors, 0 page errors, 0 failed requests across 26 route/viewports) in `Artifacts and Notes`. Updated `Progress`, `Surprises & Discoveries`, and `Decision Log` accordingly.
 
 2026-02-08: VPS hosting + remote-auth hardening. Updates: added systemd + Tailscale Serve deployment scaffolding and a git-ignored `ACCESS.md` generator for this VPS; fixed local Supabase magic-link verify host generation for remote clients via `supabase/config.toml` `[api].external_url`; added OTP code sign-in UI on `/sign-in`; fixed `/auth/callback` and server-side same-origin enforcement to honor forwarded headers (avoid `0.0.0.0` origin mismatches under proxies); ensured Supabase SSR uses a consistent Supabase hostname between browser and server so PKCE exchanges succeed; and updated the conclusive browser harness to cover magic link + code flows and to PASS under both direct-port and Tailscale Serve origins (evidence in `Artifacts and Notes`).
+
+2026-02-08: Auth UX: `/sign-in` now only shows Mailpit URLs when they are likely reachable (localhost/127.0.0.1 or `.ts.net` tailnet host), preventing confusing "open Mailpit at http://<prod-host>:54324" hints in non-dev environments. Reran web quality gates and the conclusive browser harness to PASS for both direct port and Tailscale Serve (evidence in `Artifacts and Notes`).
