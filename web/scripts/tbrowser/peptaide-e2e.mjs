@@ -502,7 +502,7 @@ function extractOtpCodeFromMagicLinkText(text) {
   return null
 }
 
-async function waitForOtpEmail(email, { sinceMs, timeoutMs = 30000 } = {}) {
+async function waitForOtpEmail(email, { sinceMs, excludeIds, timeoutMs = 30000 } = {}) {
   const start = Date.now()
   for (;;) {
     const list = await mailpitFetchJson('/api/v1/messages')
@@ -510,6 +510,7 @@ async function waitForOtpEmail(email, { sinceMs, timeoutMs = 30000 } = {}) {
 
     const match = messages.find((m) => {
       if (!m) return false
+      if (excludeIds && m.ID && excludeIds.has(String(m.ID))) return false
       const created = m.Created ? Date.parse(m.Created) : null
       if (sinceMs && created && created < sinceMs) return false
       const tos = Array.isArray(m.To) ? m.To : []
@@ -533,6 +534,21 @@ async function waitForOtpEmail(email, { sinceMs, timeoutMs = 30000 } = {}) {
 
     await sleep(500)
   }
+}
+
+async function mailpitMessageIdsForEmail(email) {
+  const list = await mailpitFetchJson('/api/v1/messages')
+  const messages = Array.isArray(list.messages) ? list.messages : []
+  const ids = new Set()
+
+  for (const m of messages) {
+    if (!m || !m.ID) continue
+    const tos = Array.isArray(m.To) ? m.To : []
+    const toMatch = tos.some((t) => t && String(t.Address || '').toLowerCase() === email.toLowerCase())
+    if (toMatch) ids.add(String(m.ID))
+  }
+
+  return ids
 }
 
 function isLocalHostname(hostname) {
@@ -559,10 +575,13 @@ async function requestOtpEmail(email) {
   await evalJs('window.confirm = () => true')
 
   fill('input[name="email"]', email)
+  // Mailpit runs in a different container and can have minor clock skew; tracking existing IDs
+  // is more reliable than a strict timestamp filter.
+  const existingIds = await mailpitMessageIdsForEmail(email)
   const since = Date.now()
   clickButtonByName('Send sign-in link')
 
-  const { link, code } = await waitForOtpEmail(email, { sinceMs: since })
+  const { link, code } = await waitForOtpEmail(email, { sinceMs: since - 2000, excludeIds: existingIds })
   assertMagicLinkHostMatchesScenario(link)
   return { link, code }
 }
