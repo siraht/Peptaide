@@ -124,6 +124,12 @@ npm run lint
 npm run build
 ```
 
+## Data Import / Export
+
+Peptaide exports and imports data as a ZIP bundle of CSV files (the importer expects the same format that `/api/export` generates).
+
+See `docs/CSV_IMPORT_BUNDLE_V1.md` for the exact file layout, required headers, and migration guidance.
+
 ## RLS Verification (Dev)
 
 There is a scripted probe that asserts cross-user isolation in local Supabase:
