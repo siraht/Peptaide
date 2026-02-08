@@ -211,6 +211,12 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-08 00:07Z) Browser RLS verification: within the harness, signed in as two distinct users (email A and email B) and confirmed user B sees an empty state on `/today` and cannot open user A’s deep links (substance/formulation/device/cycle), which must render `not found`. Evidence: harness PASS run includes these checks (see `web/scripts/tbrowser/peptaide-e2e.mjs`). plan[690-698]
 - [x] (2026-02-08 00:07Z) Browser data portability verification: within the harness, exported a ZIP from `/api/export`, imported it via `/settings` (dry-run then apply), and confirmed the app reflects imported data immediately; then ran delete-my-data and confirmed the app returns to the "empty state" surfaces. Evidence: PASS run artifacts include `export.meta.txt` with `content_type=application/zip` and the harness includes post-delete empty-state checks. plan[583-595] plan[682-689]
 
+- [x] (2026-02-08 06:43Z) Ops: added VPS "always-on" hosting for the web app and local Supabase via systemd + Tailscale Serve, and added a git-ignored `ACCESS.md` generator describing how to reach each service (direct port + tailnet HTTPS). Evidence: commits `d76cc5b`, `05d6b99`, `994657e`; `peptaide-web` listens on `0.0.0.0:3002` and Tailscale Serve exposes `https://<ts-dns>:13002` (web), `https://<ts-dns>:15432` (Supabase), and `https://<ts-dns>:15433` (Mailpit).
+- [x] (2026-02-08 06:43Z) Auth: fixed local Supabase emailed magic-link host generation for remote clients by setting `supabase/config.toml` `[api].external_url` to the externally reachable Supabase URL (Tailscale Serve). Evidence: Mailpit emails contain `https://<ts-dns>:15432/auth/v1/verify?...` instead of `http://127.0.0.1:54321/auth/v1/verify?...`. Commit `8f861ca`.
+- [x] (2026-02-08 06:43Z) Auth: added "login with code" support on `/sign-in` using Supabase `verifyOtp` (`type: 'email'`) so users can sign in even when they cannot open the magic link. Evidence: commit `a45d01d`; browser harness signs in user B using the OTP code.
+- [x] (2026-02-08 06:43Z) Proxy correctness: fixed `/auth/callback` redirects and server-side same-origin enforcement to honor `x-forwarded-proto` / `x-forwarded-host` (and Host) instead of relying on `request.url` (which can appear as `0.0.0.0` when Next binds to `0.0.0.0`). This unblocks PKCE magic-link completion and settings mutations (delete/import) under Tailscale Serve and future reverse proxies. Evidence: commit `d99a419`.
+- [x] (2026-02-08 06:43Z) Testing: updated the conclusive t-browser harness (`npm run e2e:browser`) to cover both magic-link and OTP-code login flows, to assert magic-link host correctness when the web origin is remote (non-local hostname), and to harden against transient local tooling flakes (Supabase `db reset` 502s and agent-browser daemon EAGAINs). Ran and confirmed PASS on both direct port and Tailscale Serve origins. Evidence: commit `f1dfffb`; PASS artifacts at `/tmp/peptaide-e2e-2026-02-08T06-34-14-609Z` (direct port) and `/tmp/peptaide-e2e-2026-02-08T06-37-32-098Z` (Tailscale Serve).
+
 ## Milestones
 
 Milestones are narrative checkpoints. Each milestone must produce something demonstrably usable, and should be independently verifiable.
@@ -435,6 +441,21 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     The local Supabase config defaulted to `site_url = http://127.0.0.1:3000`, which caused emailed links to use `redirect_to=http://127.0.0.1:3000` even when requesting a different `emailRedirectTo`. Updating `supabase/config.toml` to include `http://localhost:3000|3001|3002/auth/callback` (and the `127.0.0.1` variants) produced emailed links with `redirect_to=http://localhost:3002/auth/callback` as expected.
 
+- Observation: Supabase Auth magic-link emails also embed a verify URL host (the API gateway base) that must be reachable by the user's browser. For local Supabase, this is controlled by `supabase/config.toml` `[api].external_url`; if left at the default `http://127.0.0.1:54321`, remote clients will receive unusable links.
+  Evidence:
+    Before: Mailpit emails contained `http://127.0.0.1:54321/auth/v1/verify?...` (clicking on a different machine fails because `127.0.0.1` points to the client machine).
+    After setting `[api].external_url = "https://<ts-dns>:15432"`, emails contain `https://<ts-dns>:15432/auth/v1/verify?...` which works from tailnet clients.
+
+- Observation: Supabase SSR cookie names (including the PKCE verifier cookie) are derived from the Supabase URL hostname/project ref (for example `sb-flywheel-auth-token-code-verifier`). If the browser uses one Supabase hostname and the server uses a different one, cookie names will not match and PKCE exchanges (magic links / OAuth) will silently fail.
+  Evidence:
+    When the browser uses `NEXT_PUBLIC_SUPABASE_URL=https://flywheel.tail3be29.ts.net:15432`, it sets `sb-flywheel-auth-token-code-verifier`.
+    If the server uses `SUPABASE_INTERNAL_URL=http://127.0.0.1:54321`, the server-side `exchangeCodeForSession` looks for a different cookie name and cannot complete the session exchange.
+
+- Observation: Under Tailscale Serve (and many reverse proxies), Next.js route handlers can see `request.url` as `http://0.0.0.0:<port>/...` even when the external origin is `http://127.0.0.1:<port>` or `https://<ts-dns>:<port>`. Any code that constructs absolute redirects or enforces "same-origin" by comparing `Origin` to `new URL(request.url).origin` can break in this environment.
+  Evidence:
+    The `/api/delete-my-data` handler (via `validateSameOrigin(...)`) initially rejected legitimate requests with: `origin=http://127.0.0.1:3002, expected=http://0.0.0.0:3002`.
+    Fix: compute the externally-visible origin from `x-forwarded-proto` + `x-forwarded-host` (or Host) and use that for redirects and same-origin validation.
+
 - Observation: `supabase db reset --yes` applies all migrations but can exit non-zero with `Error status 502: An invalid response was received from the upstream server` immediately after "Restarting containers..." (transient 502s while Supabase services come back up, observed on the storage API route). Treat this as a local-dev tooling flake; validate readiness with `supabase status` and a health check like `curl http://127.0.0.1:54321/storage/v1/status` (expect HTTP 200) before proceeding.
   Evidence:
     supabase db reset --yes
@@ -497,6 +518,18 @@ Record the outputs and checks in `Artifacts and Notes`.
 - Decision: Use PKCE flow for Supabase email magic-link auth, and handle the callback at `/auth/callback` by exchanging `?code=...` for a session and persisting it in cookies.
   Rationale: The implicit "access_token in URL hash" flow is not visible to server-side code; PKCE is compatible with SSR and with `@supabase/ssr` cookie-based session storage.
   Date/Author: 2026-02-07 / Codex
+
+- Decision: Support email OTP code sign-in (in addition to clicking the magic link) by adding a code entry field on `/sign-in` that calls `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
+  Rationale: In some environments the magic link is not clickable/usable (for example when the verify URL host is not reachable from the client, or when opening links is inconvenient). The 6-digit OTP code provides a reliable fallback path that still uses the user's session and keeps RLS enforced.
+  Date/Author: 2026-02-08 / Codex
+
+- Decision: For Supabase SSR auth/session handling, the server and browser must use a Supabase URL with the same hostname (project ref) so cookie names match. Only use an "internal" Supabase URL when it keeps the same hostname; otherwise use the public URL.
+  Rationale: `@supabase/ssr` stores PKCE verifier and session state in cookies whose names are derived from the Supabase hostname/project ref. Hostname mismatches cause silent auth failures (PKCE exchanges cannot find verifier cookies).
+  Date/Author: 2026-02-08 / Codex
+
+- Decision: For environments behind Tailscale Serve / reverse proxies, compute the externally-visible request origin from `x-forwarded-proto` + `x-forwarded-host` (or Host), and use it for absolute redirects and same-origin enforcement.
+  Rationale: Next.js route handlers can see `request.url` as `http://0.0.0.0:<port>/...` when binding to `0.0.0.0`, which breaks security checks that compare `Origin` to `new URL(request.url).origin` and can generate redirects to an unusable host. Using forwarded headers matches the browser-visible origin and keeps CSRF defenses correct under proxies.
+  Date/Author: 2026-02-08 / Codex
 
 - Decision: Avoid using the Supabase service role key in the normal request path; all user flows should run under the authenticated user's session with RLS enforced by the database.
   Rationale: The service role key bypasses RLS and is a common way to accidentally break the security model; keeping RLS in force by default matches the plan's security requirements.
@@ -1612,6 +1645,20 @@ Evidence captured so far (conclusive browser harness, t-browser style):
     console_warnings: 0
     failed_requests: 0
 
+Evidence captured so far (conclusive browser harness, VPS/tailnet auth fixes):
+
+    cd /data/projects/peptaide/web
+    npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-08T06-34-14-609Z
+
+    cd /data/projects/peptaide/web
+    E2E_BASE_URL="https://flywheel.tail3be29.ts.net:13002" \
+    E2E_MAILPIT_URL="https://flywheel.tail3be29.ts.net:15433" \
+      npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-08T06-37-32-098Z
+
 Evidence captured so far (RLS probe):
 
     psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/scripts/rls_probe.sql
@@ -2018,3 +2065,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Testing: added a conclusive browser-testing plan (t-browser style) to this ExecPlan and new `Progress` items requiring an automated `agent-browser`-based harness (`npm run e2e:browser`). Rationale: unit tests and SQL probes cannot prove the real browser experience (auth cookies, client interactions, console/network health, and router refresh behavior); the harness provides repeatable, end-to-end evidence.
 
 2026-02-08: Testing: implemented the conclusive `agent-browser`-based harness (`npm run e2e:browser`) under `web/scripts/tbrowser/` (commit `77b009f`), ran it to PASS on desktop + mobile sweeps, and captured diagnostic proof excerpts (0 console errors, 0 page errors, 0 failed requests across 26 route/viewports) in `Artifacts and Notes`. Updated `Progress`, `Surprises & Discoveries`, and `Decision Log` accordingly.
+
+2026-02-08: VPS hosting + remote-auth hardening. Updates: added systemd + Tailscale Serve deployment scaffolding and a git-ignored `ACCESS.md` generator for this VPS; fixed local Supabase magic-link verify host generation for remote clients via `supabase/config.toml` `[api].external_url`; added OTP code sign-in UI on `/sign-in`; fixed `/auth/callback` and server-side same-origin enforcement to honor forwarded headers (avoid `0.0.0.0` origin mismatches under proxies); ensured Supabase SSR uses a consistent Supabase hostname between browser and server so PKCE exchanges succeed; and updated the conclusive browser harness to cover magic link + code flows and to PASS under both direct-port and Tailscale Serve origins (evidence in `Artifacts and Notes`).
