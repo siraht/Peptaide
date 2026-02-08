@@ -24,6 +24,25 @@ describe('parseSimpleEventsCsvText', () => {
     expect(res.events[0]?.doseMassMg).toBeCloseTo(2.5, 6)
   })
 
+  it('accepts comma-grouped thousands in numeric cells (quoted)', () => {
+    const csv = ['substance,ts,dose_mg', 'Test,2026-02-08T10:00:00Z,"1,000"'].join('\n') + '\n'
+    const res = parseSimpleEventsCsvText({ csvText: csv, timezone: 'UTC', gapDays: 7, inferCycles: false })
+
+    expect(res.ok).toBe(true)
+    expect(res.events).toHaveLength(1)
+    expect(res.events[0]?.doseMassMg).toBe(1000)
+    expect(res.events[0]?.inputText).toBe('1000 mg')
+  })
+
+  it('rejects negative doses', () => {
+    const csv = ['substance,ts,dose_mg', 'Test,2026-02-08T10:00:00Z,-5'].join('\n') + '\n'
+    const res = parseSimpleEventsCsvText({ csvText: csv, timezone: 'UTC', gapDays: 7, inferCycles: false })
+
+    expect(res.ok).toBe(false)
+    expect(res.rowErrors).toHaveLength(1)
+    expect(res.events).toHaveLength(0)
+  })
+
   it('accepts common header synonyms', () => {
     const csv =
       ['compound,timestamp,ml,mg/ml', 'BPC-157,2026-02-08T10:00:00Z,0.2,5'].join('\n') + '\n'
@@ -66,4 +85,3 @@ describe('parseSimpleEventsCsvText', () => {
     vi.useRealTimers()
   })
 })
-

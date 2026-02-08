@@ -114,6 +114,15 @@ function hasExplicitTimezone(raw: string): boolean {
 function parseNumberCell(raw: string): number | null {
   const s = String(raw || '').trim()
   if (!s) return null
+
+  // Accept comma-grouped thousands (US-style) but avoid European-style decimal commas.
+  if (s.includes(',')) {
+    if (!/^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(s)) return null
+    const n = Number(s.replaceAll(',', ''))
+    if (!Number.isFinite(n)) return null
+    return n
+  }
+
   const n = Number(s)
   if (!Number.isFinite(n)) return null
   return n
@@ -516,6 +525,19 @@ export function parseSimpleEventsCsvText(opts: {
     const explicitDoseIu = parseNumberCell(cell(row, headerIndex.dose_iu))
     const inputTextRaw = cell(row, headerIndex.input_text).trim()
 
+    if (explicitDoseMg != null && explicitDoseMg < 0) {
+      rowErrors.push({ row: rowNum, error: 'Invalid dose_mg: must be non-negative.' })
+      continue
+    }
+    if (explicitDoseMl != null && explicitDoseMl < 0) {
+      rowErrors.push({ row: rowNum, error: 'Invalid dose_ml: must be non-negative.' })
+      continue
+    }
+    if (explicitDoseIu != null && explicitDoseIu < 0) {
+      rowErrors.push({ row: rowNum, error: 'Invalid dose_iu: must be non-negative.' })
+      continue
+    }
+
     let inputText = inputTextRaw
     if (!inputText) {
       if (explicitDoseMg != null) inputText = `${explicitDoseMg} mg`
@@ -543,6 +565,11 @@ export function parseSimpleEventsCsvText(opts: {
 
     try {
       const q = parseQuantity(inputText)
+      if (q.value < 0) {
+        rowErrors.push({ row: rowNum, error: 'Invalid dose: must be non-negative.' })
+        continue
+      }
+
       inputKind = q.kind
       inputValue = q.value
       inputUnit = q.unit
@@ -557,9 +584,17 @@ export function parseSimpleEventsCsvText(opts: {
       })
       doseMassMg = doseRes.doseMassMg
       doseVolumeMl = doseRes.doseVolumeMl
-    } catch {
+    } catch (e) {
       // Keep input_text but treat it as non-canonicalizable.
-      warnings.push(`Row ${rowNum}: could not parse dose text "${inputText}". It will be imported as input_kind=other.`)
+      const msg = e instanceof Error ? e.message : String(e)
+      warnings.push(
+        `Row ${rowNum}: could not parse dose text "${inputText}" (${msg}). It will be imported as input_kind=other.`,
+      )
+      inputKind = 'other'
+      inputValue = null
+      inputUnit = null
+      doseMassMg = null
+      doseVolumeMl = null
     }
 
     // If the spreadsheet provided explicit mg/ml, trust it as an override (and fill in the other side when possible).
