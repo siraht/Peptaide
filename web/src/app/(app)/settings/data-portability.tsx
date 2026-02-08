@@ -222,7 +222,8 @@ export function DataPortabilitySection() {
         <h3 className="text-sm font-semibold text-zinc-900">Simple import: events CSV</h3>
         <p className="mt-1 text-sm text-zinc-700">
           For sparse spreadsheets, import a single CSV of administration events. The importer will create missing
-          substances/routes/formulations with sane defaults and can infer cycles from timestamps.
+          substances/routes/formulations with sane defaults and can infer cycles from timestamps. If you already have
+          data in this account, enable replace mode (this is not a merge importer).
         </p>
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">

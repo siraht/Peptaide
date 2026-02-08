@@ -14,7 +14,7 @@ Import UI:
 
 - Go to `/settings` -> **Data** -> **Simple import: events CSV**
 - Run **Dry run** first, then **Import**.
-- Optional: enable **Replace existing data** to delete all your current data first.
+- If you already have data in your account, enable **Replace existing data** (this importer is not a merge importer).
 
 ## What It Creates
 
@@ -116,6 +116,10 @@ This produces reasonable historical cycles without requiring you to have explici
 
 ## Troubleshooting
 
+- “Refusing to import: table X is not empty”
+  - The simple events importer assumes you are importing into a new/empty dataset (except your profile row).
+  - Enable **Replace existing data** (after exporting) or delete your data before importing.
+
 - “Missing required column: substance”
   - Add a `substance` column (or rename your existing one to one of the accepted synonyms).
 
@@ -131,4 +135,3 @@ This produces reasonable historical cycles without requiring you to have explici
 - Parser + importer: `web/src/lib/import/simpleEvents.ts`
 - API route: `web/src/app/api/import-simple-events/route.ts`
 - Settings UI: `web/src/app/(app)/settings/data-portability.tsx`
-

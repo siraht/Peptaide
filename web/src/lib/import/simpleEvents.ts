@@ -1,5 +1,6 @@
 import { computeDose } from '@/lib/domain/dose/computeDose'
 import { parseQuantity } from '@/lib/domain/units/types'
+import { EXPORT_COLUMNS, type ExportTableName } from '@/lib/export/exportColumns'
 import { requireOk } from '@/lib/repos/errors'
 import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
 import { createFormulation } from '@/lib/repos/formulationsRepo'
@@ -55,6 +56,24 @@ type InferredCycle = {
   startTsIso: string
   endTsIso: string
   status: Database['public']['Enums']['cycle_status_t']
+}
+
+async function assertEmptyForSimpleImport(
+  supabase: DbClient,
+  opts: { userId: string },
+): Promise<string | null> {
+  const tableNames = Object.keys(EXPORT_COLUMNS) as ExportTableName[]
+
+  for (const table of tableNames) {
+    if (table === 'profiles') continue
+    const res = await supabase.from(table).select('id').eq('user_id', opts.userId).limit(1)
+    requireOk(res.error, `${table}.empty_check_simple_import`)
+    if ((res.data ?? []).length > 0) {
+      return `Refusing to import: table ${table} is not empty. Use "replace existing data" to import.`
+    }
+  }
+
+  return null
 }
 
 function normalizeHeaderCell(s: string): string {
@@ -660,10 +679,10 @@ export async function importSimpleEventsCsv(
       requireOk(profileRes.error, 'profiles.select_before_simple_import')
       existingProfile = profileRes.data ?? null
 
-      // Refuse to import into a non-empty dataset (except profiles) to avoid duplicates.
-      const existing = await supabase.from('administration_events').select('id').limit(1)
-      requireOk(existing.error, 'administration_events.empty_check')
-      if ((existing.data ?? []).length > 0) {
+      // Refuse to import into a non-empty dataset (except profiles) to avoid duplicates and to
+      // keep rollback safe (non-replace mode rolls back to "empty except profiles").
+      const msg = await assertEmptyForSimpleImport(supabase, { userId: opts.userId })
+      if (msg) {
         return {
           ok: false,
           mode: opts.mode,
@@ -676,7 +695,7 @@ export async function importSimpleEventsCsv(
             created_cycles: 0,
           },
           warnings: parsed.warnings,
-          errors: ['Refusing to import: events table is not empty. Use "replace existing data" to import.'],
+          errors: [msg],
           row_errors: [],
         }
       }
