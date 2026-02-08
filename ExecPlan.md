@@ -206,10 +206,10 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 
 - [ ] Run the full MVP definition-of-done verification, and record evidence snippets/transcripts in `Artifacts and Notes`. plan[729-751]
 
-- [ ] (2026-02-07 23:23Z) Add a conclusive, automated browser test harness using the `t-browser` approach (agent-browser sessions + diagnostics) and check it into the repo under `web/scripts/tbrowser/`, including a single entrypoint `npm run e2e:browser` that: starts from a clean local Supabase DB, signs in via local Supabase Mailpit, seeds/creates enough data to exercise the app, and performs a full page sweep with diagnostics. Evidence: `npm run e2e:browser` exits 0 and prints a PASS summary; screenshots + diagnostics summaries are captured under a run-specific artifacts directory (not committed). plan[690-698] plan[729-751]
-- [ ] (2026-02-07 23:23Z) Run the conclusive browser harness on both desktop and mobile viewports and fix any issues until it passes with 0 console errors and 0 failed (4xx/5xx) requests across the swept pages. Evidence: transcripts and a short "diagnostics: ok" summary per page are captured in `Artifacts and Notes`. plan[690-698] plan[699-713]
-- [ ] (2026-02-07 23:23Z) Browser RLS verification: within the harness, sign in as two distinct users (email A and email B) and confirm that user B cannot see user A’s data on list pages and receives 404 on user A’s detail links (substance/formulation/device/cycle). Evidence: harness logs show empty lists for user B and "not found" for cross-user deep links. plan[690-698]
-- [ ] (2026-02-07 23:23Z) Browser data portability verification: within the harness, export a ZIP from `/api/export`, import it via `/settings` (dry-run then apply), and confirm the app reflects imported data immediately; then run delete-my-data and confirm the app returns to the "empty state" surfaces. Evidence: harness logs include export HTTP 200 with `Content-Type: application/zip`, import result table with `ok=true`, and post-delete empty lists. plan[583-595] plan[682-689]
+- [x] (2026-02-08 00:07Z) Added a conclusive, automated browser test harness using the `t-browser` approach (agent-browser sessions + diagnostics) and checked it into the repo under `web/scripts/tbrowser/`, including a single entrypoint `npm run e2e:browser` that: starts from a clean local Supabase DB, signs in via local Supabase Mailpit, seeds/creates enough data to exercise the app, and performs a full page sweep with diagnostics. Evidence: commit `77b009f`; `npm run e2e:browser` exits 0 and prints a PASS summary; screenshots + diagnostics summaries are captured under a run-specific artifacts directory (not committed). plan[690-698] plan[729-751]
+- [x] (2026-02-08 00:07Z) Ran the conclusive browser harness on both desktop and mobile viewports and fixed harness issues until it passes with 0 console errors and 0 failed (4xx/5xx) requests across the swept pages. Evidence: PASS run artifacts at `/tmp/peptaide-e2e-2026-02-08T00-07-13-318Z` (see `Artifacts and Notes` for diagnostic proof excerpts). plan[690-698] plan[699-713]
+- [x] (2026-02-08 00:07Z) Browser RLS verification: within the harness, signed in as two distinct users (email A and email B) and confirmed user B sees an empty state on `/today` and cannot open user A’s deep links (substance/formulation/device/cycle), which must render `not found`. Evidence: harness PASS run includes these checks (see `web/scripts/tbrowser/peptaide-e2e.mjs`). plan[690-698]
+- [x] (2026-02-08 00:07Z) Browser data portability verification: within the harness, exported a ZIP from `/api/export`, imported it via `/settings` (dry-run then apply), and confirmed the app reflects imported data immediately; then ran delete-my-data and confirmed the app returns to the "empty state" surfaces. Evidence: PASS run artifacts include `export.meta.txt` with `content_type=application/zip` and the harness includes post-delete empty-state checks. plan[583-595] plan[682-689]
 
 ## Milestones
 
@@ -476,6 +476,14 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     `web/src/lib/import/csvBundle.ts` now implements best-effort rollback on failure (and `web/src/lib/import/csvBundle.test.ts` includes rollback regression tests for replace and non-replace modes).
 
+- Observation: Several UI surfaces render forms conditionally based on prerequisite rows (for example: `/orders` only renders "Add order" after at least one vendor exists, and only renders "Generate vials" after at least one order item linked to a formulation exists). A conclusive browser harness must create prerequisites in-order and wait for `router.refresh()` updates before interacting with downstream forms.
+  Evidence:
+    See `ordersCreateAndGenerateVials(...)` in `web/scripts/tbrowser/peptaide-e2e.mjs` (vendor -> order -> order item -> generate vials sequencing).
+
+- Observation: Immediately after PKCE magic-link verification, `/today` can take a moment to fully render/hydrate; checking for the dev-only "Seed demo data" button without waiting can flake and cause downstream setup steps to fail (no demo substance/formulation exists yet).
+  Evidence:
+    See `seedDemoDataIfAvailable()` in `web/scripts/tbrowser/peptaide-e2e.mjs` (waits for `/today` content before checking/clicking "Seed demo data").
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -593,6 +601,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 - Decision: `public.split_cycle_at_event(...)` rejects split requests where the selected event timestamp is earlier than the cycle start timestamp (error: `event_before_cycle_start`).
   Rationale: In this edge-case, splitting "at this event" is ill-defined without creating an invalid cycle (end before start) or a cycle whose `start_ts` is later than its first event. Failing fast keeps cycle semantics consistent and avoids silently doing the wrong thing.
   Date/Author: 2026-02-07 / Codex
+
+- Decision: Add a conclusive end-to-end browser harness (`npm run e2e:browser`) under `web/scripts/tbrowser/` built on `agent-browser` sessions + diagnostics, including multi-user RLS checks and export/import/delete-my-data verification.
+  Rationale: Unit tests and SQL probes cannot prove the real browser experience (auth cookie + PKCE behavior, router-refresh UI updates, and "no console errors / no failed requests" health across routes). A repeatable harness provides deterministic, end-to-end evidence and catches regressions early.
+  Date/Author: 2026-02-08 / Codex
 
 ## Outcomes & Retrospective
 
@@ -1501,7 +1513,6 @@ This is the "extensive, thorough, and conclusive" browser verification. It runs 
 3. Install `agent-browser` binaries (one-time per machine) and run the harness:
 
     cd /data/projects/peptaide/web
-    npm install -D agent-browser
     npx agent-browser install
     npm run e2e:browser
 
@@ -1560,6 +1571,46 @@ Evidence captured so far (domain modules):
     cd /data/projects/peptaide/web
     npm run typecheck
     # exits 0 (no errors)
+
+Evidence captured so far (conclusive browser harness, t-browser style):
+
+    cd /data/projects/peptaide/web
+    export PATH="$HOME/.nvm/versions/node/v22.21.1/bin:$PATH"
+    npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z
+
+    ls -1 /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z/*.diag.txt | wc -l
+    # 26 (13 swept pages x 2 viewports)
+
+    grep -R "^console_errors:" /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z/*.diag.txt | awk '{print $2}' | sort -u
+    # 0
+    grep -R "^page_errors:" /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z/*.diag.txt | awk '{print $2}' | sort -u
+    # 0
+    grep -R "^failed_requests:" /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z/*.diag.txt | awk '{print $2}' | sort -u
+    # 0
+
+    cat /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z/export.meta.txt
+    content_type=application/zip
+    bytes=10601
+
+    cat /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z/desktop-today.diag.txt
+    page: desktop-today
+    title: Peptaide
+    url: http://localhost:3002/today
+    console_errors: 0
+    page_errors: 0
+    console_warnings: 0
+    failed_requests: 0
+
+    cat /tmp/peptaide-e2e-2026-02-08T00-07-13-318Z/mobile-settings.diag.txt
+    page: mobile-settings
+    title: Peptaide
+    url: http://localhost:3002/settings
+    console_errors: 0
+    page_errors: 0
+    console_warnings: 0
+    failed_requests: 0
 
 Evidence captured so far (RLS probe):
 
@@ -1965,3 +2016,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-07: Docs: added a root `README.md` for repo overview + local usage and updated `web/README.md` to remove create-next-app boilerplate and point to the root README as the canonical project documentation.
 
 2026-02-07: Testing: added a conclusive browser-testing plan (t-browser style) to this ExecPlan and new `Progress` items requiring an automated `agent-browser`-based harness (`npm run e2e:browser`). Rationale: unit tests and SQL probes cannot prove the real browser experience (auth cookies, client interactions, console/network health, and router refresh behavior); the harness provides repeatable, end-to-end evidence.
+
+2026-02-08: Testing: implemented the conclusive `agent-browser`-based harness (`npm run e2e:browser`) under `web/scripts/tbrowser/` (commit `77b009f`), ran it to PASS on desktop + mobile sweeps, and captured diagnostic proof excerpts (0 console errors, 0 page errors, 0 failed requests across 26 route/viewports) in `Artifacts and Notes`. Updated `Progress`, `Surprises & Discoveries`, and `Decision Log` accordingly.
