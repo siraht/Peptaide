@@ -62,6 +62,7 @@ Tailscale Serve (HTTPS, tailnet only):
 Enable and start:
 
     sudo install -d /etc/peptaide
+    sudo cp -f /data/projects/peptaide/ops/systemd/peptaide-supabase.service /etc/systemd/system/peptaide-supabase.service
     sudo cp -f /data/projects/peptaide/ops/systemd/peptaide-web.service /etc/systemd/system/peptaide-web.service
     sudo cp -f /data/projects/peptaide/ops/systemd/peptaide-tailscale-serve.service /etc/systemd/system/peptaide-tailscale-serve.service
     sudo systemctl daemon-reload
@@ -83,6 +84,7 @@ Create / update the env file used by peptaide-web:
 
 Start services:
 
+    sudo systemctl enable --now peptaide-supabase.service
     sudo systemctl enable --now peptaide-tailscale-serve.service
     sudo systemctl enable --now peptaide-web.service
 

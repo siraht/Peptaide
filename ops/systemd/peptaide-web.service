@@ -1,7 +1,7 @@
 [Unit]
 Description=Peptaide web (Next.js)
-After=network-online.target
-Wants=network-online.target
+After=network-online.target peptaide-supabase.service
+Wants=network-online.target peptaide-supabase.service
 
 [Service]
 Type=simple
@@ -25,4 +25,3 @@ RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
-
