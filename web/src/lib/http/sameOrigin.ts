@@ -1,5 +1,19 @@
 export function validateSameOrigin(request: Request): string | null {
-  const expectedOrigin = new URL(request.url).origin
+  const url = new URL(request.url)
+
+  function firstHeaderValue(v: string | null): string | null {
+    if (!v) return null
+    const first = v.split(',')[0]?.trim()
+    return first || null
+  }
+
+  // Next.js route handlers can see `request.url` as `0.0.0.0` when the server is bound to 0.0.0.0.
+  // For same-origin enforcement we want the externally-visible origin, which is conveyed by the
+  // forwarded headers (Tailscale Serve / reverse proxies) and the Host header.
+  const proto = firstHeaderValue(request.headers.get('x-forwarded-proto')) || url.protocol.replace(':', '')
+  const host =
+    firstHeaderValue(request.headers.get('x-forwarded-host')) || firstHeaderValue(request.headers.get('host')) || url.host
+  const expectedOrigin = `${proto}://${host}`
 
   const origin = request.headers.get('origin')
   if (origin) {
@@ -31,4 +45,3 @@ export function validateSameOrigin(request: Request): string | null {
   // If none of the browser-originating headers exist, allow the request (e.g. CLI usage).
   return null
 }
-
