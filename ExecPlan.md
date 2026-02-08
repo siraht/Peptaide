@@ -99,14 +99,13 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-07 08:21Z) Import/export robustness: tolerate a UTF-8 BOM in CSV headers, treat invalid ZIP bundles as a structured 400 response (not a 500 crash), and add internal checks ensuring import/delete table order lists cover every exported table (to avoid silent partial imports/deletes after schema changes). Files: `web/src/lib/import/csv.ts`, `web/src/lib/import/csvBundle.ts`, `web/src/lib/import/deleteMyData.ts`, `web/src/app/api/import/route.ts`. plan[583-595]
 - [x] (2026-02-07 08:29Z) Import robustness + regression coverage: CSV parsing now ignores blank lines (so manual edits / some tools do not introduce spurious "wrong column count" errors), and tests now cover UTF-8 BOM headers and invalid ZIP inputs. Files: `web/src/lib/import/csv.ts`, `web/src/lib/import/csv.test.ts`, `web/src/lib/import/csvBundle.test.ts`. plan[583-595]
 - [x] (2026-02-07 08:32Z) Import compatibility: CSV bundle import now accepts CSVs whose header columns are reordered (as long as the exact expected column set is present), and added a regression test that permutes the `profiles` header. Files: `web/src/lib/import/csvBundle.ts`, `web/src/lib/import/csvBundle.test.ts`. plan[583-595]
-- [ ] Data portability: design and implement a "Simple CSV import" path intended for sparse external datasets (as small as a spreadsheet of timestamps + (substance, route) + dose in mL/mg + optional concentration mg/mL), without requiring Peptaide’s full internal schema. It must:
-  - accept a single CSV (not a full ZIP bundle) with flexible header names (case-insensitive, common synonyms),
-  - auto-create missing `substances`, `routes`, and `formulations` using sane defaults,
-  - compute `dose_mass_mg` and `dose_volume_ml` when possible (for example from `dose_ml * concentration_mg_per_ml`),
-  - infer `cycle_instances` from event timestamps using the profile’s `cycle_gap_default_days` (or a conservative default), and assign `cycle_instance_id` on imported events,
-  - support dry-run + apply and a "replace existing data" mode (delete all user data first),
-  - provide a `/settings` UI for this import and a dedicated docs page describing the simple format.
-  Evidence: new docs under `docs/`; unit tests for parsing/inference; and the conclusive browser harness (`npm run e2e:browser`) exercises the simple import UI and passes on both direct port and Tailscale Serve origins. plan[583-595] plan[682-689]
+- [x] (2026-02-08 21:30Z) Data portability: implemented a sparse "Simple import: events CSV" path for real-world spreadsheets (single CSV; no internal UUIDs or full schema required). The importer:
+  - accepts flexible headers (case-insensitive, common synonyms),
+  - auto-creates missing `substances`, `routes`, and `formulations` with sane defaults,
+  - computes canonical dose fields when possible (e.g., `dose_ml * mg_per_ml` -> `dose_mass_mg`),
+  - can infer `cycle_instances` from timestamps using `profiles.cycle_gap_default_days`,
+  - supports dry-run + apply with optional replace mode and best-effort rollback on apply failures.
+  UI: `/settings` -> Data -> "Simple import: events CSV" (`web/src/app/(app)/settings/data-portability.tsx`). API: `POST /api/import-simple-events` (`web/src/app/api/import-simple-events/route.ts`). Importer: `web/src/lib/import/simpleEvents.ts` (+ tests `web/src/lib/import/simpleEvents.test.ts`). Docs: `docs/SIMPLE_EVENTS_CSV_IMPORT.md` and `docs/IMPORT_ANALYSIS.md`. Evidence: conclusive browser harness (`npm run e2e:browser`) now exercises the simple import UI and PASSES on direct port and Tailscale Serve origins; artifacts at `/tmp/peptaide-e2e-2026-02-08T21-09-53-298Z` (direct port) and `/tmp/peptaide-e2e-2026-02-08T21-30-20-555Z` (Tailscale). plan[583-595] plan[682-689]
 - [x] (2026-02-07 08:37Z) UI: added a Ctrl/Cmd+K command palette for fast navigation between existing pages, and added a header sign-out action. Files: `web/src/components/command-palette.tsx`, `web/src/app/(app)/layout.tsx`. plan[17-29] plan[414-421]
 - [x] (2026-02-07 03:21Z) Implemented the SQL views needed for dashboards and performance: `v_event_enriched`, `v_daily_totals_admin`, `v_daily_totals_effective_systemic`, `v_daily_totals_effective_cns`, `v_spend_daily_weekly_monthly`, `v_order_item_vial_counts` (`supabase/migrations/20260207031330_080_views.sql`) plus `v_cycle_summary`, `v_inventory_status`, `v_model_coverage` (`supabase/migrations/20260207031911_081_views_more.sql`). Applied locally (`supabase db reset`) and regenerated `web/src/lib/supabase/database.types.ts`. plan[622-635] plan[706-713]
 
@@ -515,6 +514,17 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     See `seedDemoDataIfAvailable()` in `web/scripts/tbrowser/peptaide-e2e.mjs` (waits for `/today` content before checking/clicking "Seed demo data").
 
+- Observation: When `peptaide-web.service` is running, running `npm run build` manually in `web/` can break the live server by overwriting `.next` on disk while the running Next.js process is still using the previous build’s chunk manifest in memory. This can surface as 500s for missing `/_next/static/chunks/*.js` files and break client hydration (for example: the `/sign-in` form becomes non-interactive because its client chunk cannot be loaded). Fix: restart `peptaide-web.service` (it rebuilds and restarts atomically), and avoid clobbering `.next` while the service is running.
+  Evidence:
+    Before restart:
+    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3002/_next/static/chunks/d7d6d0a227492ba3.js
+    500
+
+    After restart:
+    sudo systemctl restart peptaide-web.service
+    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3002/_next/static/chunks/d7d6d0a227492ba3.js
+    200
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -641,6 +651,10 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: The Supabase JS client talks to PostgREST, so a multi-table import cannot be performed inside one SQL transaction. A best-effort rollback (delete everything again in replace mode; restore to "empty except profile" in non-replace mode) makes failures recoverable and avoids a confusing half-imported state.
   Date/Author: 2026-02-07 / Codex
 
+- Decision: Provide a separate sparse "Simple import: events CSV" path for real-world migrations from spreadsheets, instead of forcing all imports to match Peptaide’s full internal schema (ZIP bundle).
+  Rationale: External datasets usually have only a timestamp + substance + dose (optionally route and concentration). Requiring UUID ids, inventory/modeling tables, cycle bookkeeping, and audit fields is not realistic and creates a poor migration experience. A separate importer can (1) auto-create minimal reference rows, (2) compute canonical mg/mL fields when mathematically justified, and (3) infer cycles from timestamps, while leaving optional modeling/inventory to be configured later in the UI.
+  Date/Author: 2026-02-08 / Codex
+
 - Decision: Destructive API routes require same-origin browser requests (CSRF defense-in-depth).
   Rationale: RLS protects data reads/writes, but it does not prevent a browser from being tricked into sending an authenticated request. Validating `Origin`/`Referer`/`sec-fetch-site` on destructive endpoints reduces CSRF risk without requiring a full token-based CSRF system for the MVP. Requests that lack browser-originating headers (for example, CLI usage) are still allowed.
   Date/Author: 2026-02-07 / Codex
@@ -667,7 +681,7 @@ What exists now:
 6. A `/today` prototype exists that can seed demo reference data, log events via Server Actions, and render recent events from `public.v_event_enriched`. It exercises parsing, canonical dose computation, MC percentiles (when BA specs exist), and `model_snapshot` persistence.
 7. Setup/scaffolding CRUD pages exist for reference data and model inputs: `/substances` (+ detail BA spec editor), `/routes`, `/devices` (+ calibrations), `/formulations` (+ components), `/distributions`, plus `/cycles` (summary) and `/inventory`.
 8. Orders/inventory scaffolding exists: `/orders` can create vendors/orders/order items and generate planned vials; `/inventory` can create vials and supports vial lifecycle actions (activate, close, discard).
-9. Minimal read-only dashboards exist: `/analytics` (daily totals + spend rollups) and `/settings` (profile defaults editor + CSV export/import bundle tools + a danger-zone delete-my-data action).
+9. Minimal read-only dashboards exist: `/analytics` (daily totals + spend rollups) and `/settings` (profile defaults editor + data portability tools: export ZIP bundle, import ZIP bundle, simple events CSV import for sparse spreadsheets, and a danger-zone delete-my-data action).
 
 What remains (next highest-leverage work):
 
@@ -2095,3 +2109,7 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-08: VPS hosting + remote-auth hardening. Updates: added systemd + Tailscale Serve deployment scaffolding and a git-ignored `ACCESS.md` generator for this VPS; fixed local Supabase magic-link verify host generation for remote clients via `supabase/config.toml` `[api].external_url`; added OTP code sign-in UI on `/sign-in`; fixed `/auth/callback` and server-side same-origin enforcement to honor forwarded headers (avoid `0.0.0.0` origin mismatches under proxies); ensured Supabase SSR uses a consistent Supabase hostname between browser and server so PKCE exchanges succeed; and updated the conclusive browser harness to cover magic link + code flows and to PASS under both direct-port and Tailscale Serve origins (evidence in `Artifacts and Notes`).
 
 2026-02-08: Auth UX: `/sign-in` now only shows Mailpit URLs when they are likely reachable (localhost/127.0.0.1 or `.ts.net` tailnet host), preventing confusing "open Mailpit at http://<prod-host>:54324" hints in non-dev environments. Reran web quality gates and the conclusive browser harness to PASS for both direct port and Tailscale Serve (evidence in `Artifacts and Notes`).
+
+2026-02-08: Data portability: added a sparse "Simple import: events CSV" path for migrating from real-world spreadsheets (no internal UUIDs/full schema required), with auto-created reference data, dose mg/mL computation from concentration, optional cycle inference, and best-effort rollback. Added docs `docs/SIMPLE_EVENTS_CSV_IMPORT.md` and `docs/IMPORT_ANALYSIS.md`, updated `/settings` data portability UI with stable `data-e2e` selectors, and extended the conclusive browser harness (`npm run e2e:browser`) to exercise the simple import UI and PASS under both direct port and Tailscale Serve (artifacts: `/tmp/peptaide-e2e-2026-02-08T21-09-53-298Z` and `/tmp/peptaide-e2e-2026-02-08T21-30-20-555Z`).
+
+2026-02-08: Ops/testing discovery: running `npm run build` manually while `peptaide-web.service` is running can desync the server’s in-memory chunk manifest from the on-disk `.next/static` output, causing missing chunk 500s and broken client hydration until the service is restarted. Documented under `Surprises & Discoveries`.

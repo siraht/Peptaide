@@ -1,5 +1,11 @@
 # Peptaide CSV Import Format (ZIP Bundle v1)
 
+Important: this ZIP-bundle format is intended for **Peptaide-to-Peptaide** migrations (export from `/api/export`, then import back). It is not a good fit for manually migrating sparse spreadsheets.
+
+If you are importing a sparse external dataset (timestamp + substance + dose), use the simple importer instead:
+
+- `docs/SIMPLE_EVENTS_CSV_IMPORT.md`
+
 Peptaide imports data as a **ZIP bundle of CSV files**. This import format is intentionally identical to the app’s own export format, so the most reliable way to build a valid import is to:
 
 1. Sign in to Peptaide.
@@ -447,4 +453,3 @@ This format is implemented in:
 - Importer: `web/src/lib/import/csvBundle.ts`
 - Exporter: `web/src/app/api/export/route.ts`
 - Expected columns and kinds (auto-generated): `web/src/lib/export/exportColumns.ts`, `web/src/lib/export/exportColumnKinds.ts`
-

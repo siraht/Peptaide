@@ -1092,16 +1092,16 @@ async function settingsImportZip({ zipPath, replaceExisting }) {
 
   // Set replace checkbox if requested.
   if (replaceExisting) {
-    check('input[type="checkbox"]')
+    check('input[data-e2e="bundle-replace"]')
   } else {
-    uncheck('input[type="checkbox"]')
+    uncheck('input[data-e2e="bundle-replace"]')
   }
 
   // Upload the file.
-  upload('input[type="file"][accept=".zip"]', zipPath)
+  upload('input[data-e2e="bundle-zip-file"]', zipPath)
 
   // Dry run first.
-  clickButtonByName('Dry run')
+  click('button[data-e2e="bundle-dry-run"]')
   await waitUntil(
     async () => {
       const hasFormat = await evalJs('document.body.innerText.includes("format=peptaide-csv-bundle-v1")')
@@ -1111,7 +1111,7 @@ async function settingsImportZip({ zipPath, replaceExisting }) {
   )
 
   // Apply import.
-  clickButtonByName('Import')
+  click('button[data-e2e="bundle-apply"]')
   await waitUntil(
     async () => {
       const ok = await evalJs(
@@ -1131,6 +1131,58 @@ async function settingsImportZip({ zipPath, replaceExisting }) {
       return Boolean(ok)
     },
     { label: 'import apply inserted counts', timeoutMs: 120000 },
+  )
+}
+
+async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCycles }) {
+  logLine(`settings: simple events import via UI (replace=${replaceExisting ? '1' : '0'})`)
+  open(`${BASE_URL}/settings`)
+  await waitForBodyText('Simple import: events CSV', { label: 'settings simple import section visible' })
+  await evalJs('window.confirm = () => true')
+
+  if (inferCycles) {
+    check('input[data-e2e="simple-events-infer-cycles"]')
+  } else {
+    uncheck('input[data-e2e="simple-events-infer-cycles"]')
+  }
+
+  if (replaceExisting) {
+    check('input[data-e2e="simple-events-replace"]')
+  } else {
+    uncheck('input[data-e2e="simple-events-replace"]')
+  }
+
+  upload('input[data-e2e="simple-events-file"]', csvPath)
+
+  click('button[data-e2e="simple-events-dry-run"]')
+  await waitUntil(
+    async () => {
+      const text = await evalJs('document.querySelector(\'[data-e2e="simple-events-summary"]\')?.textContent || ""')
+      return typeof text === 'string' && text.includes('mode=dry-run')
+    },
+    { label: 'simple events import dry run result', timeoutMs: 60000 },
+  )
+
+  click('button[data-e2e="simple-events-apply"]')
+  await waitUntil(
+    async () => {
+      const err = await evalJs('document.querySelector(\'[data-e2e="simple-events-error"]\')?.textContent?.trim() || ""')
+      if (typeof err === 'string' && err) return true
+      const text = await evalJs('document.querySelector(\'[data-e2e="simple-events-summary"]\')?.textContent || ""')
+      return typeof text === 'string' && text.includes('mode=apply')
+    },
+    { label: 'simple events import apply complete', timeoutMs: 120000 },
+  )
+  const importErr = await evalJs('document.querySelector(\'[data-e2e="simple-events-error"]\')?.textContent?.trim() || ""')
+  if (typeof importErr === 'string' && importErr) {
+    fail(`simple events import apply failed: ${importErr}`)
+  }
+
+  // Confirm we can navigate to /today and see a non-empty surface.
+  open(`${BASE_URL}/today`)
+  await waitUntil(
+    async () => Boolean(await evalJs('document.body.innerText.includes("Log (grid)")')),
+    { label: 'today grid after simple import', timeoutMs: 60000 },
   )
 }
 
@@ -1302,6 +1354,20 @@ async function main() {
       { label: `userB cannot open ${href}`, timeoutMs: 30000 },
     )
   }
+
+  // Simple CSV import (sparse datasets): import a tiny events CSV for user B and verify it produces a usable /today and /cycles.
+  const simpleCsvPath = path.join(ARTIFACTS_DIR, 'simple-events.csv')
+  fs.writeFileSync(
+    simpleCsvPath,
+    [
+      'substance,ts,dose_ml,mg_per_ml,route',
+      `E2E Simple,2026-01-01T10:00:00Z,0.25,10,SubQ`,
+      `E2E Simple,2026-01-20T10:00:00Z,0.25,10,SubQ`,
+    ].join('\n') + '\n',
+  )
+  await settingsImportSimpleEventsCsv({ csvPath: simpleCsvPath, replaceExisting: false, inferCycles: true })
+  open(`${BASE_URL}/cycles`)
+  await waitForBodyText('Cycles', { label: 'cycles page visible after simple import' })
 
   logLine('PASS: conclusive browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)

@@ -22,6 +22,22 @@ type ImportBundleResult = {
   errors: string[]
 }
 
+type SimpleEventsImportResult = {
+  ok: boolean
+  mode: ImportMode
+  summary: {
+    input_rows: number
+    imported_events: number
+    created_substances: number
+    created_routes: number
+    created_formulations: number
+    created_cycles: number
+  }
+  warnings: string[]
+  errors: string[]
+  row_errors: Array<{ row: number; error: string }>
+}
+
 function firstImportError(result: ImportBundleResult): string | null {
   const top = result.errors?.[0]
   if (top) return top
@@ -40,6 +56,13 @@ export function DataPortabilitySection() {
   const [busy, setBusy] = useState<ImportMode | 'delete' | null>(null)
   const [result, setResult] = useState<ImportBundleResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const [eventsFile, setEventsFile] = useState<File | null>(null)
+  const [eventsReplaceExisting, setEventsReplaceExisting] = useState(false)
+  const [eventsInferCycles, setEventsInferCycles] = useState(true)
+  const [eventsBusy, setEventsBusy] = useState<ImportMode | null>(null)
+  const [eventsResult, setEventsResult] = useState<SimpleEventsImportResult | null>(null)
+  const [eventsError, setEventsError] = useState<string | null>(null)
 
   const router = useRouter()
 
@@ -90,6 +113,50 @@ export function DataPortabilitySection() {
       setError(msg)
     } finally {
       setBusy(null)
+    }
+  }
+
+  async function runSimpleEventsImport(mode: ImportMode) {
+    setEventsError(null)
+    setEventsResult(null)
+
+    if (!eventsFile) {
+      setEventsError('Choose a CSV file first.')
+      return
+    }
+
+    if (mode === 'apply' && eventsReplaceExisting) {
+      const ok = window.confirm(
+        'This will DELETE ALL your data, then import events from the CSV. Make sure you exported first. Continue?',
+      )
+      if (!ok) return
+    }
+
+    setEventsBusy(mode)
+    try {
+      const form = new FormData()
+      form.set('file', eventsFile)
+
+      const qs = new URLSearchParams()
+      qs.set('mode', mode)
+      if (eventsReplaceExisting) qs.set('replace', '1')
+      if (!eventsInferCycles) qs.set('infer_cycles', '0')
+
+      const res = await fetch(`/api/import-simple-events?${qs.toString()}`, { method: 'POST', body: form })
+      const json = (await res.json()) as SimpleEventsImportResult
+      setEventsResult(json)
+
+      if (!json.ok) {
+        const first = json.errors?.[0] ?? (json.row_errors?.[0] ? `Row ${json.row_errors[0].row}: ${json.row_errors[0].error}` : null)
+        setEventsError(first ?? 'Import failed.')
+      } else if (mode === 'apply') {
+        router.refresh()
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setEventsError(msg)
+    } finally {
+      setEventsBusy(null)
     }
   }
 
@@ -152,6 +219,95 @@ export function DataPortabilitySection() {
       </div>
 
       <div className="mt-6">
+        <h3 className="text-sm font-semibold text-zinc-900">Simple import: events CSV</h3>
+        <p className="mt-1 text-sm text-zinc-700">
+          For sparse spreadsheets, import a single CSV of administration events. The importer will create missing
+          substances/routes/formulations with sane defaults and can infer cycles from timestamps.
+        </p>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="text-zinc-700">Events CSV file</span>
+            <input
+              data-e2e="simple-events-file"
+              className="h-10 rounded-md border bg-white px-3 text-sm"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setEventsFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              data-e2e="simple-events-infer-cycles"
+              type="checkbox"
+              checked={eventsInferCycles}
+              onChange={(e) => setEventsInferCycles(e.target.checked)}
+            />
+            <span className="text-zinc-700">Infer cycles from timestamps</span>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              data-e2e="simple-events-replace"
+              type="checkbox"
+              checked={eventsReplaceExisting}
+              onChange={(e) => setEventsReplaceExisting(e.target.checked)}
+            />
+            <span className="text-zinc-700">Replace existing data (delete all my data first)</span>
+          </label>
+
+          <div className="flex gap-2 sm:col-span-2">
+            <button
+              data-e2e="simple-events-dry-run"
+              className="h-10 rounded-md border bg-white px-4 text-sm font-medium text-zinc-900 disabled:opacity-50"
+              type="button"
+              disabled={eventsBusy != null}
+              onClick={() => runSimpleEventsImport('dry-run')}
+            >
+              {eventsBusy === 'dry-run' ? 'Running...' : 'Dry run'}
+            </button>
+            <button
+              data-e2e="simple-events-apply"
+              className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50"
+              type="button"
+              disabled={eventsBusy != null}
+              onClick={() => runSimpleEventsImport('apply')}
+            >
+              {eventsBusy === 'apply' ? 'Importing...' : 'Import'}
+            </button>
+          </div>
+
+          {eventsResult ? (
+            <div className="rounded-md border bg-zinc-50 p-3 text-sm text-zinc-900 sm:col-span-2">
+              <div className="text-xs text-zinc-600" data-e2e="simple-events-summary">
+                {`mode=${eventsResult.mode} rows=${eventsResult.summary.input_rows} imported_events=${eventsResult.summary.imported_events} substances=${eventsResult.summary.created_substances} routes=${eventsResult.summary.created_routes} formulations=${eventsResult.summary.created_formulations} cycles=${eventsResult.summary.created_cycles}`}
+              </div>
+
+              {eventsResult.row_errors?.length ? (
+                <div className="mt-2 text-xs text-zinc-700">
+                  {eventsResult.row_errors.slice(0, 3).map((e) => (
+                    <div key={e.row} className="font-mono">
+                      {`row ${e.row}: ${e.error}`}
+                    </div>
+                  ))}
+                  {eventsResult.row_errors.length > 3 ? (
+                    <div className="text-zinc-600">{`... and ${eventsResult.row_errors.length - 3} more`}</div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {eventsError ? (
+          <p className="mt-2 text-sm text-red-700" role="status" data-e2e="simple-events-error">
+            {eventsError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-6">
         <h3 className="text-sm font-semibold text-zinc-900">Import bundle</h3>
         <p className="mt-1 text-sm text-zinc-700">
           Use <span className="font-medium">Dry run</span> first to validate the ZIP. Import can optionally replace your
@@ -162,6 +318,7 @@ export function DataPortabilitySection() {
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="text-zinc-700">Export ZIP file</span>
             <input
+              data-e2e="bundle-zip-file"
               className="h-10 rounded-md border bg-white px-3 text-sm"
               type="file"
               accept=".zip"
@@ -171,6 +328,7 @@ export function DataPortabilitySection() {
 
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input
+              data-e2e="bundle-replace"
               type="checkbox"
               checked={replaceExisting}
               onChange={(e) => setReplaceExisting(e.target.checked)}
@@ -180,6 +338,7 @@ export function DataPortabilitySection() {
 
           <div className="flex gap-2 sm:col-span-2">
             <button
+              data-e2e="bundle-dry-run"
               className="h-10 rounded-md border bg-white px-4 text-sm font-medium text-zinc-900 disabled:opacity-50"
               type="button"
               disabled={busy != null}
@@ -188,6 +347,7 @@ export function DataPortabilitySection() {
               {busy === 'dry-run' ? 'Running...' : 'Dry run'}
             </button>
             <button
+              data-e2e="bundle-apply"
               className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50"
               type="button"
               disabled={busy != null}

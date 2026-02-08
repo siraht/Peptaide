@@ -128,7 +128,11 @@ npm run build
 
 Peptaide exports and imports data as a ZIP bundle of CSV files (the importer expects the same format that `/api/export` generates).
 
-See `docs/CSV_IMPORT_BUNDLE_V1.md` for the exact file layout, required headers, and migration guidance.
+Docs:
+
+- `docs/SIMPLE_EVENTS_CSV_IMPORT.md`: recommended for sparse spreadsheets (event log import).
+- `docs/IMPORT_ANALYSIS.md`: table-by-table analysis of what external systems usually track, and how sparse imports map to Peptaide.
+- `docs/CSV_IMPORT_BUNDLE_V1.md`: full-fidelity Peptaide-to-Peptaide import/export bundle format.
 
 ## RLS Verification (Dev)
 
