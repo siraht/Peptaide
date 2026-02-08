@@ -3,7 +3,7 @@
  * Conclusive browser verification for Peptaide (t-browser style).
  *
  * Uses agent-browser (Playwright CLI) to:
- * - sign in via Supabase OTP magic link (retrieved from local Mailpit API)
+ * - sign in via Supabase OTP (magic link + code) retrieved from Mailpit
  * - exercise core CRUD + logging flows
  * - validate RLS isolation by signing in as a second user
  * - verify data portability via export/import/delete flows
@@ -14,7 +14,7 @@
  *
  * Prereqs (run outside this script):
  * - supabase start
- * - next dev running at E2E_BASE_URL (default http://localhost:3002)
+ * - next server running at E2E_BASE_URL (default http://127.0.0.1:3002)
  */
 
 import { spawnSync } from 'node:child_process'
@@ -36,7 +36,7 @@ const REPO_ROOT = path.resolve(WEB_DIR, '..')
 
 const RUN_ID = new Date().toISOString().replace(/[:.]/g, '-')
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:3002'
+const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3002'
 const MAILPIT_URL = process.env.E2E_MAILPIT_URL || 'http://127.0.0.1:54324'
 const EMAIL_A = process.env.E2E_EMAIL_A || 'e2e.a@example.com'
 const EMAIL_B = process.env.E2E_EMAIL_B || 'e2e.b@example.com'
@@ -52,24 +52,46 @@ const localAgentBrowser = path.join(WEB_DIR, 'node_modules', '.bin', 'agent-brow
 const AGENT_BROWSER_BIN =
   process.env.AGENT_BROWSER_BIN || (fs.existsSync(localAgentBrowser) ? localAgentBrowser : 'agent-browser')
 
-function runAgentBrowser(cmdArgs, { json = false, allowFailure = false } = {}) {
+function sleepSync(ms) {
+  const n = Number(ms) || 0
+  if (n <= 0) return
+  // Synchronous sleep without pulling in extra deps.
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, n)
+}
+
+function isRetryableAgentBrowserError(stderr) {
+  const s = String(stderr || '')
+  return s.includes('Resource temporarily unavailable (os error 11)') || s.includes('daemon may be busy')
+}
+
+function runAgentBrowser(cmdArgs, { json = false, allowFailure = false, retries = 8 } = {}) {
   const args = ['--session', SESSION]
   if (HEADED) args.push('--headed')
   if (json) args.push('--json')
   args.push(...cmdArgs)
 
-  const result = spawnSync(AGENT_BROWSER_BIN, args, { encoding: 'utf8' })
-  if (result.error) throw result.error
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const result = spawnSync(AGENT_BROWSER_BIN, args, { encoding: 'utf8' })
+    if (result.error) throw result.error
 
-  const stdout = (result.stdout || '').trim()
-  const stderr = (result.stderr || '').trim()
-  const status = result.status ?? 0
+    const stdout = (result.stdout || '').trim()
+    const stderr = (result.stderr || '').trim()
+    const status = result.status ?? 0
 
-  if (status !== 0 && !allowFailure) {
+    if (status === 0 || allowFailure) {
+      return { stdout, stderr, status }
+    }
+
+    if (attempt < retries && isRetryableAgentBrowserError(stderr)) {
+      sleepSync(250 + attempt * 100)
+      continue
+    }
+
     throw new Error(stderr || stdout || `agent-browser exited with ${status}`)
   }
 
-  return { stdout, stderr, status }
+  // Unreachable (loop throws or returns), but keep TS/linters happy.
+  return { stdout: '', stderr: '', status: 1 }
 }
 
 function runCmd(bin, args, { cwd, allowFailure = false } = {}) {
@@ -93,18 +115,28 @@ async function resetLocalSupabaseDb() {
   logLine('supabase: ensuring local dev stack is running')
   runCmd('supabase', ['start'], { cwd: REPO_ROOT, allowFailure: true })
 
-  logLine('supabase: db reset (local) --yes')
-  const res = runCmd('supabase', ['db', 'reset', '--yes'], { cwd: REPO_ROOT, allowFailure: true })
-  if (res.status === 0) return
+  const maxAttempts = 5
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    logLine(`supabase: db reset (local) --yes (attempt ${attempt}/${maxAttempts})`)
+    const res = runCmd('supabase', ['db', 'reset', '--yes'], { cwd: REPO_ROOT, allowFailure: true })
+    if (res.status === 0) return
 
-  // Local supabase can flake with transient 502s immediately after restarting containers.
-  // Retry once after a short delay.
-  logLine(`supabase: db reset exited ${res.status}; retrying once after 2s`)
-  await sleep(2000)
-  const res2 = runCmd('supabase', ['db', 'reset', '--yes'], { cwd: REPO_ROOT, allowFailure: true })
-  if (res2.status !== 0) {
-    fail(`supabase db reset failed twice (exit ${res2.status}). stderr: ${res2.stderr}`)
+    const stderr = res.stderr || ''
+    const isTransient502 =
+      stderr.includes('Error status 502') || stderr.includes('invalid response was received from the upstream server')
+
+    if (!isTransient502) {
+      fail(`supabase db reset failed (exit ${res.status}). stderr: ${stderr}`)
+    }
+
+    if (attempt < maxAttempts) {
+      const waitMs = 2000 + attempt * 1500
+      logLine(`supabase: transient 502 during reset; retrying after ${waitMs}ms`)
+      await sleep(waitMs)
+    }
   }
+
+  fail('supabase db reset failed after repeated transient 502s; check local supabase health')
 }
 
 function extractJson(text) {
@@ -339,6 +371,10 @@ function fill(sel, value) {
   runAgentBrowser(['fill', sel, value])
 }
 
+function type(sel, value) {
+  runAgentBrowser(['type', sel, value])
+}
+
 function press(key) {
   runAgentBrowser(['press', key])
 }
@@ -431,7 +467,17 @@ function extractFirstUrlFromMagicLinkText(text) {
   return null
 }
 
-async function waitForMagicLink(email, { sinceMs, timeoutMs = 30000 } = {}) {
+function extractOtpCodeFromMagicLinkText(text) {
+  if (!text) return null
+  const s = String(text)
+  const match = s.match(/(?:enter the code:\s*)(\d{6})/i)
+  if (match && match[1]) return match[1]
+  const match2 = s.match(/\b(\d{6})\b/)
+  if (match2 && match2[1]) return match2[1]
+  return null
+}
+
+async function waitForOtpEmail(email, { sinceMs, timeoutMs = 30000 } = {}) {
   const start = Date.now()
   for (;;) {
     const list = await mailpitFetchJson('/api/v1/messages')
@@ -447,11 +493,13 @@ async function waitForMagicLink(email, { sinceMs, timeoutMs = 30000 } = {}) {
 
     if (match && match.ID) {
       const msg = await mailpitFetchJson(`/api/v1/message/${match.ID}`)
-      const link = extractFirstUrlFromMagicLinkText(msg.Text || msg.HTML || '')
-      if (!link) {
-        throw new Error(`Could not extract magic link URL from Mailpit message ${match.ID}`)
+      const text = msg.Text || msg.HTML || ''
+      const link = extractFirstUrlFromMagicLinkText(text)
+      const code = extractOtpCodeFromMagicLinkText(text)
+      if (!link || !code) {
+        throw new Error(`Could not extract magic link URL and code from Mailpit message ${match.ID}`)
       }
-      return link
+      return { link, code }
     }
 
     if (Date.now() - start > timeoutMs) {
@@ -462,8 +510,24 @@ async function waitForMagicLink(email, { sinceMs, timeoutMs = 30000 } = {}) {
   }
 }
 
-async function signIn(email) {
-  logLine(`auth: requesting magic link for ${email}`)
+function isLocalHostname(hostname) {
+  const h = String(hostname || '').toLowerCase()
+  return h === 'localhost' || h === '127.0.0.1'
+}
+
+function assertMagicLinkHostMatchesScenario(magicLink) {
+  const baseHost = new URL(BASE_URL).hostname
+  const magicHost = new URL(magicLink).hostname
+
+  // This is the class of failure we care about for remote clients: webapp is not local, but the
+  // auth verify URL points at 127.0.0.1/localhost (which would refer to the *client* machine).
+  if (!isLocalHostname(baseHost) && isLocalHostname(magicHost)) {
+    fail(`magic link host is local (${magicHost}) but base url host is remote (${baseHost}). Fix supabase [api].external_url.`)
+  }
+}
+
+async function requestOtpEmail(email) {
+  logLine(`auth: requesting OTP for ${email}`)
   open(`${BASE_URL}/sign-in`)
   waitFor('input[name="email"]')
 
@@ -471,11 +535,17 @@ async function signIn(email) {
 
   fill('input[name="email"]', email)
   const since = Date.now()
-  click('button[type="submit"]')
+  clickButtonByName('Send sign-in link')
 
-  const magicLink = await waitForMagicLink(email, { sinceMs: since })
+  const { link, code } = await waitForOtpEmail(email, { sinceMs: since })
+  assertMagicLinkHostMatchesScenario(link)
+  return { link, code }
+}
+
+async function signInWithMagicLink(email) {
+  const { link } = await requestOtpEmail(email)
   logLine('auth: opening magic link')
-  open(magicLink)
+  open(link)
 
   await waitUntil(
     async () => {
@@ -483,6 +553,23 @@ async function signIn(email) {
       return typeof url === 'string' && url.startsWith(`${BASE_URL}/today`)
     },
     { label: 'redirect to /today' },
+  )
+}
+
+async function signInWithCode(email) {
+  const { code } = await requestOtpEmail(email)
+  logLine('auth: verifying OTP code')
+
+  waitFor('input[name="code"]')
+  fill('input[name="code"]', code)
+  clickButtonByName('Sign in')
+
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      return typeof url === 'string' && url.startsWith(`${BASE_URL}/today`)
+    },
+    { label: 'redirect to /today via code' },
   )
 }
 
@@ -964,13 +1051,34 @@ async function settingsDeleteMyData() {
   // Type DELETE into the confirm input and click the delete button.
   const confirmInput = 'input[placeholder="DELETE"]'
   click(confirmInput)
-  fill(confirmInput, 'DELETE')
+  // Use `type` (not `fill`) to ensure React `onChange` fires and the delete button enables.
+  fill(confirmInput, '')
+  type(confirmInput, 'DELETE')
+
+  await waitUntil(
+    async () =>
+      Boolean(
+        await evalJs(`(() => {
+          const btn = Array.from(document.querySelectorAll('button'))
+            .find((b) => (b.textContent || '').trim() === 'Delete all my data')
+          return btn && !btn.disabled
+        })()`),
+      ),
+    { label: 'delete-my-data button enabled', timeoutMs: 10000 },
+  )
+
   clickButtonByName('Delete all my data')
 
   await waitUntil(
     async () => {
-      const busy = await evalJs('document.body.innerText.includes("Deleting...")')
-      return !busy
+      const confirm = await evalJs('document.querySelector(\'input[placeholder="DELETE"]\')?.value')
+      if (confirm === '') return true
+
+      const err = await evalJs('document.querySelector(\'p.text-red-700\')?.innerText')
+      if (typeof err === 'string' && err.trim().length > 0) {
+        fail(`delete-my-data failed: ${err.trim()}`)
+      }
+      return false
     },
     { label: 'delete-my-data completion', timeoutMs: 60000 },
   )
@@ -1070,7 +1178,7 @@ async function main() {
 
   setViewport(1280, 720)
 
-  await signIn(EMAIL_A)
+  await signInWithMagicLink(EMAIL_A)
   await seedDemoDataIfAvailable()
 
   // Create a small set of distributions for setup/calibration/modifiers.
@@ -1173,7 +1281,7 @@ async function main() {
 
   // Multi-user RLS: sign out, sign in as B, verify A's deep links are 404/not-found.
   await signOut()
-  await signIn(EMAIL_B)
+  await signInWithCode(EMAIL_B)
 
   // User B should see empty state on /today.
   await waitUntil(
