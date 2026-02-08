@@ -35,11 +35,13 @@ export function SignInForm() {
 
     setStatus('sent')
     const host = window.location.hostname
-    const mailpitHttpUrl = `http://${host}:54324`
-    const mailpitHttpsUrl = `https://${host}:15433`
-    setMessage(
-      `Check your email for a sign-in link or 6-digit code. For local Supabase, open Mailpit at ${mailpitHttpUrl} (or ${mailpitHttpsUrl} via Tailscale Serve).`,
-    )
+    const mailpitHint =
+      host === 'localhost' || host === '127.0.0.1'
+        ? ` For local Supabase, open Mailpit at http://${host}:54324.`
+        : host.endsWith('.ts.net')
+          ? ` For local Supabase, open Mailpit at https://${host}:15433 (via Tailscale Serve).`
+          : ''
+    setMessage(`Check your email for a sign-in link or 6-digit code.${mailpitHint}`)
   }
 
   async function onVerifyCode(e: React.FormEvent<HTMLFormElement>) {
