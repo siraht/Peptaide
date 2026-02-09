@@ -110,6 +110,28 @@ That means ports bound to \`0.0.0.0\` (like 3002/54321/54324) are reachable from
 When you add Nginx Proxy Manager (NPM) later, proxy to the web app on \`http://127.0.0.1:${web_port}\` (or to the host IP).
 If you run NPM in Docker on Linux, the simplest option is \`network_mode: host\` so it can reach \`127.0.0.1\` on the VPS.
 Avoid using Tailscale Serve on ports 80/443 if NPM is binding those ports.
+
+## Browser Troubleshooting (Zen / Firefox DoH)
+
+Symptom:
+
+- You can open the app via the tailnet IP (for example \`http://${ts_ip4:-100.x.y.z}:${web_port}/sign-in\`) and \`tailscale ping ${ts_dns}\` works,
+  but \`https://${ts_dns}:${web_https_port}\` does not load in Zen (or the app loads but cannot send a magic link / OTP email).
+
+Root cause:
+
+- \`${ts_dns}\` is a MagicDNS name. It normally resolves using Tailscale's DNS (\`100.100.100.100\`, via your OS resolver).
+- If Zen has DNS-over-HTTPS ("Secure DNS") enabled, it may bypass your OS/Tailscale DNS and query a public resolver.
+  Public resolvers do not know your tailnet's MagicDNS records, so \`${ts_dns}\` fails to resolve in that browser.
+- If \`${ts_dns}\` can't resolve, the app also can't reach Supabase at \`https://${ts_dns}:${supabase_https_port}\`, so clicking
+  "Send sign-in link" fails (check DevTools -> Network; you'll usually see DNS / connection errors to \`/auth/v1/otp\`).
+
+Fix (Zen / Firefox-style settings):
+
+1. Disable DNS-over-HTTPS / Secure DNS, or set it to "use system DNS" (recommended).
+2. If you want to keep DoH enabled, add exclusions for \`ts.net\` and \`${ts_dns#*.}\`.
+3. Clear the browser DNS cache (Firefox: \`about:networking#dns\` -> "Clear DNS Cache") and reload.
+4. Ensure Zen isn't using a proxy/VPN profile that blocks nonstandard HTTPS ports (\`${web_https_port}/${supabase_https_port}/${mailpit_https_port}\`).
 EOF
 
 echo "Wrote ${REPO_ROOT}/ACCESS.md"
