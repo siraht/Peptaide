@@ -235,6 +235,10 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-09 01:27Z) Bugfix: `/today` no longer crashes after "Simple import: events CSV" with a PostgREST `statement_timeout` on `v_events_today.select` (Next digest `1699515079`). Root cause was `public.v_events_today` calling `public.safe_timezone(...)` per event row, which is expensive because it consults `pg_timezone_names`. Fix: rewrite `public.v_events_today` to compute the user's effective timezone + UTC day bounds once (using `MATERIALIZED` CTEs), then filter by a sargable `ts` range that uses `administration_events_user_ts_idx`. Evidence: commits `1c191eb`, `e4a82dd` and the EXPLAIN ANALYZE in `Surprises & Discoveries`. plan[556-582] plan[699-713]
 - [x] (2026-02-09 01:32Z) Testing: conclusive browser verification now covers the user's real spreadsheet import file (`spreadsheetdata/peptaide_simple_events.csv`) end-to-end, including asserting `/today` loads after import and that import summary matches expectations (277 events, 7 substances, 2 routes, 8 formulations, 17 cycles with `cycle_gap_default_days=8`). Evidence: PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T01-30-24-666Z` (direct port) and `/tmp/peptaide-e2e-2026-02-09T01-40-32-481Z` (Tailscale Serve). plan[583-595] plan[690-698] plan[729-751]
 - [x] (2026-02-09 01:39Z) Reliability: fixed rare server-side failures `profiles.select_after_upsert: missing data` by making `ensureMyProfile(...)` fetch the profile row in the same PostgREST round-trip as the upsert (`upsert(...).select('*').maybeSingle()`). This avoids a follow-up `select()` flaking under load and improves `/settings` mutation reliability under proxies. Evidence: commit `9baf407`; conclusive browser harness PASS under both direct port and Tailscale Serve origins after this change. plan[118-129] plan[583-595] plan[690-698]
+- [x] (2026-02-09 02:51Z) Orders: added a `/orders` "Quick import" button that idempotently imports the user's two RETA-PEPTIDE orders (I and II), creates/links vendors + orders + order_items, and generates planned vials per case. Order totals include shipping/fees/tax (stored on `orders`); vial costs exclude shipping (computed from `order_items.price_total_usd / expected_vials`). Evidence: commit `196cd81`; implemented in `web/src/app/(app)/orders/actions.ts`, `web/src/app/(app)/orders/import-reta-peptide-orders-form.tsx`, `web/src/app/(app)/orders/page.tsx`.
+- [x] (2026-02-09 02:51Z) Orders modeling: represented the physical combo vial `BPC157+TB500` as two logical order items/vial sets (BPC-157 and TB-500) with a 50/50 cost split so each substance can have an active vial and events can link to a vial without violating DB consistency triggers. Evidence: commit `196cd81` notes on the created order items.
+- [x] (2026-02-09 04:03Z) Performance/reliability: fixed `/inventory` timeouts by rewriting `public.v_inventory_status` to compute timezone + bounds once and restrict the 14-day avg usage scan to only inventory formulations (tight `ts` bounds), and added an index on events by `(user_id, vial_id)` to speed per-vial aggregation. Also hardened the app against transient Supabase "JWT issued at future" errors (clock skew right after resets) and updated the conclusive browser harness to cover the new RETA import button. Evidence: commit `4497d9e`; migration `supabase/migrations/20260209031000_094_inventory_status_fast.sql`; harness `web/scripts/tbrowser/peptaide-e2e.mjs`.
+- [ ] (2026-02-09 04:10Z) Testing: rerun the conclusive browser verification harness (`npm run e2e:browser`) against `next start` after the orders + inventory performance changes, and record the PASS artifacts directory in `Artifacts and Notes`. plan[583-595] plan[690-698] plan[729-751]
 
 ## Milestones
 
@@ -550,6 +554,14 @@ Record the outputs and checks in `Artifacts and Notes`.
     curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3002/_next/static/chunks/d7d6d0a227492ba3.js
     200
 
+- Observation: With realistic vial counts and a growing event log, `/inventory` can hit Supabase PostgREST `statement_timeout` when selecting from `public.v_inventory_status` (the previous view did expensive per-row timezone logic and scanned too broadly to compute the 14-day average usage).
+  Evidence:
+    The app rendered `/inventory` as HTTP 500 with a PostgREST `statement_timeout` while selecting `v_inventory_status`. Fix: rewrite the view to compute timezone + UTC bounds once per user (via `MATERIALIZED` CTEs), restrict the 14-day aggregation to formulations that actually exist in inventory, and add `administration_events_user_vial_idx` to speed per-vial usage sums. See `supabase/migrations/20260209031000_094_inventory_status_fast.sql`.
+
+- Observation: Immediately after local `supabase db reset`, Supabase can transiently return `JWT issued at future` errors to the app (likely container clock skew vs host clock). This can cause SSR pages to 500 if not handled defensively.
+  Evidence:
+    Implemented a small retry/backoff around key read paths (today events, formulations list, model coverage) when this exact error string is observed. See commit `4497d9e`.
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -579,6 +591,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 - Decision: For environments behind Tailscale Serve / reverse proxies, compute the externally-visible request origin from `x-forwarded-proto` + `x-forwarded-host` (or Host), and use it for absolute redirects and same-origin enforcement.
   Rationale: Next.js route handlers can see `request.url` as `http://0.0.0.0:<port>/...` when binding to `0.0.0.0`, which breaks security checks that compare `Origin` to `new URL(request.url).origin` and can generate redirects to an unusable host. Using forwarded headers matches the browser-visible origin and keeps CSRF defenses correct under proxies.
   Date/Author: 2026-02-08 / Codex
+
+- Decision: Treat the Supabase error `JWT issued at future` as a transient local-dev failure (clock skew after container resets) and retry a small number of times with backoff on key SSR read paths (today events, formulations list, model coverage) instead of failing the whole page render.
+  Rationale: This error is not an application logic failure and is usually self-healing within seconds; retrying improves reliability without weakening RLS or hiding real auth issues.
+  Date/Author: 2026-02-09 / Codex
 
 - Decision: Avoid using the Supabase service role key in the normal request path; all user flows should run under the authenticated user's session with RLS enforced by the database.
   Rationale: The service role key bypasses RLS and is a common way to accidentally break the security model; keeping RLS in force by default matches the plan's security requirements.
@@ -659,6 +675,10 @@ Record the outputs and checks in `Artifacts and Notes`.
 - Decision: For MVP, order-item vial generation creates vials in `planned` status, links them via `vials.order_item_id`, and defaults `vials.cost_usd` only when both `order_items.price_total_usd` and a positive `order_items.expected_vials` are present (cost per vial = price_total_usd / expected_vials). Shipping is tracked on the order but not auto-allocated.
   Rationale: Keeps the initial cost model simple and auditable while still enabling spend attribution once vials are activated and used. Shipping allocation is a product decision that should be made explicitly, not implied.
   Date/Author: 2026-02-07 / Codex
+
+- Decision: For combo physical vials that contain multiple substances (for example `BPC157+TB500`), represent them as two logical order items and two logical vial sets (one per substance) with a documented cost split (50/50 in this case), rather than attempting to model a single vial spanning multiple formulations.
+  Rationale: The DB enforces that events and vials link to a single formulation/substance consistently (via triggers). Splitting preserves those invariants and keeps per-substance "active vial" and cost attribution working, while still allowing total spend to sum to the physical vial cost.
+  Date/Author: 2026-02-09 / Codex
 
 - Decision: `/settings` constrains `profiles.default_mass_unit` choices to true mass units (mg, mcg, g) and keeps IU out of mass defaults.
   Rationale: IU is not a mass unit and IU->mg conversion is substance-specific; treating IU as mass would violate unit correctness and create incorrect analytics.
@@ -2167,3 +2187,7 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-08: Data portability: added a sparse "Simple import: events CSV" path for migrating from real-world spreadsheets (no internal UUIDs/full schema required), with auto-created reference data, dose mg/mL computation from concentration, optional cycle inference, and best-effort rollback. Added docs `docs/SIMPLE_EVENTS_CSV_IMPORT.md` and `docs/IMPORT_ANALYSIS.md`, updated `/settings` data portability UI with stable `data-e2e` selectors, and extended the conclusive browser harness (`npm run e2e:browser`) to exercise the simple import UI and PASS under both direct port and Tailscale Serve (artifacts: `/tmp/peptaide-e2e-2026-02-08T21-09-53-298Z` and `/tmp/peptaide-e2e-2026-02-08T21-30-20-555Z`).
 
 2026-02-08: Ops/testing discovery: running `npm run build` manually while `peptaide-web.service` is running can desync the server’s in-memory chunk manifest from the on-disk `.next/static` output, causing missing chunk 500s and broken client hydration until the service is restarted. Documented under `Surprises & Discoveries`.
+
+2026-02-09: Orders: added an idempotent `/orders` quick import for the user's two RETA-PEPTIDE orders (I and II) that creates vendor/orders/items and generates planned vials per case with the correct cost semantics (order totals include shipping/fees/tax; vial cost excludes shipping). Recorded in `Progress`, `Decision Log`, and the plan's testing requirements.
+
+2026-02-09: Performance/reliability: sped up `public.v_inventory_status` to prevent `/inventory` statement timeouts under realistic data, added an events `(user_id, vial_id)` index for per-vial usage aggregation, and hardened key SSR reads against transient local Supabase `JWT issued at future` errors. Updated `Progress`, `Surprises & Discoveries`, and `Decision Log` to keep the plan self-contained and restartable for these changes.
