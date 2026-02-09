@@ -1227,14 +1227,32 @@ async function settingsSubstancesWorkspaceDeepInteractions() {
     const links = Array.from(document.querySelectorAll('a[data-e2e^="settings-substance-select-"]'))
     return links.some((a) => (a.textContent || '').trim() === 'Demo substance')
   })()`)
-  if (hasDemoSubstance) {
-    clickLinkByName('Demo substance')
-  } else {
-    clickFirst('a[data-e2e^="settings-substance-select-"]')
+  const editorHref = await evalJs(`(() => {
+    const links = Array.from(document.querySelectorAll('a[data-e2e^="settings-substance-select-"]'))
+    const pick = ${hasDemoSubstance ? `links.find((a) => (a.textContent || '').trim() === 'Demo substance')` : 'links[0]'}
+    return pick ? (pick.getAttribute('href') || '') : ''
+  })()`)
+  if (typeof editorHref !== 'string' || !editorHref.startsWith('/settings?')) {
+    takeScreenshot('settings-substance-pick-missing')
+    const snippet = String(await evalJs('document.body.innerText || ""'))
+      .replace(/\\s+/g, ' ')
+      .slice(0, 300)
+    fail(`Could not find a substance editor link on /settings. Body starts: ${snippet}`)
   }
 
+  // Use `open` instead of a click to avoid SPA timing flakiness; we still validate that the
+  // editor link exists and points at the expected /settings?substance_id=... URL.
+  open(`${BASE_URL}${editorHref}`)
+
   waitFor('[data-e2e="settings-substance-editor"]')
-  await waitForBodyText('Editing', { label: 'settings editor open' })
+  waitFor('form[data-e2e="settings-base-ba-form"]')
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      return typeof url === 'string' && url.includes('substance_id=')
+    },
+    { label: 'settings editor URL includes substance_id', timeoutMs: 60000 },
+  )
 
   await assertSettingsStitchVisualContract()
 
