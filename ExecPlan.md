@@ -1682,7 +1682,7 @@ Evidence captured so far (domain modules):
 
     cd /data/projects/peptaide/web
     npm run test
-    # 52 tests passed (units/uncertainty/dose/cost/cycles + import/CSRF + smoke)
+    # 59 tests passed (units/uncertainty/dose/cost/cycles + import/CSRF + smoke)
 
     cd /data/projects/peptaide/web
     npm run typecheck
