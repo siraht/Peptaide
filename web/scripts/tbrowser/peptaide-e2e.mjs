@@ -1184,6 +1184,25 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
   await waitForBodyText('Simple import: events CSV', { label: 'settings simple import section visible' })
   await evalJs('window.confirm = () => true')
 
+  const cycleGapDaysRaw = process.env.E2E_SIMPLE_EVENTS_PROFILE_CYCLE_GAP_DAYS
+  if (cycleGapDaysRaw && cycleGapDaysRaw.trim()) {
+    const n = Number(cycleGapDaysRaw)
+    if (Number.isFinite(n) && Number.isInteger(n) && n >= 0) {
+      logLine(`settings: setting profile cycle_gap_default_days=${n}`)
+      fill('input[name="cycle_gap_default_days"]', String(n))
+      click('form[action] button[type="submit"]')
+      await waitUntil(
+        async () => {
+          const body = await evalJs('document.body.innerText')
+          return typeof body === 'string' && body.includes('Updated.')
+        },
+        { label: 'profile save (cycle gap days)', timeoutMs: 60000 },
+      )
+    } else {
+      fail(`Invalid E2E_SIMPLE_EVENTS_PROFILE_CYCLE_GAP_DAYS value: ${cycleGapDaysRaw}`)
+    }
+  }
+
   if (inferCycles) {
     check('input[data-e2e="simple-events-infer-cycles"]')
   } else {
@@ -1400,15 +1419,20 @@ async function main() {
   }
 
   // Simple CSV import (sparse datasets): import a tiny events CSV for user B and verify it produces a usable /today and /cycles.
-  const simpleCsvPath = path.join(ARTIFACTS_DIR, 'simple-events.csv')
-  fs.writeFileSync(
-    simpleCsvPath,
-    [
-      'substance,ts,dose_ml,mg_per_ml,route',
-      `E2E Simple,2026-01-01T10:00:00Z,0.25,10,SubQ`,
-      `E2E Simple,2026-01-20T10:00:00Z,0.25,10,SubQ`,
-    ].join('\n') + '\n',
-  )
+  const customSimpleCsv = process.env.E2E_SIMPLE_EVENTS_CSV_PATH
+  const simpleCsvPath = customSimpleCsv ? path.resolve(customSimpleCsv) : path.join(ARTIFACTS_DIR, 'simple-events.csv')
+  if (!customSimpleCsv) {
+    fs.writeFileSync(
+      simpleCsvPath,
+      [
+        'substance,ts,dose_ml,mg_per_ml,route',
+        `E2E Simple,2026-01-01T10:00:00Z,0.25,10,SubQ`,
+        `E2E Simple,2026-01-20T10:00:00Z,0.25,10,SubQ`,
+      ].join('\n') + '\n',
+    )
+  } else if (!fs.existsSync(simpleCsvPath)) {
+    fail(`E2E_SIMPLE_EVENTS_CSV_PATH does not exist: ${simpleCsvPath}`)
+  }
   await settingsImportSimpleEventsCsv({ csvPath: simpleCsvPath, replaceExisting: false, inferCycles: true })
   open(`${BASE_URL}/cycles`)
   await waitForBodyText('Cycles', { label: 'cycles page visible after simple import' })
