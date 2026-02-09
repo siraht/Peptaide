@@ -1250,13 +1250,39 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
   if (typeof importErr === 'string' && importErr) {
     fail(`simple events import apply failed: ${importErr}`)
   }
+  const importSummary = await evalJs('document.querySelector(\'[data-e2e="simple-events-summary"]\')?.textContent?.trim() || ""')
+  if (typeof importSummary === 'string' && importSummary) {
+    logLine(`simple events import summary: ${importSummary}`)
+  }
 
   // Confirm we can navigate to /today and see a non-empty surface.
   open(`${BASE_URL}/today`)
   await waitUntil(
-    async () => Boolean(await evalJs('document.body.innerText.includes("Log (grid)")')),
-    { label: 'today grid after simple import', timeoutMs: 60000 },
+    async () => {
+      const body = await evalJs('document.body.innerText')
+      if (typeof body !== 'string') return false
+      return body.includes('Today') || body.includes('Sign in')
+    },
+    { label: 'today page loaded after simple import', timeoutMs: 60000 },
   )
+  const todayBody = await evalJs('document.body.innerText')
+  if (typeof todayBody !== 'string') {
+    takeScreenshot('simple-import-today-unknown')
+    fail('Could not read /today body text after simple import.')
+  }
+  if (todayBody.includes('Sign in')) {
+    takeScreenshot('simple-import-today-signed-out')
+    fail('After simple import, /today redirected to sign-in (session lost).')
+  }
+  if (todayBody.includes('No formulations exist yet')) {
+    takeScreenshot('simple-import-today-empty')
+    fail('After simple import, /today shows empty state (no formulations). Import did not create formulations as expected.')
+  }
+  if (!todayBody.includes('Log (grid)')) {
+    takeScreenshot('simple-import-today-no-grid')
+    const snippet = todayBody.replace(/\s+/g, ' ').slice(0, 300)
+    fail(`After simple import, /today did not show the log grid. Body starts: ${snippet}`)
+  }
 }
 
 async function sweepPages({ labelPrefix }) {
