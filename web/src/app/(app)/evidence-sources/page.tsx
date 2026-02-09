@@ -43,14 +43,14 @@ export default async function EvidenceSourcesPage() {
               </thead>
               <tbody>
                 {sources.map((s) => (
-                  <tr key={s.id}>
+                  <tr key={s.id} data-e2e="evidence-row" data-evidence-id={s.id}>
                     <td className="border-b px-2 py-2 text-zinc-900">{s.source_type}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{s.citation}</td>
                     <td className="border-b px-2 py-2 text-zinc-700">{s.notes ?? '-'}</td>
                     <td className="border-b px-2 py-2">
                       <form action={deleteEvidenceSourceAction}>
                         <input type="hidden" name="evidence_source_id" value={s.id} />
-                        <button className="text-sm text-red-700" type="submit">
+                        <button className="text-sm text-red-700" type="submit" data-e2e="evidence-delete">
                           Delete
                         </button>
                       </form>
@@ -69,4 +69,3 @@ export default async function EvidenceSourcesPage() {
     </div>
   )
 }
-

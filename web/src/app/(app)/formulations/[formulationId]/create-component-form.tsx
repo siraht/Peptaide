@@ -27,7 +27,7 @@ export function CreateFormulationComponentForm(props: {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4">
+    <div className="rounded-lg border bg-white p-4" data-e2e="formulation-component-card">
       <h2 className="text-sm font-semibold text-zinc-900">Add formulation component</h2>
       <p className="mt-1 text-sm text-zinc-700">
         Components can optionally reference a multiplier distribution. This MVP uses the component&apos;s
@@ -35,12 +35,17 @@ export function CreateFormulationComponentForm(props: {
         to both systemic and CNS when no per-compartment component modifier specs exist.
       </p>
 
-      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
+      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction} data-e2e="formulation-component-form">
         <input type="hidden" name="formulation_id" value={formulationId} />
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-zinc-700">Component name</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="component_name" required />
+          <input
+            className="h-10 rounded-md border px-3 text-sm"
+            name="component_name"
+            required
+            data-e2e="formulation-component-name"
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -73,10 +78,14 @@ export function CreateFormulationComponentForm(props: {
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700">{state.message}</p>
+        <p className="mt-3 text-sm text-red-700" data-e2e="formulation-component-error">
+          {state.message}
+        </p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700" data-e2e="formulation-component-success">
+          {state.message}
+        </p>
       ) : null}
     </div>
   )

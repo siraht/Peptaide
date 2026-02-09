@@ -30,7 +30,7 @@ export function ComponentModifierSpecForm(props: {
 
   if (components.length === 0) {
     return (
-      <div className="rounded-lg border bg-white p-4">
+      <div className="rounded-lg border bg-white p-4" data-e2e="component-modifier-spec-card">
         <h2 className="text-sm font-semibold text-zinc-900">Component modifier specs</h2>
         <p className="mt-2 text-sm text-zinc-700">Add at least one component first.</p>
       </div>
@@ -38,14 +38,14 @@ export function ComponentModifierSpecForm(props: {
   }
 
   return (
-    <div className="rounded-lg border bg-white p-4">
+    <div className="rounded-lg border bg-white p-4" data-e2e="component-modifier-spec-card">
       <h2 className="text-sm font-semibold text-zinc-900">Component modifier specs</h2>
       <p className="mt-1 text-sm text-zinc-700">
         These per-compartment modifier specs take precedence over the component&apos;s fallback
         <code className="rounded bg-zinc-100 px-1">modifier_dist_id</code>.
       </p>
 
-      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
+      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction} data-e2e="component-modifier-spec-form">
         <input type="hidden" name="formulation_id" value={formulationId} />
 
         <label className="flex flex-col gap-1 text-sm">
@@ -81,7 +81,7 @@ export function ComponentModifierSpecForm(props: {
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-zinc-700">Notes (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <input className="h-10 rounded-md border px-3 text-sm" name="notes" data-e2e="component-modifier-notes" />
         </label>
 
         <div className="sm:col-span-2">
@@ -92,10 +92,14 @@ export function ComponentModifierSpecForm(props: {
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700">{state.message}</p>
+        <p className="mt-3 text-sm text-red-700" data-e2e="component-modifier-spec-error">
+          {state.message}
+        </p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700" data-e2e="component-modifier-spec-success">
+          {state.message}
+        </p>
       ) : null}
     </div>
   )

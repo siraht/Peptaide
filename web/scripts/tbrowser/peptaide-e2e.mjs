@@ -76,8 +76,12 @@ function runAgentBrowser(cmdArgs, { json = false, allowFailure = false, retries 
   if (json) args.push('--json')
   args.push(...cmdArgs)
 
+  // agent-browser diagnostics (especially network request dumps) can get large. Prefer a higher buffer
+  // ceiling so the harness fails on real console/page/network errors, not Node spawnSync ENOBUFS.
+  const maxBuffer = 1024 * 1024 * 50
+
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const result = spawnSync(AGENT_BROWSER_BIN, args, { encoding: 'utf8' })
+    const result = spawnSync(AGENT_BROWSER_BIN, args, { encoding: 'utf8', maxBuffer })
     if (result.error) throw result.error
 
     const stdout = (result.stdout || '').trim()
@@ -995,6 +999,221 @@ async function logEventInTodayGrid({ formulationLabelIncludes, rowIndex1Based, i
   )
 }
 
+async function todayHubDeepInteractions() {
+  logLine('today: hub deep interactions')
+
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="today-root"]')
+  await waitForBodyText('Log (grid)', { label: 'today grid visible (hub)' })
+
+  // Default-yes prompt: pressing Enter selects OK.
+  await evalJs('window.confirm = () => true')
+
+  await assertTodayStitchVisualContract()
+
+  // Quick Log: clicking a chip must route to /today?focus=log&formulation_id=... and focus the first row.
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-quick-log-item"]\'))')),
+    { label: 'quick log items present', timeoutMs: 30000 },
+  )
+
+  clearDiagnostics()
+  clickFirst('[data-e2e="today-quick-log-item"]')
+
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      if (typeof url !== 'string') return false
+      const u = new URL(url)
+      return u.pathname === '/today' && u.searchParams.get('focus') === 'log' && Boolean(u.searchParams.get('formulation_id'))
+    },
+    { label: 'quick log routes to /today?focus=log&formulation_id=...', timeoutMs: 60000 },
+  )
+
+  await waitUntil(
+    async () => {
+      const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
+      return typeof aria === 'string' && aria.includes('Dose row 1')
+    },
+    { label: 'quick log focuses Dose row 1', timeoutMs: 30000 },
+  )
+
+  {
+    const formulationId = await evalJs('new URL(window.location.href).searchParams.get("formulation_id") || ""')
+    const selected = await evalJs('document.querySelector(\'select[aria-label="Formulation row 1"]\')?.value || ""')
+    if (typeof formulationId !== 'string' || !formulationId) fail('quick log URL missing formulation_id')
+    if (selected !== formulationId) {
+      fail(`quick log did not set default formulation: expected ${formulationId} but row1 selected ${selected}`)
+    }
+  }
+  assertHealthy('today-quick-log-focus')
+
+  // Custom: routes to /today?focus=log with no formulation_id.
+  click('[data-e2e="today-quick-log-custom"]')
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      if (typeof url !== 'string') return false
+      const u = new URL(url)
+      return u.pathname === '/today' && u.searchParams.get('focus') === 'log' && !u.searchParams.get('formulation_id')
+    },
+    { label: 'custom quick log routes to /today?focus=log', timeoutMs: 60000 },
+  )
+  await waitUntil(
+    async () => {
+      const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
+      return typeof aria === 'string' && aria.includes('Dose row 1')
+    },
+    { label: 'custom quick log focuses Dose row 1', timeoutMs: 30000 },
+  )
+  assertHealthy('today-custom-quick-log')
+
+  async function waitForGridRowSaved(rowIndex1Based) {
+    const row = Number(rowIndex1Based)
+    if (!Number.isFinite(row) || row <= 0) fail(`Invalid rowIndex1Based: ${rowIndex1Based}`)
+    await waitUntil(
+      async () =>
+        Boolean(
+          await evalJs(
+            `(() => {
+              const row = ${row}
+              const doseSel = 'input[aria-label="Dose row ' + row + '"]'
+              const input = document.querySelector(doseSel)
+              const tr = input ? input.closest('tr') : null
+              const statusCell = tr ? tr.querySelector('td:last-child') : null
+              return Boolean(statusCell && (statusCell.textContent || '').includes('Saved'))
+            })()`,
+          ),
+        ),
+      { label: `today grid row ${row} saved`, timeoutMs: 60000 },
+    )
+  }
+
+  // Save filled rows: fill two rows, click the button, and assert both rows persist successfully.
+  fill('input[aria-label="Dose row 1"]', '0.11mL')
+  fill('input[aria-label="Dose row 2"]', '0.12mL')
+  clickButtonByName('Save filled rows')
+  await waitForGridRowSaved(1)
+  await waitForGridRowSaved(2)
+  assertHealthy('today-save-filled-rows')
+
+  // Control Center: icon links should route correctly.
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="today-control-center"]')
+  click('[data-e2e="today-control-inventory"]')
+  await waitForBodyText('Inventory', { label: 'inventory page via control center' })
+  assertHealthy('today-nav-inventory')
+
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="today-control-center"]')
+  click('[data-e2e="today-control-orders"]')
+  await waitForBodyText('Orders', { label: 'orders page via control center' })
+  assertHealthy('today-nav-orders')
+
+  // View History: routes to Analytics.
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="today-view-history"]')
+  click('[data-e2e="today-view-history"]')
+  await waitForBodyText('Analytics', { label: 'analytics via view history' })
+  assertHealthy('today-nav-analytics')
+
+  // Control Center: "Log Dose" links should route to focus=log + formulation_id, and preselect row 1.
+  open(`${BASE_URL}/today`)
+  await waitForBodyText('Control Center', { label: 'today control center visible' })
+  const hasLogDose = await evalJs('Boolean(document.querySelector(\'[data-e2e="today-inventory-log-dose"]\'))')
+  if (hasLogDose) {
+    clickFirst('[data-e2e="today-inventory-log-dose"]')
+    await waitUntil(
+      async () => {
+        const url = await evalJs('window.location.href')
+        if (typeof url !== 'string') return false
+        const u = new URL(url)
+        return u.pathname === '/today' && u.searchParams.get('focus') === 'log' && Boolean(u.searchParams.get('formulation_id'))
+      },
+      { label: 'inventory card log dose routes to focus=log', timeoutMs: 60000 },
+    )
+
+    const formulationId = await evalJs('new URL(window.location.href).searchParams.get("formulation_id") || ""')
+    const selected = await evalJs('document.querySelector(\'select[aria-label="Formulation row 1"]\')?.value || ""')
+    if (typeof formulationId !== 'string' || !formulationId) fail('log dose URL missing formulation_id')
+    if (selected !== formulationId) {
+      fail(`inventory card log dose did not preselect formulation: expected ${formulationId} but row1 selected ${selected}`)
+    }
+
+    await waitUntil(
+      async () => {
+        const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
+        return typeof aria === 'string' && aria.includes('Dose row 1')
+      },
+      { label: 'inventory log dose focuses Dose row 1', timeoutMs: 30000 },
+    )
+    assertHealthy('today-control-log-dose')
+  } else {
+    logLine('today: no active inventory log dose link found; skipping')
+  }
+
+  // Scan button is a placeholder UX for now; it should not crash or trigger requests.
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="today-scan-vial"]')
+  clearDiagnostics()
+  click('[data-e2e="today-scan-vial"]')
+  waitFor(200)
+  assertHealthy('today-scan-vial-button')
+}
+
+async function commandPaletteDeepInteractions() {
+  logLine('nav: command palette deep interactions')
+
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="cmdk-open"]')
+
+  // Navigate to /settings via command palette.
+  click('[data-e2e="cmdk-open"]')
+  waitFor('[data-e2e="cmdk-input"]')
+  fill('[data-e2e="cmdk-input"]', 'Settings')
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="cmdk-item-/settings"]\'))')),
+    { label: 'cmdk settings item visible', timeoutMs: 30000 },
+  )
+  click('[data-e2e="cmdk-item-/settings"]')
+  await waitUntil(
+    async () => {
+      const p = await evalJs('window.location.pathname')
+      return p === '/settings'
+    },
+    { label: 'cmdk routes to /settings', timeoutMs: 60000 },
+  )
+  waitFor('main')
+  assertHealthy('cmdk-nav-settings')
+
+  // Navigate to /today?focus=log via the "Log event" action item.
+  click('[data-e2e="cmdk-open"]')
+  waitFor('[data-e2e="cmdk-input"]')
+  fill('[data-e2e="cmdk-input"]', 'Log event')
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="cmdk-item-/today?focus=log"]\'))')),
+    { label: 'cmdk log event item visible', timeoutMs: 30000 },
+  )
+  click('[data-e2e="cmdk-item-/today?focus=log"]')
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      if (typeof url !== 'string') return false
+      const u = new URL(url)
+      return u.pathname === '/today' && u.searchParams.get('focus') === 'log'
+    },
+    { label: 'cmdk routes to /today?focus=log', timeoutMs: 60000 },
+  )
+  await waitUntil(
+    async () => {
+      const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
+      return typeof aria === 'string' && aria.includes('Dose row 1')
+    },
+    { label: 'cmdk log event focuses Dose row 1', timeoutMs: 30000 },
+  )
+  assertHealthy('cmdk-nav-today-focus-log')
+}
+
 async function deleteAndRestoreFirstTodayEvent() {
   logLine('today: delete + restore first event')
   open(`${BASE_URL}/today`)
@@ -1216,6 +1435,284 @@ async function inventoryReconcileImportedVials() {
   )
 }
 
+async function createEvidenceSourceViaUi({ citation, notes }) {
+  logLine('evidence: create evidence source')
+  open(`${BASE_URL}/evidence-sources`)
+  await waitForBodyText('Evidence sources', { label: 'evidence sources page visible' })
+
+  const formSel = 'form[data-e2e="evidence-create-form"]'
+  waitFor(formSel)
+  fill(`${formSel} input[name="citation"]`, citation)
+  fill(`${formSel} input[name="notes"]`, notes || '')
+  click(`${formSel} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const msg = await evalJs('document.querySelector(\'[data-e2e="evidence-success"]\')?.textContent?.trim() || ""')
+      return typeof msg === 'string' && msg.includes('Saved.')
+    },
+    { label: 'evidence source create success', timeoutMs: 60000 },
+  )
+
+  await waitUntil(
+    async () => Boolean(await evalJs(`document.body.innerText.includes(${JSON.stringify(citation)})`)),
+    { label: 'evidence source appears in list', timeoutMs: 60000 },
+  )
+
+  assertHealthy('evidence-source-create')
+}
+
+async function deleteEvidenceSourceViaUi({ citation }) {
+  logLine('evidence: delete evidence source')
+  open(`${BASE_URL}/evidence-sources`)
+  await waitForBodyText('Evidence sources', { label: 'evidence sources page visible (delete)' })
+
+  const evidenceId = await evalJs(`(() => {
+    const rows = Array.from(document.querySelectorAll('[data-e2e="evidence-row"]'))
+    const row = rows.find((r) => (r.textContent || '').includes(${JSON.stringify(citation)}))
+    return row ? (row.getAttribute('data-evidence-id') || '') : ''
+  })()`)
+  if (typeof evidenceId !== 'string' || !evidenceId) {
+    takeScreenshot('evidence-source-delete-not-found')
+    fail(`Could not find evidence row for citation: ${citation}`)
+  }
+
+  click(`tr[data-evidence-id="${evidenceId}"] [data-e2e="evidence-delete"]`)
+
+  await waitUntil(
+    async () => {
+      const exists = await evalJs(
+        `Boolean(document.querySelector('tr[data-evidence-id="${evidenceId}"]'))`,
+      )
+      return !exists
+    },
+    { label: 'evidence row removed after delete', timeoutMs: 60000 },
+  )
+
+  assertHealthy('evidence-source-delete')
+}
+
+async function deviceDetailCalibrationCrudViaUi({ deviceNameIncludes, routeLabelIncludes, distLabelIncludes, unitLabel }) {
+  logLine('device: detail calibration CRUD via UI')
+  open(`${BASE_URL}/devices`)
+  await waitForBodyText('Devices', { label: 'devices page visible' })
+
+  const deviceHref = await evalJs(`(() => {
+    const links = Array.from(document.querySelectorAll('a[href^="/devices/"]'))
+    const pick = links.find((a) => (a.textContent || '').trim().includes(${JSON.stringify(deviceNameIncludes)}))
+    return pick ? (pick.getAttribute('href') || '') : ''
+  })()`)
+  if (typeof deviceHref !== 'string' || !deviceHref.startsWith('/devices/')) {
+    takeScreenshot('device-detail-link-missing')
+    fail(`Could not find device link containing "${deviceNameIncludes}" on /devices`)
+  }
+
+  open(`${BASE_URL}${deviceHref}`)
+  await waitForBodyText('Calibrations', { label: 'device detail page visible' })
+
+  const formSel = 'form[data-e2e="device-calibration-form"]'
+  waitFor(formSel)
+
+  const routeId = await selectOptionValue(`${formSel} select[name="route_id"]`, routeLabelIncludes)
+  runAgentBrowser(['select', `${formSel} select[name="route_id"]`, routeId])
+
+  fill(`${formSel} input[name="unit_label"]`, unitLabel)
+
+  const distId = await selectOptionValue(`${formSel} select[name="volume_ml_per_unit_dist_id"]`, distLabelIncludes)
+  runAgentBrowser(['select', `${formSel} select[name="volume_ml_per_unit_dist_id"]`, distId])
+  fill(`${formSel} input[name="notes"]`, `e2e device cal ${RUN_ID}`)
+
+  click(`${formSel} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const msg = await evalJs(
+        'document.querySelector(\'[data-e2e="device-calibration-success"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof msg === 'string' && msg.includes('Created.')) return true
+      const err = await evalJs(
+        'document.querySelector(\'[data-e2e="device-calibration-error"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof err === 'string' && err) return true
+      return false
+    },
+    { label: 'device calibration create completion', timeoutMs: 60000 },
+  )
+
+  const err = await evalJs(
+    'document.querySelector(\'[data-e2e="device-calibration-error"]\')?.textContent?.trim() || ""',
+  )
+  if (typeof err === 'string' && err) {
+    takeScreenshot('device-calibration-create-error')
+    fail(`device calibration create failed: ${err}`)
+  }
+
+  await waitUntil(
+    async () => Boolean(await evalJs(`document.body.innerText.includes(${JSON.stringify(unitLabel)})`)),
+    { label: 'device calibration appears in list', timeoutMs: 60000 },
+  )
+  assertHealthy('device-calibration-create')
+
+  // Delete the created calibration.
+  const clicked = await evalJs(`(() => {
+    const rows = Array.from(document.querySelectorAll('table tbody tr'))
+    const row = rows.find((r) => (r.textContent || '').includes(${JSON.stringify(unitLabel)}))
+    const btn = row ? row.querySelector('button[type="submit"]') : null
+    if (!btn) return false
+    btn.click()
+    return true
+  })()`)
+  if (!clicked) {
+    takeScreenshot('device-calibration-delete-missing')
+    fail(`Could not find delete button for calibration unit_label=${unitLabel}`)
+  }
+
+  await waitUntil(
+    async () => !Boolean(await evalJs(`document.body.innerText.includes(${JSON.stringify(unitLabel)})`)),
+    { label: 'device calibration deleted', timeoutMs: 60000 },
+  )
+  assertHealthy('device-calibration-delete')
+}
+
+async function formulationDetailComponentSpecCrudViaUi({
+  formulationNameIncludes,
+  componentName,
+  multiplierDistLabelIncludes,
+}) {
+  logLine('formulation: detail component/spec CRUD via UI')
+  open(`${BASE_URL}/formulations`)
+  await waitForBodyText('Formulations', { label: 'formulations page visible' })
+
+  const href = await evalJs(`(() => {
+    const links = Array.from(document.querySelectorAll('a[href^="/formulations/"]'))
+    const pick = links.find((a) => (a.textContent || '').trim().includes(${JSON.stringify(formulationNameIncludes)}))
+    return pick ? (pick.getAttribute('href') || '') : ''
+  })()`)
+  if (typeof href !== 'string' || !href.startsWith('/formulations/')) {
+    takeScreenshot('formulation-detail-link-missing')
+    fail(`Could not find formulation link containing "${formulationNameIncludes}" on /formulations`)
+  }
+
+  open(`${BASE_URL}${href}`)
+  await waitForBodyText('Components', { label: 'formulation detail page visible' })
+
+  const compForm = 'form[data-e2e="formulation-component-form"]'
+  waitFor(compForm)
+  fill(`${compForm} input[name="component_name"]`, componentName)
+  const modifierDistId = await selectOptionValue(`${compForm} select[name="modifier_dist_id"]`, multiplierDistLabelIncludes)
+  runAgentBrowser(['select', `${compForm} select[name="modifier_dist_id"]`, modifierDistId])
+  fill(`${compForm} input[name="notes"]`, `e2e component ${RUN_ID}`)
+  click(`${compForm} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const msg = await evalJs(
+        'document.querySelector(\'[data-e2e="formulation-component-success"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof msg === 'string' && msg.includes('Created.')) return true
+      const err = await evalJs(
+        'document.querySelector(\'[data-e2e="formulation-component-error"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof err === 'string' && err) return true
+      return false
+    },
+    { label: 'formulation component create completion', timeoutMs: 60000 },
+  )
+  const compErr = await evalJs(
+    'document.querySelector(\'[data-e2e="formulation-component-error"]\')?.textContent?.trim() || ""',
+  )
+  if (typeof compErr === 'string' && compErr) {
+    takeScreenshot('formulation-component-create-error')
+    fail(`formulation component create failed: ${compErr}`)
+  }
+
+  await waitUntil(
+    async () => Boolean(await evalJs(`document.body.innerText.includes(${JSON.stringify(componentName)})`)),
+    { label: 'component appears in list', timeoutMs: 60000 },
+  )
+  assertHealthy('formulation-component-create')
+
+  const specForm = 'form[data-e2e="component-modifier-spec-form"]'
+  waitFor(specForm)
+  const componentId = await selectOptionValue(`${specForm} select[name="formulation_component_id"]`, componentName)
+  runAgentBrowser(['select', `${specForm} select[name="formulation_component_id"]`, componentId])
+  runAgentBrowser(['select', `${specForm} select[name="compartment"]`, 'both'])
+  const multId = await selectOptionValue(`${specForm} select[name="multiplier_dist_id"]`, multiplierDistLabelIncludes)
+  runAgentBrowser(['select', `${specForm} select[name="multiplier_dist_id"]`, multId])
+  fill(`${specForm} input[name="notes"]`, `e2e spec ${RUN_ID}`)
+  click(`${specForm} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const msg = await evalJs(
+        'document.querySelector(\'[data-e2e="component-modifier-spec-success"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof msg === 'string' && msg.includes('Saved.')) return true
+      const err = await evalJs(
+        'document.querySelector(\'[data-e2e="component-modifier-spec-error"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof err === 'string' && err) return true
+      return false
+    },
+    { label: 'component modifier spec save completion', timeoutMs: 60000 },
+  )
+
+  const specErr = await evalJs(
+    'document.querySelector(\'[data-e2e="component-modifier-spec-error"]\')?.textContent?.trim() || ""',
+  )
+  if (typeof specErr === 'string' && specErr) {
+    takeScreenshot('component-modifier-spec-save-error')
+    fail(`component modifier spec save failed: ${specErr}`)
+  }
+  assertHealthy('component-modifier-spec-save')
+
+  // Delete the saved spec row (by locating its delete form).
+  const deletedSpec = await evalJs(`(() => {
+    const forms = Array.from(document.querySelectorAll('form'))
+    const form = forms.find((f) => f.querySelector('input[name="component_modifier_spec_id"]') && (f.closest('tr')?.textContent || '').includes(${JSON.stringify(componentName)}))
+    const btn = form ? form.querySelector('button[type="submit"]') : null
+    if (!btn) return false
+    btn.click()
+    return true
+  })()`)
+  if (!deletedSpec) {
+    takeScreenshot('component-modifier-spec-delete-missing')
+    fail('Could not find delete button for component modifier spec row.')
+  }
+
+  await waitUntil(
+    async () => {
+      const still = await evalJs(`(() => {
+        const rows = Array.from(document.querySelectorAll('table tbody tr'))
+        return rows.some((r) => (r.textContent || '').includes(${JSON.stringify(componentName)}) && (r.textContent || '').includes('both') && (r.textContent || '').includes('Delete'))
+      })()`)
+      return !still
+    },
+    { label: 'component modifier spec deleted', timeoutMs: 60000 },
+  )
+  assertHealthy('component-modifier-spec-delete')
+
+  // Delete the created component row.
+  const deletedComponent = await evalJs(`(() => {
+    const forms = Array.from(document.querySelectorAll('form'))
+    const form = forms.find((f) => f.querySelector('input[name="component_id"]') && (f.closest('tr')?.textContent || '').includes(${JSON.stringify(componentName)}))
+    const btn = form ? form.querySelector('button[type="submit"]') : null
+    if (!btn) return false
+    btn.click()
+    return true
+  })()`)
+  if (!deletedComponent) {
+    takeScreenshot('formulation-component-delete-missing')
+    fail('Could not find delete button for formulation component row.')
+  }
+
+  await waitUntil(
+    async () => !Boolean(await evalJs(`document.body.innerText.includes(${JSON.stringify(componentName)})`)),
+    { label: 'formulation component deleted', timeoutMs: 60000 },
+  )
+  assertHealthy('formulation-component-delete')
+}
+
 async function exportZipToFile(outPath) {
   logLine('data: exporting zip via /api/export (using browser session cookies)')
   const url = `${BASE_URL}/api/export`
@@ -1246,6 +1743,55 @@ function approxEq(a, b, { tol = 2 } = {}) {
   const nb = typeof b === 'number' ? b : Number(b)
   if (!Number.isFinite(na) || !Number.isFinite(nb)) return false
   return Math.abs(na - nb) <= tol
+}
+
+async function assertTodayStitchVisualContract() {
+  const res = await evalJs(`(() => {
+    const css = getComputedStyle(document.documentElement)
+
+    const root = document.querySelector('[data-e2e="today-root"]')
+    const left = document.querySelector('[data-e2e="today-log-hub"]')
+    const right = document.querySelector('[data-e2e="today-control-center"]')
+
+    const rootW = root ? root.getBoundingClientRect().width : null
+    const leftW = left ? left.getBoundingClientRect().width : null
+    const rightW = right ? right.getBoundingClientRect().width : null
+
+    return {
+      dark: document.documentElement.classList.contains('dark'),
+      primary: css.getPropertyValue('--color-primary').trim(),
+      bgDark: css.getPropertyValue('--color-background-dark').trim(),
+      surfaceDark: css.getPropertyValue('--color-surface-dark').trim(),
+      rootW,
+      leftW,
+      rightW,
+    }
+  })()`)
+
+  if (!res || typeof res !== 'object') fail('Could not read today stitch visual contract.')
+
+  if (!res.dark) fail('Expected documentElement.dark class for Stitch theme, but it was missing.')
+  if (res.primary !== '#135bec') fail(`Expected --color-primary=#135bec but got "${res.primary}".`)
+  if (res.bgDark !== '#101622') fail(`Expected --color-background-dark=#101622 but got "${res.bgDark}".`)
+  if (res.surfaceDark !== '#1a2233') fail(`Expected --color-surface-dark=#1a2233 but got "${res.surfaceDark}".`)
+
+  const rootW = Number(res.rootW)
+  const leftW = Number(res.leftW)
+  const rightW = Number(res.rightW)
+  if (!Number.isFinite(rootW) || !Number.isFinite(leftW) || !Number.isFinite(rightW)) {
+    fail(`Expected today layout widths to be measurable, got root=${res.rootW} left=${res.leftW} right=${res.rightW}.`)
+  }
+
+  // The Stitch hub layout is intentionally asymmetric (60/40 split). Gate major regressions by
+  // asserting the expected ratio within a small tolerance.
+  const expectedLeft = rootW * 0.6
+  const expectedRight = rootW * 0.4
+  if (!approxEq(leftW, expectedLeft, { tol: 10 })) {
+    fail(`Expected today left pane width ~${Math.round(expectedLeft)}px but got ${Math.round(leftW)}px.`)
+  }
+  if (!approxEq(rightW, expectedRight, { tol: 10 })) {
+    fail(`Expected today right pane width ~${Math.round(expectedRight)}px but got ${Math.round(rightW)}px.`)
+  }
 }
 
 async function assertSettingsStitchVisualContract() {
@@ -1295,7 +1841,7 @@ async function assertSettingsStitchVisualContract() {
   }
 }
 
-async function settingsSubstancesWorkspaceDeepInteractions() {
+async function settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes } = {}) {
   logLine('settings: substances workspace deep interactions')
 
   open(`${BASE_URL}/settings`)
@@ -1392,6 +1938,13 @@ async function settingsSubstancesWorkspaceDeepInteractions() {
   fill(`${recForm} input[name="max_value"]`, '0.2')
   fill(`${recForm} input[name="unit"]`, 'mg')
   fill(`${recForm} input[name="notes"]`, `e2e dosing ${RUN_ID}`)
+  if (evidenceCitationIncludes) {
+    const evidenceId = await selectOptionValue(
+      `${recForm} select[name="evidence_source_id"]`,
+      String(evidenceCitationIncludes),
+    )
+    runAgentBrowser(['select', `${recForm} select[name="evidence_source_id"]`, evidenceId])
+  }
   click(`${recForm} button[type="submit"]`)
 
   await waitUntil(
@@ -1726,6 +2279,16 @@ async function main() {
   await signInWithMagicLink(EMAIL_A)
   await seedDemoDataIfAvailable()
 
+  // Verify shell navigation UX (cmd palette + focus=log routing) against the current UI.
+  await commandPaletteDeepInteractions()
+
+  // Evidence sources are used as optional citations in the settings/substance editor. Create one that we
+  // keep (to attach), and a second one that we delete (to cover soft-delete UX).
+  const evidenceCitationKeep = `https://example.com/peptaide-e2e-evidence/${RUN_ID}`
+  const evidenceCitationDelete = `https://example.com/peptaide-e2e-evidence-delete/${RUN_ID}`
+  await createEvidenceSourceViaUi({ citation: evidenceCitationKeep, notes: `e2e keep ${RUN_ID}` })
+  await createEvidenceSourceViaUi({ citation: evidenceCitationDelete, notes: `e2e delete ${RUN_ID}` })
+
   // Create a small set of distributions for setup/calibration/modifiers.
   await createDistribution({ name: 'E2E: fraction 0.5', valueType: 'fraction', distType: 'point', p1: 0.5 })
   await createDistribution({ name: 'E2E: multiplier 2.0', valueType: 'multiplier', distType: 'point', p1: 2.0 })
@@ -1746,7 +2309,7 @@ async function main() {
   })
 
   // Deep coverage for the Stitch-style /settings substances workspace.
-  await settingsSubstancesWorkspaceDeepInteractions()
+  await settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes: evidenceCitationKeep })
 
   await bulkAddFormulation({
     formulationName: 'E2E IN formulation',
@@ -1778,14 +2341,33 @@ async function main() {
     distLabelIncludes: 'E2E: multiplier 2.0',
   })
 
+  // CRUD coverage for deep-link setup pages (not the Stitch workspace): device detail and formulation detail.
+  await deviceDetailCalibrationCrudViaUi({
+    deviceNameIncludes: 'E2E Spray',
+    routeLabelIncludes: 'E2E intranasal',
+    distLabelIncludes: 'E2E: vol per spray 0.10',
+    unitLabel: 'spray2',
+  })
+  await formulationDetailComponentSpecCrudViaUi({
+    formulationNameIncludes: 'E2E IN formulation',
+    componentName: `E2E component ${RUN_ID}`,
+    multiplierDistLabelIncludes: 'E2E: multiplier 2.0',
+  })
+
   // Log events with multiple input types.
   await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 1, inputText: '0.3mL' })
   await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 2, inputText: '250mcg' })
   await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 3, inputText: '500 IU' })
   await logEventInTodayGrid({ formulationLabelIncludes: 'E2E IN formulation', rowIndex1Based: 4, inputText: '2 sprays' })
 
+  // Deep coverage for the Stitch /today hub (quick log, control center, focus behavior).
+  await todayHubDeepInteractions()
+
   await deleteAndRestoreFirstTodayEvent()
   await cycleSplitAndEnd()
+
+  // Delete the evidence source we marked for deletion (soft-delete coverage) after the settings interactions.
+  await deleteEvidenceSourceViaUi({ citation: evidenceCitationDelete })
 
   await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'E2E IN formulation' })
   await inventoryActivateCloseOneVial()

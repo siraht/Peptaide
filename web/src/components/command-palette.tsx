@@ -98,6 +98,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
           setOpen(true)
         }}
         aria-label="Open command palette"
+        data-e2e="cmdk-open"
       >
         <span className="hidden sm:inline">Search</span>
         <span className="font-mono text-xs text-gray-500">Ctrl/Cmd+K</span>
@@ -112,6 +113,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
               setQuery('')
             }
           }}
+          data-e2e="cmdk-overlay"
         >
           <div className="w-full max-w-xl overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark shadow-2xl">
             <Command label="Command palette">
@@ -122,6 +124,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
                   onValueChange={setQuery}
                   className="w-full bg-transparent text-sm text-gray-900 dark:text-gray-100 outline-none placeholder:text-gray-400"
                   placeholder="Type to search..."
+                  data-e2e="cmdk-input"
                 />
               </div>
               <Command.List className="max-h-[60vh] overflow-y-auto p-2">
@@ -137,6 +140,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
                       keywords={item.keywords}
                       className="flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800"
                       onSelect={() => runNav(item.href)}
+                      data-e2e={`cmdk-item-${item.href}`}
                     >
                       {item.label}
                     </Command.Item>
@@ -152,6 +156,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
                         keywords={item.keywords}
                         className="flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800"
                         onSelect={() => runNav(item.href)}
+                        data-e2e={`cmdk-item-${item.href}`}
                       >
                         {item.label}
                       </Command.Item>
@@ -167,6 +172,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
                       keywords={item.keywords}
                       className="flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800"
                       onSelect={() => runNav(item.href)}
+                      data-e2e={`cmdk-item-${item.href}`}
                     >
                       {item.label}
                     </Command.Item>

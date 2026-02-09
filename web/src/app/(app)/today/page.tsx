@@ -267,14 +267,18 @@ export default async function TodayPage({
   const maxDailyAdminMg = Math.max(...dailyAdminTotalsByDay.map((d) => d.mg), 1)
 
   return (
-    <div className="h-full flex flex-col lg:flex-row overflow-hidden">
-      <section className="lg:w-3/5 w-full flex flex-col lg:border-r border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark min-w-0">
+    <div className="h-full flex flex-col lg:flex-row overflow-hidden" data-e2e="today-root">
+      <section
+        className="lg:w-3/5 w-full flex flex-col lg:border-r border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark min-w-0"
+        data-e2e="today-log-hub"
+      >
         <div className="p-6 pb-2 shrink-0">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Today&apos;s Log</h2>
             <Link
               className="flex items-center gap-1 text-primary hover:text-primary-dark dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium transition-colors"
               href="/analytics"
+              data-e2e="today-view-history"
             >
               <span className="material-icons text-base">history</span>
               View History
@@ -283,12 +287,14 @@ export default async function TodayPage({
 
           <div className="mb-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Quick Log</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" data-e2e="today-quick-log">
               {quickLogFormulations.map((f) => (
                 <Link
                   key={f.formulationId}
                   className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-blue-300 rounded-lg border border-primary/20 transition-all text-sm font-medium"
                   href={`/today?focus=log&formulation_id=${encodeURIComponent(f.formulationId)}`}
+                  data-e2e="today-quick-log-item"
+                  data-formulation-id={f.formulationId}
                 >
                   <span className="w-2 h-2 rounded-full bg-primary"></span>
                   <span className="truncate max-w-[20rem]">{f.label}</span>
@@ -298,6 +304,7 @@ export default async function TodayPage({
               <Link
                 className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
                 href="/today?focus=log"
+                data-e2e="today-quick-log-custom"
               >
                 <span className="material-icons text-sm">add</span>
                 Custom
@@ -622,7 +629,10 @@ export default async function TodayPage({
         </div>
       </section>
 
-      <section className="lg:w-2/5 w-full flex flex-col bg-gray-50 dark:bg-[#0c1017] lg:border-l border-gray-200 dark:border-gray-800 min-w-0">
+      <section
+        className="lg:w-2/5 w-full flex flex-col bg-gray-50 dark:bg-[#0c1017] lg:border-l border-gray-200 dark:border-gray-800 min-w-0"
+        data-e2e="today-control-center"
+      >
         <div className="p-6 shrink-0 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold">Control Center</h2>
@@ -633,6 +643,7 @@ export default async function TodayPage({
               href="/orders"
               className="flex items-center justify-center w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-all"
               title="Add New Order"
+              data-e2e="today-control-orders"
             >
               <span className="material-icons text-sm">add_shopping_cart</span>
             </Link>
@@ -640,6 +651,7 @@ export default async function TodayPage({
               href="/inventory"
               className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all"
               title="Inventory"
+              data-e2e="today-control-inventory"
             >
               <span className="material-icons text-sm">science</span>
             </Link>
@@ -682,6 +694,9 @@ export default async function TodayPage({
                   className={`bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border transition-colors ${
                     lowStock ? 'border-orange-200 dark:border-orange-900/30' : 'border-gray-200 dark:border-gray-700/50 hover:border-primary/50'
                   }`}
+                  data-e2e="today-inventory-card"
+                  data-vial-id={v.vial_id ?? ''}
+                  data-formulation-id={v.formulation_id ?? ''}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex gap-3 min-w-0">
@@ -745,6 +760,7 @@ export default async function TodayPage({
                       <Link
                         className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-white rounded transition-colors bg-gray-50 dark:bg-gray-800"
                         href={`/today?focus=log&formulation_id=${encodeURIComponent(v.formulation_id)}`}
+                        data-e2e="today-inventory-log-dose"
                       >
                         Log Dose
                       </Link>
@@ -765,6 +781,7 @@ export default async function TodayPage({
           <button
             className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all group"
             type="button"
+            data-e2e="today-scan-vial"
           >
             <span className="material-icons group-hover:scale-110 transition-transform">qr_code_scanner</span>
             <span className="font-medium">Scan Vial to Activate</span>

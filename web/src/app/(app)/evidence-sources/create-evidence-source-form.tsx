@@ -20,13 +20,13 @@ export function CreateEvidenceSourceForm() {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4">
+    <div className="rounded-lg border bg-white p-4" data-e2e="evidence-create-card">
       <h2 className="text-sm font-semibold text-zinc-900">Add evidence source</h2>
       <p className="mt-1 text-sm text-zinc-700">
         Optional citations/notes that can be attached to bioavailability specs and recommendations.
       </p>
 
-      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
+      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction} data-e2e="evidence-create-form">
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-zinc-700">Source type</span>
           <select className="h-10 rounded-md border px-3 text-sm" name="source_type" defaultValue="paper">
@@ -48,12 +48,13 @@ export function CreateEvidenceSourceForm() {
             name="citation"
             placeholder="DOI/PMID/ISBN/URL/free text"
             required
+            data-e2e="evidence-citation"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-zinc-700">Notes (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <input className="h-10 rounded-md border px-3 text-sm" name="notes" data-e2e="evidence-notes" />
         </label>
 
         <div className="sm:col-span-2">
@@ -64,10 +65,14 @@ export function CreateEvidenceSourceForm() {
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700">{state.message}</p>
+        <p className="mt-3 text-sm text-red-700" data-e2e="evidence-error">
+          {state.message}
+        </p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700" data-e2e="evidence-success">
+          {state.message}
+        </p>
       ) : null}
     </div>
   )
