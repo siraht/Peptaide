@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 
 import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
+import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
+import { reconcileImportedVialsFromTags } from '@/lib/migrate/reconcileImportedVials'
 import {
   activateVial,
   closeActiveVialsForFormulation,
@@ -15,10 +17,17 @@ import { getFormulationEnrichedById } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
+import { importRetaPeptideOrdersAction } from '../orders/actions'
+
 export type CreateVialState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'success'; message: string }
+
+export type ReconcileImportedVialsState =
+  | { status: 'idle' }
+  | { status: 'error'; message: string }
+  | { status: 'success'; message: string; warnings: string[] }
 
 function isVialStatus(x: string): x is Database['public']['Enums']['vial_status_t'] {
   return x === 'planned' || x === 'active' || x === 'closed' || x === 'discarded'
@@ -177,4 +186,52 @@ export async function discardVialAction(formData: FormData): Promise<void> {
 
   revalidatePath('/inventory')
   revalidatePath('/today')
+}
+
+export async function reconcileImportedVialsAction(
+  _prev: ReconcileImportedVialsState,
+  formData: FormData,
+): Promise<ReconcileImportedVialsState> {
+  void formData
+
+  const supabase = await createClient()
+  const authRes = await supabase.auth.getUser()
+  const user = authRes.data.user
+  if (!user) return { status: 'error', message: 'Not signed in.' }
+
+  try {
+    // If no order-backed vials exist yet, import the user's RETA-PEPTIDE orders/vials first
+    // (idempotent; safe to re-run). This makes the reconciliation able to attach costs.
+    const countRes = await supabase
+      .from('vials')
+      .select('id', { count: 'exact', head: true })
+      .not('order_item_id', 'is', null)
+      .is('deleted_at', null)
+    if (countRes.error) throw countRes.error
+
+    if ((countRes.count ?? 0) === 0) {
+      const importRes = await importRetaPeptideOrdersAction({ status: 'idle' }, new FormData())
+      if (importRes.status === 'error') {
+        return { status: 'error', message: importRes.message }
+      }
+    }
+
+    const res = await reconcileImportedVialsFromTags(supabase)
+
+    revalidatePath('/orders')
+    revalidatePath('/inventory')
+    revalidatePath('/today')
+    revalidatePath('/analytics')
+
+    const warnings = res.warnings ?? []
+    const summary = res.summary
+    return {
+      status: 'success',
+      warnings,
+      message: `Reconciled imported vial tags. Updated ${summary.updated_events} event(s) and ${summary.updated_vials} vial(s). Active vials set: ${summary.active_vials_set}.`,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
+  }
 }

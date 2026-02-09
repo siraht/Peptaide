@@ -1555,6 +1555,7 @@ export type Database = {
           cost_usd: number | null
           formulation_id: string | null
           formulation_name: string | null
+          lot: string | null
           notes: string | null
           opened_at: string | null
           received_at: string | null
