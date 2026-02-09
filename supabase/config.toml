@@ -12,7 +12,7 @@ port = 54321
 # verification links in emails (magic links, invites, recovery, etc). It must be
 # reachable from the user's browser (e.g. via Tailscale Serve, a reverse proxy,
 # or a public hostname).
-external_url = "https://flywheel.tail3be29.ts.net:15432"
+external_url = "http://100.95.0.36:54321"
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
 schemas = ["public", "graphql_public"]
@@ -152,7 +152,7 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "https://flywheel.tail3be29.ts.net:13002"
+site_url = "http://100.95.0.36:3002"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = [
   "http://localhost:3000/auth/callback",
@@ -162,6 +162,7 @@ additional_redirect_urls = [
   "http://127.0.0.1:3001/auth/callback",
   "http://127.0.0.1:3002/auth/callback",
   "http://flywheel.tail3be29.ts.net:3002/auth/callback",
+  "http://100.95.0.36:3002/auth/callback",
   "https://flywheel.tail3be29.ts.net:13002/auth/callback",
   "http://localhost:3000",
   "http://localhost:3001",
@@ -170,6 +171,7 @@ additional_redirect_urls = [
   "http://127.0.0.1:3001",
   "http://127.0.0.1:3002",
   "http://flywheel.tail3be29.ts.net:3002",
+  "http://100.95.0.36:3002",
   "https://flywheel.tail3be29.ts.net:13002",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).

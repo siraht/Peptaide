@@ -12,6 +12,25 @@ export function SignInForm() {
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState<string | null>(null)
 
+  function mailpitHintForHost(host: string): string {
+    const h = String(host || '').trim()
+    if (!h) return ''
+
+    // Localhost: mailpit is directly reachable on the same host.
+    if (h === 'localhost' || h === '127.0.0.1') {
+      return ` For local Supabase, open Mailpit at http://${h}:54324.`
+    }
+
+    // MagicDNS host: prefer Tailscale Serve, but also mention the direct port (useful if MagicDNS
+    // is broken only in the browser due to DNS-over-HTTPS).
+    if (h.endsWith('.ts.net')) {
+      return ` For local Supabase, open Mailpit at https://${h}:15433 (Tailscale Serve) or http://${h}:54324 (direct).`
+    }
+
+    // Generic host (often a Tailscale IP). Direct ports are typically reachable over tailnet.
+    return ` For local Supabase, open Mailpit at http://${h}:54324.`
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setStatus('sending')
@@ -20,12 +39,21 @@ export function SignInForm() {
     const supabase = createClient()
     const origin = window.location.origin
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback`,
-      },
-    })
+    let error: { message: string } | null = null
+    try {
+      const res = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${origin}/auth/callback`,
+        },
+      })
+      error = res.error ? { message: res.error.message } : null
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setStatus('error')
+      setMessage(`Network error sending sign-in email: ${msg}`)
+      return
+    }
 
     if (error) {
       setStatus('error')
@@ -35,13 +63,8 @@ export function SignInForm() {
 
     setStatus('sent')
     const host = window.location.hostname
-    const mailpitHint =
-      host === 'localhost' || host === '127.0.0.1'
-        ? ` For local Supabase, open Mailpit at http://${host}:54324.`
-        : host.endsWith('.ts.net')
-          ? ` For local Supabase, open Mailpit at https://${host}:15433 (via Tailscale Serve).`
-          : ''
-    setMessage(`Check your email for a sign-in link or 6-digit code.${mailpitHint}`)
+    const mailpitHint = mailpitHintForHost(host)
+    setMessage(`Check your email (or Mailpit) for a sign-in link or 6-digit code.${mailpitHint}`)
   }
 
   async function onVerifyCode(e: React.FormEvent<HTMLFormElement>) {
@@ -52,11 +75,20 @@ export function SignInForm() {
     const supabase = createClient()
     const token = code.trim()
 
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'email',
-    })
+    let error: { message: string } | null = null
+    try {
+      const res = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      })
+      error = res.error ? { message: res.error.message } : null
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setStatus('error')
+      setMessage(`Network error verifying code: ${msg}`)
+      return
+    }
 
     if (error) {
       setStatus('error')
