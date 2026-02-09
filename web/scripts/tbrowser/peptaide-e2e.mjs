@@ -392,6 +392,10 @@ function clickFirst(selector) {
   runAgentBrowser(['find', 'first', selector, 'click'])
 }
 
+function scrollIntoView(sel) {
+  runAgentBrowser(['scrollintoview', sel])
+}
+
 function fill(sel, value) {
   runAgentBrowser(['fill', sel, value])
 }
@@ -1147,6 +1151,204 @@ async function exportZipToFile(outPath) {
   return { contentType, bytes: buf.byteLength }
 }
 
+function approxEq(a, b, { tol = 2 } = {}) {
+  const na = typeof a === 'number' ? a : Number(a)
+  const nb = typeof b === 'number' ? b : Number(b)
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return false
+  return Math.abs(na - nb) <= tol
+}
+
+async function assertSettingsStitchVisualContract() {
+  const res = await evalJs(`(() => {
+    const css = getComputedStyle(document.documentElement)
+    const bodyCss = getComputedStyle(document.body)
+
+    const root = document.querySelector('[data-e2e="settings-root"]')
+    const nav = root ? root.querySelector('nav') : null
+    const aside = document.querySelector('[data-e2e="settings-substance-editor"]')
+    const primaryBtn = document.querySelector('[data-e2e="settings-base-ba-form"] button[type="submit"]')
+
+    return {
+      dark: document.documentElement.classList.contains('dark'),
+      primary: css.getPropertyValue('--color-primary').trim(),
+      bgDark: css.getPropertyValue('--color-background-dark').trim(),
+      surfaceDark: css.getPropertyValue('--color-surface-dark').trim(),
+      fontManropeVar:
+        bodyCss.getPropertyValue('--font-manrope').trim() || css.getPropertyValue('--font-manrope').trim(),
+      navW: nav ? nav.getBoundingClientRect().width : null,
+      asideW: aside ? aside.getBoundingClientRect().width : null,
+      primaryBtnBg: primaryBtn ? getComputedStyle(primaryBtn).backgroundColor : null,
+    }
+  })()`)
+
+  if (!res || typeof res !== 'object') fail('Could not read settings stitch visual contract.')
+
+  if (!res.dark) fail('Expected documentElement.dark class for Stitch theme, but it was missing.')
+  if (res.primary !== '#135bec') fail(`Expected --color-primary=#135bec but got "${res.primary}".`)
+  if (res.bgDark !== '#101622') fail(`Expected --color-background-dark=#101622 but got "${res.bgDark}".`)
+  if (res.surfaceDark !== '#1a2233') fail(`Expected --color-surface-dark=#1a2233 but got "${res.surfaceDark}".`)
+  if (typeof res.fontManropeVar !== 'string' || !res.fontManropeVar.trim()) {
+    fail('Expected --font-manrope to be set (Manrope loaded), but it was empty.')
+  }
+
+  if (!approxEq(res.navW, 256, { tol: 3 })) {
+    fail(`Expected settings nav width ~256px but got ${String(res.navW)}.`)
+  }
+  if (!approxEq(res.asideW, 384, { tol: 3 })) {
+    fail(`Expected settings editor aside width ~384px but got ${String(res.asideW)}.`)
+  }
+
+  // Primary buttons should resolve to the Stitch primary blue.
+  const bg = String(res.primaryBtnBg || '')
+  if (!bg.includes('rgb(19, 91, 236)')) {
+    fail(`Expected primary button background rgb(19, 91, 236) but got "${bg}".`)
+  }
+}
+
+async function settingsSubstancesWorkspaceDeepInteractions() {
+  logLine('settings: substances workspace deep interactions')
+
+  open(`${BASE_URL}/settings`)
+  await waitForBodyText('Substances', { label: 'settings substances workspace visible' })
+  waitFor('input[data-e2e="settings-substance-search"]')
+
+  click('input[data-e2e="settings-substance-search"]')
+  fill('input[data-e2e="settings-substance-search"]', 'Demo')
+  await waitUntil(
+    async () => {
+      const v = await evalJs('document.querySelector(\'input[data-e2e="settings-substance-search"]\')?.value || ""')
+      return v === 'Demo'
+    },
+    { label: 'settings search input accepts typing', timeoutMs: 10000 },
+  )
+
+  // Prefer the seeded demo substance if present, otherwise pick the first selectable row.
+  const hasDemoSubstance = await evalJs(`(() => {
+    const links = Array.from(document.querySelectorAll('a[data-e2e^="settings-substance-select-"]'))
+    return links.some((a) => (a.textContent || '').trim() === 'Demo substance')
+  })()`)
+  if (hasDemoSubstance) {
+    clickLinkByName('Demo substance')
+  } else {
+    clickFirst('a[data-e2e^="settings-substance-select-"]')
+  }
+
+  waitFor('[data-e2e="settings-substance-editor"]')
+  await waitForBodyText('Editing', { label: 'settings editor open' })
+
+  await assertSettingsStitchVisualContract()
+
+  // Base bioavailability spec: select the E2E route + a known fraction distribution and save.
+  const baForm = 'form[data-e2e="settings-base-ba-form"]'
+  waitFor(baForm)
+  const routeId = await selectOptionValue(`${baForm} select[name="route_id"]`, 'E2E intranasal')
+  runAgentBrowser(['select', `${baForm} select[name="route_id"]`, routeId])
+  runAgentBrowser(['select', `${baForm} select[name="compartment"]`, 'systemic'])
+  const distId = await selectOptionValue(`${baForm} select[name="base_fraction_dist_id"]`, 'E2E: fraction 0.5')
+  runAgentBrowser(['select', `${baForm} select[name="base_fraction_dist_id"]`, distId])
+  fill(`${baForm} input[name="notes"]`, `e2e ${RUN_ID}`)
+  click(`${baForm} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const err = await evalJs('document.querySelector(\'[data-e2e="settings-base-ba-error"]\')?.textContent?.trim() || ""')
+      if (typeof err === 'string' && err) return true
+      const ok = await evalJs(
+        'document.querySelector(\'[data-e2e="settings-base-ba-success"]\')?.textContent?.trim() || ""',
+      )
+      return typeof ok === 'string' && ok.includes('Saved.')
+    },
+    { label: 'settings base BA save completion', timeoutMs: 60000 },
+  )
+  const baErr = await evalJs('document.querySelector(\'[data-e2e="settings-base-ba-error"]\')?.textContent?.trim() || ""')
+  if (typeof baErr === 'string' && baErr) fail(`settings base BA save failed: ${baErr}`)
+  assertHealthy('settings-base-ba-save')
+
+  // Recommendations: add a dosing range so /today can show the inline "Rec:" hint for demo formulations.
+  const recForm = 'form[data-e2e="settings-recommendations-form"]'
+  scrollIntoView(recForm)
+  runAgentBrowser(['select', `${recForm} select[name="category"]`, 'dosing'])
+  fill(`${recForm} input[name="min_value"]`, '0.1')
+  fill(`${recForm} input[name="max_value"]`, '0.2')
+  fill(`${recForm} input[name="unit"]`, 'mg')
+  fill(`${recForm} input[name="notes"]`, `e2e dosing ${RUN_ID}`)
+  click(`${recForm} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const err = await evalJs(
+        'document.querySelector(\'[data-e2e="settings-recommendations-error"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof err === 'string' && err) return true
+      const ok = await evalJs(
+        'document.querySelector(\'[data-e2e="settings-recommendations-success"]\')?.textContent?.trim() || ""',
+      )
+      return typeof ok === 'string' && ok.includes('Saved.')
+    },
+    { label: 'settings recommendation save completion', timeoutMs: 60000 },
+  )
+  const recErr = await evalJs(
+    'document.querySelector(\'[data-e2e="settings-recommendations-error"]\')?.textContent?.trim() || ""',
+  )
+  if (typeof recErr === 'string' && recErr) fail(`settings recommendation save failed: ${recErr}`)
+  assertHealthy('settings-recommendations-save')
+
+  // Cycle rule override: set + then remove to cover both server actions.
+  const cycleForm = 'form[data-e2e="settings-cycle-rule-form"]'
+  scrollIntoView(cycleForm)
+  fill(`${cycleForm} input[name="gap_days_to_suggest_new_cycle"]`, '14')
+  uncheck(`${cycleForm} input[name="auto_start_first_cycle"]`)
+  fill(`${cycleForm} input[name="notes"]`, `e2e cycle rule ${RUN_ID}`)
+  click(`${cycleForm} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const err = await evalJs('document.querySelector(\'[data-e2e="settings-cycle-rule-error"]\')?.textContent?.trim() || ""')
+      if (typeof err === 'string' && err) return true
+      const ok = await evalJs(
+        'document.querySelector(\'[data-e2e="settings-cycle-rule-success"]\')?.textContent?.trim() || ""',
+      )
+      return typeof ok === 'string' && ok.includes('Saved.')
+    },
+    { label: 'settings cycle rule save completion', timeoutMs: 60000 },
+  )
+  const cycleErr = await evalJs(
+    'document.querySelector(\'[data-e2e="settings-cycle-rule-error"]\')?.textContent?.trim() || ""',
+  )
+  if (typeof cycleErr === 'string' && cycleErr) fail(`settings cycle rule save failed: ${cycleErr}`)
+  assertHealthy('settings-cycle-rule-save')
+
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="settings-cycle-rule-remove"]\'))')),
+    { label: 'settings cycle override remove button present', timeoutMs: 60000 },
+  )
+  scrollIntoView('[data-e2e="settings-cycle-rule-remove"]')
+  click('[data-e2e="settings-cycle-rule-remove"]')
+
+  await waitUntil(
+    async () => !Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="settings-cycle-rule-remove"]\'))')),
+    { label: 'settings cycle override removed', timeoutMs: 60000 },
+  )
+  assertHealthy('settings-cycle-rule-remove')
+
+  // Close the editor panel to verify workspace navigation stays healthy.
+  clearDiagnostics()
+  click('[data-e2e="settings-editor-close"]')
+  await waitUntil(
+    async () => !Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="settings-substance-editor"]\'))')),
+    { label: 'settings editor closed', timeoutMs: 30000 },
+  )
+  assertHealthy('settings-editor-closed')
+
+  // Cross-page integration sanity: /today grid should now show at least one "Rec:" hint.
+  open(`${BASE_URL}/today`)
+  await waitForBodyText('Log (grid)', { label: 'today grid visible (post settings edits)' })
+  await waitUntil(async () => Boolean(await evalJs('document.body.innerText.includes("Rec:")')), {
+    label: 'today shows Rec hint from settings recommendation',
+    timeoutMs: 60000,
+  })
+}
+
 async function settingsDeleteMyData() {
   logLine('settings: delete-my-data via UI')
   open(`${BASE_URL}/settings?tab=app`)
@@ -1417,6 +1619,10 @@ async function main() {
     defaultUnit: 'spray',
     supportsCalibration: true,
   })
+
+  // Deep coverage for the Stitch-style /settings substances workspace.
+  await settingsSubstancesWorkspaceDeepInteractions()
+
   await bulkAddFormulation({
     formulationName: 'E2E IN formulation',
     substanceLabelIncludes: 'Demo substance',

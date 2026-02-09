@@ -68,7 +68,7 @@ export default async function SettingsPage({
       : null
 
   return (
-    <div className="flex h-full overflow-hidden relative">
+    <div className="flex h-full overflow-hidden relative" data-e2e="settings-root">
       <nav className="w-64 flex-none bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col justify-between py-4">
         <div className="space-y-1 px-3">
           <div className="px-3 mb-2">
@@ -192,6 +192,8 @@ export default async function SettingsPage({
                     className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
                     placeholder="Search by name..."
                     type="text"
+                    name="substance_search"
+                    data-e2e="settings-substance-search"
                   />
                 </div>
               </div>
@@ -215,7 +217,7 @@ export default async function SettingsPage({
             </div>
 
             <div className="flex-1 overflow-auto custom-scrollbar relative">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse" data-e2e="settings-substance-table">
                 <thead className="bg-surface-light dark:bg-surface-dark sticky top-0 z-10 shadow-sm">
                   <tr>
                     <th className="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-24">
@@ -255,6 +257,7 @@ export default async function SettingsPage({
                             <Link
                               className="font-medium text-slate-900 dark:text-slate-100 underline-offset-2 hover:underline"
                               href={tabHref('substances', { substance_id: s.id })}
+                              data-e2e={`settings-substance-select-${s.id}`}
                             >
                               {s.display_name}
                             </Link>
@@ -299,7 +302,10 @@ export default async function SettingsPage({
       </main>
 
       {tab === 'substances' && selectedSubstance ? (
-        <aside className="w-96 flex-none bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark flex flex-col shadow-xl z-20">
+        <aside
+          className="w-96 flex-none bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark flex flex-col shadow-xl z-20"
+          data-e2e="settings-substance-editor"
+        >
           <div className="p-6 border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-800/20">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -307,7 +313,12 @@ export default async function SettingsPage({
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedSubstance.display_name}</h2>
                 <p className="text-sm text-slate-500">Canonical: {selectedSubstance.canonical_name}</p>
               </div>
-              <Link className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" href={tabHref('substances')}>
+              <Link
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                href={tabHref('substances')}
+                aria-label="Close editor"
+                data-e2e="settings-editor-close"
+              >
                 <span className="material-icons">close</span>
               </Link>
             </div>
@@ -348,4 +359,3 @@ export default async function SettingsPage({
     </div>
   )
 }
-

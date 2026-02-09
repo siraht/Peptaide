@@ -35,7 +35,10 @@ export function CycleRuleForm(props: {
   }, [router, state.status])
 
   return (
-    <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+    <section
+      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4"
+      data-e2e="settings-cycle-rule"
+    >
       <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cycle rule</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Controls when logging suggests starting a new cycle for this substance.
@@ -45,7 +48,11 @@ export function CycleRuleForm(props: {
         <span className="font-medium">{effectiveAutoStartFirstCycle ? 'on' : 'off'}</span>.
       </p>
 
-      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
+      <form
+        className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
+        action={formAction}
+        data-e2e="settings-cycle-rule-form"
+      >
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
@@ -88,15 +95,28 @@ export function CycleRuleForm(props: {
         <form className="mt-3" action={deleteCycleRuleAction}>
           <input type="hidden" name="substance_id" value={substanceId} />
           <input type="hidden" name="cycle_rule_id" value={cycleRule.id} />
-          <button className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm text-red-700 dark:text-red-300" type="submit">
+          <button
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm text-red-700 dark:text-red-300"
+            type="submit"
+            data-e2e="settings-cycle-rule-remove"
+          >
             Remove override
           </button>
         </form>
       ) : null}
 
-      {state.status === 'error' ? <p className="mt-3 text-sm text-red-700 dark:text-red-300">{state.message}</p> : null}
+      {state.status === 'error' ? (
+        <p className="mt-3 text-sm text-red-700 dark:text-red-300" data-e2e="settings-cycle-rule-error">
+          {state.message}
+        </p>
+      ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p>
+        <p
+          className="mt-3 text-sm text-emerald-700 dark:text-emerald-300"
+          data-e2e="settings-cycle-rule-success"
+        >
+          {state.message}
+        </p>
       ) : null}
     </section>
   )

@@ -31,7 +31,10 @@ export function BaseBioavailabilitySpecForm(props: {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+    <div
+      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4"
+      data-e2e="settings-base-ba"
+    >
       <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Base bioavailability spec</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Sets the base bioavailability fraction distribution for a substance + route + compartment. You can
@@ -42,7 +45,11 @@ export function BaseBioavailabilitySpecForm(props: {
         page.
       </p>
 
-      <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
+      <form
+        className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
+        action={formAction}
+        data-e2e="settings-base-ba-form"
+      >
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
@@ -119,10 +126,14 @@ export function BaseBioavailabilitySpecForm(props: {
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700 dark:text-red-300">{state.message}</p>
+        <p className="mt-3 text-sm text-red-700 dark:text-red-300" data-e2e="settings-base-ba-error">
+          {state.message}
+        </p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300" data-e2e="settings-base-ba-success">
+          {state.message}
+        </p>
       ) : null}
     </div>
   )
