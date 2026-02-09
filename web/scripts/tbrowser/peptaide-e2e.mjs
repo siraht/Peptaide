@@ -1257,15 +1257,21 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
 
   // Confirm we can navigate to /today and see a non-empty surface.
   open(`${BASE_URL}/today`)
-  await waitUntil(
-    async () => {
-      const body = await evalJs('document.body.innerText')
-      if (typeof body !== 'string') return false
-      return body.includes('Today') || body.includes('Sign in')
-    },
-    { label: 'today page loaded after simple import', timeoutMs: 60000 },
-  )
-  const todayBody = await evalJs('document.body.innerText')
+  // Avoid a "black hole" timeout: if navigation lands on an error page or a blank screen,
+  // capture a screenshot + body snippet to help diagnose.
+  const todayLoadStart = Date.now()
+  let todayBody = ''
+  for (;;) {
+    const raw = await evalJs('document.body.innerText')
+    if (typeof raw === 'string') todayBody = raw
+    if (todayBody.includes('Today') || todayBody.includes('Sign in')) break
+    if (Date.now() - todayLoadStart > 60000) {
+      takeScreenshot('simple-import-today-timeout')
+      const snippet = (todayBody || '').replace(/\\s+/g, ' ').slice(0, 300)
+      fail(`Timed out waiting for /today to load after simple import. Body starts: ${snippet}`)
+    }
+    await sleep(250)
+  }
   if (typeof todayBody !== 'string') {
     takeScreenshot('simple-import-today-unknown')
     fail('Could not read /today body text after simple import.')
