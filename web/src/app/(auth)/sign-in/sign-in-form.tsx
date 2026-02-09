@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 
-import { createClient } from '@/lib/supabase/browser'
-
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'error'
 
 export function SignInForm() {
@@ -36,28 +34,24 @@ export function SignInForm() {
     setStatus('sending')
     setMessage(null)
 
-    const supabase = createClient()
-    const origin = window.location.origin
-
-    let error: { message: string } | null = null
     try {
-      const res = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${origin}/auth/callback`,
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ email }),
       })
-      error = res.error ? { message: res.error.message } : null
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+      if (!res.ok || !data?.ok) {
+        setStatus('error')
+        setMessage(data?.error || `Failed to send sign-in email (HTTP ${res.status}).`)
+        return
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setStatus('error')
       setMessage(`Network error sending sign-in email: ${msg}`)
-      return
-    }
-
-    if (error) {
-      setStatus('error')
-      setMessage(error.message)
       return
     }
 
@@ -72,27 +66,26 @@ export function SignInForm() {
     setStatus('verifying')
     setMessage(null)
 
-    const supabase = createClient()
     const token = code.trim()
 
-    let error: { message: string } | null = null
     try {
-      const res = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, token }),
       })
-      error = res.error ? { message: res.error.message } : null
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+      if (!res.ok || !data?.ok) {
+        setStatus('error')
+        setMessage(data?.error || `Failed to verify code (HTTP ${res.status}).`)
+        return
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setStatus('error')
       setMessage(`Network error verifying code: ${msg}`)
-      return
-    }
-
-    if (error) {
-      setStatus('error')
-      setMessage(error.message)
       return
     }
 
