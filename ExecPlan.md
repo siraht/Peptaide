@@ -231,6 +231,10 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-08 22:50Z) Testing harness reliability: fixed an OTP email retrieval flake caused by Mailpit container clock skew by tracking pre-existing Mailpit message IDs (rather than relying only on strict `Created >= since` timestamps). Reran and confirmed PASS on both direct port and Tailscale Serve origins. Evidence: PASS artifacts at `/tmp/peptaide-e2e-2026-02-08T22-44-51-592Z` (direct port) and `/tmp/peptaide-e2e-2026-02-08T22-48-09-892Z` (Tailscale Serve). File: `web/scripts/tbrowser/peptaide-e2e.mjs`.
 - [x] (2026-02-09 00:15Z) Testing: reran the conclusive browser harness (`npm run e2e:browser`) against the currently running web server and local Supabase, and confirmed PASS (0 console errors, 0 failed requests). Evidence: PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T00-11-49-072Z`.
 - [x] (2026-02-09 00:20Z) Spreadsheet migration tooling: ignored the local `spreadsheetdata/` directory (prevent accidental commits of personal exports), added a strict spreadsheet-to-simple-events converter script for the user's "2025 Peptide Protocol" spreadsheet (`ops/scripts/convert_peptide_protocol_spreadsheet.py`), and improved the VPS `ACCESS.md` generator to set `SUPABASE_INTERNAL_URL` with the same hostname as `NEXT_PUBLIC_SUPABASE_URL` (preserves Supabase SSR PKCE cookie-name matching while still using direct HTTP). Files: `.gitignore`, `ops/scripts/convert_peptide_protocol_spreadsheet.py`, `ops/scripts/gen-access-md.sh`.
+- [x] (2026-02-09 01:12Z) Testing: extended the conclusive browser harness to optionally import a custom "simple events" CSV (via `E2E_SIMPLE_EVENTS_CSV_PATH`) and to override the profile cycle-gap default days for cycle inference (via `E2E_SIMPLE_EVENTS_PROFILE_CYCLE_GAP_DAYS`). Added targeted diagnostics to capture the rendered `/today` error body (and a screenshot) if `/today` fails to load after the simple import. Evidence: commits `f1be8cf`, `6b23621`, `5a06602`, `f9c9044`. plan[583-595] plan[690-698] plan[729-751]
+- [x] (2026-02-09 01:27Z) Bugfix: `/today` no longer crashes after "Simple import: events CSV" with a PostgREST `statement_timeout` on `v_events_today.select` (Next digest `1699515079`). Root cause was `public.v_events_today` calling `public.safe_timezone(...)` per event row, which is expensive because it consults `pg_timezone_names`. Fix: rewrite `public.v_events_today` to compute the user's effective timezone + UTC day bounds once (using `MATERIALIZED` CTEs), then filter by a sargable `ts` range that uses `administration_events_user_ts_idx`. Evidence: commits `1c191eb`, `e4a82dd` and the EXPLAIN ANALYZE in `Surprises & Discoveries`. plan[556-582] plan[699-713]
+- [x] (2026-02-09 01:32Z) Testing: conclusive browser verification now covers the user's real spreadsheet import file (`spreadsheetdata/peptaide_simple_events.csv`) end-to-end, including asserting `/today` loads after import and that import summary matches expectations (277 events, 7 substances, 2 routes, 8 formulations, 17 cycles with `cycle_gap_default_days=8`). Evidence: PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T01-30-24-666Z` (direct port) and `/tmp/peptaide-e2e-2026-02-09T01-40-32-481Z` (Tailscale Serve). plan[583-595] plan[690-698] plan[729-751]
+- [x] (2026-02-09 01:39Z) Reliability: fixed rare server-side failures `profiles.select_after_upsert: missing data` by making `ensureMyProfile(...)` fetch the profile row in the same PostgREST round-trip as the upsert (`upsert(...).select('*').maybeSingle()`). This avoids a follow-up `select()` flaking under load and improves `/settings` mutation reliability under proxies. Evidence: commit `9baf407`; conclusive browser harness PASS under both direct port and Tailscale Serve origins after this change. plan[118-129] plan[583-595] plan[690-698]
 
 ## Milestones
 
@@ -508,6 +512,21 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     Fixed by `supabase/migrations/20260207152000_090_views_events_today_safe_timezone.sql` replacing `coalesce(p.timezone, 'UTC')` with `public.safe_timezone(p.timezone)`.
 
+- Observation: `public.safe_timezone(...)` is much more expensive than expected (it consults `pg_timezone_names`), and Postgres will happily re-evaluate it per event row if the view is written so the "today bounds" expression depends on a joined `profiles` row. This caused `/today` SSR crashes under PostgREST `statement_timeout`, even with only a few hundred events.
+  Evidence:
+    Before (view used `safe_timezone(p.timezone)` inside the per-row filter), `EXPLAIN ANALYZE` for an authenticated user with 277 imported events (none "today") took ~25 seconds and did a full scan then filtered:
+
+      Execution Time: 25524.454 ms
+      Seq Scan on public.administration_events e ... rows=277
+      Filter: e.deleted_at IS NULL AND e.user_id = <auth.uid()>
+      Rows Removed by Filter (today bounds): 277
+
+    After rewriting `public.v_events_today` to compute timezone/bounds once using `MATERIALIZED` CTEs (and then using `administration_events_user_ts_idx` with `ts >= start AND ts < end`), the same `EXPLAIN ANALYZE` completes in ~50ms and uses an index scan:
+
+      Execution Time: 49.403 ms
+      Bitmap Index Scan on administration_events_user_ts_idx ...
+      Index Cond: (e.user_id = <auth.uid()> AND e.ts >= b.day_start_utc AND e.ts < b.day_end_utc)
+
 - Observation: The CSV bundle import "apply" path cannot be made truly atomic across all tables when using the Supabase JS client + PostgREST (no single multi-table SQL transaction), so mid-import failures can otherwise leave the user with a partially imported dataset.
   Evidence:
     `web/src/lib/import/csvBundle.ts` now implements best-effort rollback on failure (and `web/src/lib/import/csvBundle.test.ts` includes rollback regression tests for replace and non-replace modes).
@@ -673,7 +692,17 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: Unit tests and SQL probes cannot prove the real browser experience (auth cookie + PKCE behavior, router-refresh UI updates, and "no console errors / no failed requests" health across routes). A repeatable harness provides deterministic, end-to-end evidence and catches regressions early.
   Date/Author: 2026-02-08 / Codex
 
+- Decision: `public.v_events_today` uses a `MATERIALIZED` CTE to compute the invoker’s effective timezone (via `public.safe_timezone(profiles.timezone)`) and the UTC bounds for "today" once, then filters by `administration_events.user_id + ts` range (`ts >= start AND ts < end`).
+  Rationale: `public.safe_timezone(...)` is robust but expensive (it consults `pg_timezone_names`). Without materialization, Postgres may inline the CTEs and re-evaluate `safe_timezone(...)` per event row, which can exceed PostgREST `statement_timeout` and crash `/today` SSR after imports. Materialization keeps the bounds constant and index-friendly.
+  Date/Author: 2026-02-09 / Codex
+
+- Decision: `ensureMyProfile(...)` returns the profile row from the upsert request (`upsert(...).select('*').maybeSingle()`) instead of performing a follow-up `select()` round-trip.
+  Rationale: A separate follow-up select has shown rare flakes where it returns no rows even after a successful upsert (manifesting as `profiles.select_after_upsert: missing data` and breaking SSR refreshes). Returning the row from the upsert makes profile creation idempotent and more reliable under load/proxies.
+  Date/Author: 2026-02-09 / Codex
+
 ## Outcomes & Retrospective
+
+2026-02-09: The app is now conclusively verified in a real browser (t-browser harness) under both direct-port and Tailscale Serve origins, including the user's real 2025 spreadsheet migration dataset (277 events). A production-impacting `/today` SSR crash (Next digest `1699515079`) caused by PostgREST `statement_timeout` on `public.v_events_today` was fixed by rewriting the view to use materialized timezone bounds and an index-friendly `ts` range. The profile ensure path was also hardened to avoid rare `profiles.select_after_upsert: missing data` flakes.
 
 2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion + auto-start decision helper, but not DB orchestration yet). A `/today` prototyping surface exists to exercise the end-to-end event pipeline (not the final virtualized grid yet).
 
@@ -1704,6 +1733,25 @@ Evidence captured so far (conclusive browser harness, VPS/tailnet auth fixes):
       npm run e2e:browser
     # PASS: conclusive browser verification completed
     # artifacts_dir: /tmp/peptaide-e2e-2026-02-08T06-56-28-277Z
+
+Evidence captured so far (conclusive browser harness, user spreadsheet import):
+
+    cd /data/projects/peptaide/web
+    E2E_SIMPLE_EVENTS_CSV_PATH="/data/projects/peptaide/spreadsheetdata/peptaide_simple_events.csv" \
+    E2E_SIMPLE_EVENTS_PROFILE_CYCLE_GAP_DAYS="8" \
+      npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # simple events import summary: mode=apply rows=277 imported_events=277 substances=7 routes=2 formulations=8 cycles=17
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-09T01-30-24-666Z
+
+    cd /data/projects/peptaide/web
+    E2E_BASE_URL="https://flywheel.tail3be29.ts.net:13002" \
+    E2E_SIMPLE_EVENTS_CSV_PATH="/data/projects/peptaide/spreadsheetdata/peptaide_simple_events.csv" \
+    E2E_SIMPLE_EVENTS_PROFILE_CYCLE_GAP_DAYS="8" \
+      npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # simple events import summary: mode=apply rows=277 imported_events=277 substances=7 routes=2 formulations=8 cycles=17
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-09T01-40-32-481Z
 
 Evidence captured so far (RLS probe):
 
