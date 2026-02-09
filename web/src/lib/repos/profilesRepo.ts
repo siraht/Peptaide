@@ -18,13 +18,15 @@ export async function ensureMyProfile(supabase: DbClient): Promise<ProfileRow> {
     throw new Error('Not authenticated (cannot ensure profile).')
   }
 
-  const upsertRes = await supabase
+  // Prefer a single round-trip that returns the row. A follow-up `select()` has shown rare
+  // flakes under load where it returns no rows even after a successful upsert.
+  const res = await supabase
     .from('profiles')
     .upsert({ user_id: user.id }, { onConflict: 'user_id' })
-  requireOk(upsertRes.error, 'profiles.upsert')
+    .select('*')
+    .maybeSingle()
 
-  const profileRes = await supabase.from('profiles').select('*').maybeSingle()
-  return requireData(profileRes.data, profileRes.error, 'profiles.select_after_upsert')
+  return requireData(res.data, res.error, 'profiles.upsert_select')
 }
 
 export async function updateMyProfile(
