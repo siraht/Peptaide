@@ -48,6 +48,12 @@ const HEADED = isTruthyEnv(process.env.E2E_HEADED)
 const FULL_SCREENSHOT = isTruthyEnv(process.env.E2E_FULL)
 const SKIP_DB_RESET = isTruthyEnv(process.env.E2E_SKIP_DB_RESET)
 
+const MOCKUP_TODAY_SCREEN = path.join(REPO_ROOT, 'mockups', 'logging_&_inventory_control_hub', 'screen.png')
+const MOCKUP_SETTINGS_SCREEN = path.join(REPO_ROOT, 'mockups', 'master_data_&_config_editor', 'screen.png')
+
+let mockCompareSettingsPath = null
+let mockCompareTodayPath = null
+
 const localAgentBrowser = path.join(WEB_DIR, 'node_modules', '.bin', 'agent-browser')
 const AGENT_BROWSER_BIN =
   process.env.AGENT_BROWSER_BIN || (fs.existsSync(localAgentBrowser) ? localAgentBrowser : 'agent-browser')
@@ -193,6 +199,90 @@ function takeScreenshot(label) {
   const args = ['screenshot', outPath]
   if (FULL_SCREENSHOT) args.push('--full')
   runAgentBrowser(args)
+  return outPath
+}
+
+function copyFileIfExists(srcPath, destPath) {
+  try {
+    if (!fs.existsSync(srcPath)) return false
+    fs.copyFileSync(srcPath, destPath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function writeMockupCompareReport() {
+  const todayMockup = fs.existsSync(path.join(ARTIFACTS_DIR, 'mockup-today.png')) ? 'mockup-today.png' : null
+  const settingsMockup = fs.existsSync(path.join(ARTIFACTS_DIR, 'mockup-settings.png')) ? 'mockup-settings.png' : null
+
+  const todayApp = mockCompareTodayPath ? path.basename(mockCompareTodayPath) : null
+  const settingsApp = mockCompareSettingsPath ? path.basename(mockCompareSettingsPath) : null
+
+  if (!todayMockup && !settingsMockup) return null
+  if (!todayApp && !settingsApp) return null
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Peptaide Mockup Compare</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background: #0b0f18; color: #e5e7eb; }
+    header { padding: 16px 20px; border-bottom: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.35); position: sticky; top: 0; backdrop-filter: blur(10px); }
+    h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: .01em; }
+    p { margin: 6px 0 0; font-size: 12px; color: rgba(226,232,240,.75); }
+    section { padding: 18px 20px; border-bottom: 1px solid rgba(148,163,184,.15); }
+    h2 { margin: 0 0 10px; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    figure { margin: 0; padding: 10px; border: 1px solid rgba(148,163,184,.15); border-radius: 10px; background: rgba(15,23,42,.25); }
+    figcaption { font-size: 12px; color: rgba(226,232,240,.75); margin: 0 0 8px; }
+    img { width: 100%; height: auto; border-radius: 8px; background: #0b0f18; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Mockup Compare</h1>
+    <p>Run: ${RUN_ID} • Base URL: ${BASE_URL}</p>
+    <p>Note: This is a side-by-side visual aid (not a pixel-diff gate). Use it to eyeball similarity vs Stitch mockups.</p>
+  </header>
+
+  <section>
+    <h2>/today (Log &amp; Inventory Hub)</h2>
+    <div class="grid">
+      <figure>
+        <figcaption>Mockup</figcaption>
+        ${todayMockup ? `<img src="${todayMockup}" alt="Mockup /today" />` : `<div>Missing mockup image</div>`}
+      </figure>
+      <figure>
+        <figcaption>App</figcaption>
+        ${todayApp ? `<img src="${todayApp}" alt="App /today" />` : `<div>Missing app screenshot</div>`}
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>/settings (Master Data &amp; Config Editor)</h2>
+    <div class="grid">
+      <figure>
+        <figcaption>Mockup</figcaption>
+        ${settingsMockup ? `<img src="${settingsMockup}" alt="Mockup /settings" />` : `<div>Missing mockup image</div>`}
+      </figure>
+      <figure>
+        <figcaption>App</figcaption>
+        ${settingsApp ? `<img src="${settingsApp}" alt="App /settings" />` : `<div>Missing app screenshot</div>`}
+      </figure>
+    </div>
+  </section>
+</body>
+</html>
+`
+
+  const outPath = path.join(ARTIFACTS_DIR, 'mockup-compare.html')
+  fs.writeFileSync(outPath, html, 'utf8')
   return outPath
 }
 
@@ -1256,6 +1346,18 @@ async function settingsSubstancesWorkspaceDeepInteractions() {
 
   await assertSettingsStitchVisualContract()
 
+  // Capture a screenshot at the same viewport size as the Stitch mockup artifact (1600x1280) so
+  // the run output can be visually compared side-by-side (see mockup-compare.html).
+  {
+    const prevW = 1280
+    const prevH = 720
+    setViewport(1600, 1280)
+    waitFor('main')
+    waitFor(200)
+    mockCompareSettingsPath = takeScreenshot('compare-settings-1600x1280')
+    setViewport(prevW, prevH)
+  }
+
   // Base bioavailability spec: select the E2E route + a known fraction distribution and save.
   const baForm = 'form[data-e2e="settings-base-ba-form"]'
   waitFor(baForm)
@@ -1609,6 +1711,11 @@ async function main() {
   logLine(`session: ${SESSION}`)
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 
+  // Copy Stitch mockup screenshots into the artifacts folder so every run includes the baseline
+  // visuals alongside app screenshots (see mockup-compare.html).
+  copyFileIfExists(MOCKUP_TODAY_SCREEN, path.join(ARTIFACTS_DIR, 'mockup-today.png'))
+  copyFileIfExists(MOCKUP_SETTINGS_SCREEN, path.join(ARTIFACTS_DIR, 'mockup-settings.png'))
+
   await resetLocalSupabaseDb()
 
   // Best-effort: clean any old browser instance for this session name.
@@ -1682,6 +1789,24 @@ async function main() {
 
   await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'E2E IN formulation' })
   await inventoryActivateCloseOneVial()
+
+  // Capture a /today screenshot at the same viewport size as the Stitch mockup artifact (1600x1280) so
+  // the run output can be visually compared side-by-side (see mockup-compare.html).
+  {
+    const prevW = 1280
+    const prevH = 720
+    setViewport(1600, 1280)
+    open(`${BASE_URL}/today`)
+    waitFor('main')
+    waitFor(300)
+    mockCompareTodayPath = takeScreenshot('compare-today-1600x1280')
+    setViewport(prevW, prevH)
+  }
+
+  const compareReportPath = writeMockupCompareReport()
+  if (compareReportPath) {
+    logLine(`mockup_compare_report: ${compareReportPath}`)
+  }
 
   // Capture one deep-link for RLS cross-user checks.
   open(`${BASE_URL}/substances`)
