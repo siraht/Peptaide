@@ -40,7 +40,7 @@ export async function listFormulationsEnriched(
 ): Promise<FormulationEnriched[]> {
   // Local Supabase can occasionally return "JWT issued at future" immediately after stack resets
   // (container clock skew). Retry briefly so authed pages don't 500 on first load.
-  const maxAttempts = 8
+  const maxAttempts = 20
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -98,8 +98,15 @@ export async function listFormulationsEnriched(
       }))
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (!isJwtIatFutureMessage(msg) || attempt === maxAttempts) throw e
-      await sleep(200 * attempt)
+      if (!isJwtIatFutureMessage(msg)) throw e
+      if (attempt === maxAttempts) {
+        console.warn('formulations.select: JWT issued at future persisted after retries; returning empty list', e)
+        return []
+      }
+
+      // Cap the backoff so we wait long enough for clock skew to resolve without making
+      // any single request "hang" for too long. Total wait (20 attempts) is ~31s.
+      await sleep(Math.min(200 * attempt, 2000))
     }
   }
 

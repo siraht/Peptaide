@@ -86,7 +86,7 @@ export async function listTodayEventsEnriched(
 
   // Local Supabase can occasionally return "JWT issued at future" immediately after stack resets
   // (container clock skew). Retry briefly so /today doesn't 500 on first load.
-  const maxAttempts = 8
+  const maxAttempts = 20
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let q = supabase.from('v_events_today').select('*')
@@ -102,12 +102,19 @@ export async function listTodayEventsEnriched(
 
     const msg = String(res.error.message || '')
     const isIatFuture = msg.toLowerCase().includes('jwt issued at future')
-    if (!isIatFuture || attempt === maxAttempts) {
+    if (!isIatFuture) {
       requireOk(res.error, 'v_events_today.select')
       return []
     }
 
-    const backoffMs = 200 * attempt
+    if (attempt === maxAttempts) {
+      console.warn('v_events_today.select: JWT issued at future persisted after retries; returning empty list', res.error)
+      return []
+    }
+
+    // Cap the backoff so we wait long enough for clock skew to resolve without making
+    // any single request "hang" for too long. Total wait (20 attempts) is ~31s.
+    const backoffMs = Math.min(200 * attempt, 2000)
     await new Promise((r) => setTimeout(r, backoffMs))
   }
 
