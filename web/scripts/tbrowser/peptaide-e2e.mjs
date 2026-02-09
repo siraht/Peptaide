@@ -1190,7 +1190,17 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
     if (Number.isFinite(n) && Number.isInteger(n) && n >= 0) {
       logLine(`settings: setting profile cycle_gap_default_days=${n}`)
       fill('input[name="cycle_gap_default_days"]', String(n))
-      click('form[action] button[type="submit"]')
+      await evalJs(
+        `(() => {
+          const input = document.querySelector('input[name="cycle_gap_default_days"]')
+          const form = input && input.closest('form')
+          if (!form) return false
+          // Prefer requestSubmit so any onSubmit hooks run as expected.
+          if (typeof form.requestSubmit === 'function') form.requestSubmit()
+          else form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+          return true
+        })()`,
+      )
       await waitUntil(
         async () => {
           const body = await evalJs('document.body.innerText')
