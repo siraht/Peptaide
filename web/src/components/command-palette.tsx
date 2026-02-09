@@ -91,7 +91,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
   return (
     <>
       <button
-        className="inline-flex h-9 items-center gap-2 rounded-md border bg-white px-3 text-sm text-zinc-700 hover:text-zinc-900"
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:text-primary dark:hover:text-white transition-colors"
         type="button"
         onClick={() => {
           setQuery('')
@@ -100,7 +100,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
         aria-label="Open command palette"
       >
         <span className="hidden sm:inline">Search</span>
-        <span className="font-mono text-xs text-zinc-500">Ctrl/Cmd+K</span>
+        <span className="font-mono text-xs text-gray-500">Ctrl/Cmd+K</span>
       </button>
 
       {open ? (
@@ -113,29 +113,29 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
             }
           }}
         >
-          <div className="w-full max-w-xl overflow-hidden rounded-xl border bg-white shadow-2xl">
+          <div className="w-full max-w-xl overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark shadow-2xl">
             <Command label="Command palette">
-              <div className="border-b p-3">
+              <div className="border-b border-gray-200 dark:border-gray-800 p-3">
                 <Command.Input
                   ref={inputRef}
                   value={query}
                   onValueChange={setQuery}
-                  className="w-full bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+                  className="w-full bg-transparent text-sm text-gray-900 dark:text-gray-100 outline-none placeholder:text-gray-400"
                   placeholder="Type to search..."
                 />
               </div>
               <Command.List className="max-h-[60vh] overflow-y-auto p-2">
-                <Command.Empty className="px-3 py-8 text-center text-sm text-zinc-600">
+                <Command.Empty className="px-3 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
                   No results.
                 </Command.Empty>
 
-                <Command.Group heading="Actions" className="text-xs text-zinc-500">
+                <Command.Group heading="Actions" className="text-xs text-gray-500">
                   {actionItems.map((item) => (
                     <Command.Item
                       key={item.href}
                       value={item.label}
                       keywords={item.keywords}
-                      className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-zinc-900 outline-none aria-selected:bg-zinc-100"
+                      className="flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800"
                       onSelect={() => runNav(item.href)}
                     >
                       {item.label}
@@ -144,13 +144,13 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
                 </Command.Group>
 
                 {logItems.length > 0 ? (
-                  <Command.Group heading="Log" className="mt-2 text-xs text-zinc-500">
+                  <Command.Group heading="Log" className="mt-2 text-xs text-gray-500">
                     {logItems.map((item) => (
                       <Command.Item
                         key={item.href}
                         value={item.label}
                         keywords={item.keywords}
-                        className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-zinc-900 outline-none aria-selected:bg-zinc-100"
+                        className="flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800"
                         onSelect={() => runNav(item.href)}
                       >
                         {item.label}
@@ -159,13 +159,13 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
                   </Command.Group>
                 ) : null}
 
-                <Command.Group heading="Navigate" className="mt-2 text-xs text-zinc-500">
+                <Command.Group heading="Navigate" className="mt-2 text-xs text-gray-500">
                   {navItems.map((item) => (
                     <Command.Item
                       key={item.href}
                       value={item.label}
                       keywords={item.keywords}
-                      className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-zinc-900 outline-none aria-selected:bg-zinc-100"
+                      className="flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 outline-none aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800"
                       onSelect={() => runNav(item.href)}
                     >
                       {item.label}

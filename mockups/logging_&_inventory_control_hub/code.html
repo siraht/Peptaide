@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Power User Log &amp; Analytics Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "primary-dark": "#0e45b5",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                        "surface-dark": "#1a202c",
+                        "surface-light": "#ffffff",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        .chart-gradient {
+            background: linear-gradient(180deg, rgba(19, 91, 236, 0.2) 0%, rgba(19, 91, 236, 0) 100%);
+        }
+        .chart-gradient-orange {
+             background: linear-gradient(180deg, rgba(249, 115, 22, 0.2) 0%, rgba(249, 115, 22, 0) 100%);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-100 h-screen overflow-hidden flex flex-col">
+<nav class="h-16 border-b border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark flex items-center justify-between px-6 shrink-0">
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
+                L
+            </div>
+<h1 class="text-lg font-semibold tracking-tight">Log &amp; Inventory Hub</h1>
+<span class="px-2 py-0.5 rounded text-xs bg-primary/10 text-primary dark:text-blue-400 font-medium border border-primary/20">Pro Workspace</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
+<span class="material-icons text-lg">calendar_today</span>
+<span>Oct 24, 2023</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="relative p-2 text-gray-500 hover:text-primary transition-colors">
+<span class="material-icons">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+</button>
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 border border-gray-600 overflow-hidden">
+<img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwsqQOWOgOKeUt_FwsI8D9NF3BAwoIh4qxCOSGu1_hbVCYLi4KJA0D3PMPBaQONy_A4UzpRROv8xmgrYT1xqqax1HQ6yJFJFthLxIU8NLk3eE7q_SMgJ5c_XDB-Pi0B3Ip2Zxn0AXWIISgu7npzhqNPUyO1M4phY_eaxd60LxU8ItAfNO0ksVR8DVRsR5kKs0TIq-9GMHMYNV_vnMNJev_NBfqPROFGtrxj273f_KMxrdnQtcAURyW_RmvLoutcQIjEOWN8BWdT4Y"/>
+</div>
+</div>
+</div>
+</nav>
+<main class="flex-1 flex overflow-hidden">
+<section class="w-3/5 flex flex-col border-r border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark">
+<div class="p-6 pb-2 shrink-0">
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-xl font-bold">Today's Log</h2>
+<button class="flex items-center gap-1 text-primary hover:text-primary-dark dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium transition-colors">
+<span class="material-icons text-base">history</span>
+                        View History
+                    </button>
+</div>
+<div class="mb-2">
+<p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Quick Log Frequent Doses</p>
+<div class="flex flex-wrap gap-2">
+<button class="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-blue-300 rounded-lg border border-primary/20 transition-all text-sm font-medium group">
+<span class="w-2 h-2 rounded-full bg-primary group-hover:bg-blue-400"></span>
+                            BPC-157 250mcg
+                        </button>
+<button class="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-blue-300 rounded-lg border border-primary/20 transition-all text-sm font-medium group">
+<span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                            CJC-1295 100mcg
+                        </button>
+<button class="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-blue-300 rounded-lg border border-primary/20 transition-all text-sm font-medium group">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            Tirzepatide 2.5mg
+                        </button>
+<button class="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+<span class="material-icons text-sm">add</span>
+                            Custom
+                        </button>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-auto px-6 py-2 min-h-[250px]">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-surface-light dark:bg-background-dark z-10">
+<tr class="text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-800">
+<th class="py-3 pl-2 w-24">Time</th>
+<th class="py-3">Compound / Vial ID</th>
+<th class="py-3 text-right">Dosage</th>
+<th class="py-3 pl-4">Route</th>
+<th class="py-3">Notes</th>
+<th class="py-3 w-16 text-center">Action</th>
+</tr>
+</thead>
+<tbody class="text-sm divide-y divide-gray-100 dark:divide-gray-800">
+<tr class="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="py-3 pl-2 font-mono text-gray-600 dark:text-gray-400">08:00 AM</td>
+<td class="py-3">
+<div class="font-medium text-gray-900 dark:text-gray-100">CJC-1295 w/ DAC</div>
+<div class="text-xs text-gray-500">Vial #23-A • Lot 4921</div>
+</td>
+<td class="py-3 text-right font-mono text-gray-900 dark:text-gray-100">
+                                1000 <span class="text-xs text-gray-500">mcg</span>
+</td>
+<td class="py-3 pl-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                    SubQ
+                                </span>
+</td>
+<td class="py-3 text-gray-500 truncate max-w-[150px]">Post-workout protocol</td>
+<td class="py-3 text-center">
+<button class="text-gray-400 hover:text-primary transition-colors p-1">
+<span class="material-icons text-sm">content_copy</span>
+</button>
+</td>
+</tr>
+<tr class="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="py-3 pl-2 font-mono text-gray-600 dark:text-gray-400">08:05 AM</td>
+<td class="py-3">
+<div class="font-medium text-gray-900 dark:text-gray-100">Ipamorelin</div>
+<div class="text-xs text-gray-500">Vial #23-B • Lot 4921</div>
+</td>
+<td class="py-3 text-right font-mono text-gray-900 dark:text-gray-100">
+                                200 <span class="text-xs text-gray-500">mcg</span>
+</td>
+<td class="py-3 pl-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                    SubQ
+                                </span>
+</td>
+<td class="py-3 text-gray-500 truncate max-w-[150px]">-</td>
+<td class="py-3 text-center">
+<button class="text-gray-400 hover:text-primary transition-colors p-1">
+<span class="material-icons text-sm">content_copy</span>
+</button>
+</td>
+</tr>
+<tr class="bg-primary/5 dark:bg-primary/10 border-l-2 border-primary">
+<td class="py-3 pl-2 font-mono text-gray-600 dark:text-gray-400 align-top">
+<input class="bg-transparent border-0 p-0 text-sm focus:ring-0 text-gray-900 dark:text-gray-100 w-full" type="time" value="14:30"/>
+</td>
+<td class="py-3 align-top">
+<input class="bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-primary px-0 py-1 w-full text-sm focus:ring-0 text-gray-900 dark:text-gray-100 placeholder-gray-500" placeholder="Select Compound" type="text" value="BPC-157"/>
+</td>
+<td class="py-3 text-right align-top">
+<div class="flex flex-col items-end">
+<input class="bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-primary px-0 py-1 w-20 text-right text-sm focus:ring-0 text-gray-900 dark:text-gray-100 font-mono" placeholder="0" type="number"/>
+<span class="text-[10px] text-primary/80 dark:text-blue-300/80 mt-1 font-medium bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+<span class="material-icons text-[10px]">lightbulb</span> Rec: 250-500mcg
+                                </span>
+</div>
+</td>
+<td class="py-3 pl-4 align-top">
+<select class="bg-transparent border-0 p-0 text-sm focus:ring-0 text-gray-500 dark:text-gray-400 cursor-pointer">
+<option>SubQ</option>
+<option>IM</option>
+</select>
+</td>
+<td class="py-3 align-top">
+<input class="bg-transparent border-0 p-0 w-full text-sm focus:ring-0 text-gray-900 dark:text-gray-100" placeholder="Add notes..." type="text"/>
+</td>
+<td class="py-3 text-center align-top">
+<button class="text-primary hover:text-primary-dark transition-colors p-1 bg-primary/20 rounded-full">
+<span class="material-icons text-sm font-bold">check</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="h-64 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#151a23] flex flex-col shrink-0">
+<div class="px-6 py-3 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Analytics Dashboard</h3>
+<div class="flex gap-2">
+<button class="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-gray-500"><span class="material-icons text-sm">filter_list</span></button>
+<button class="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-gray-500"><span class="material-icons text-sm">fullscreen</span></button>
+</div>
+</div>
+<div class="flex-1 overflow-x-auto overflow-y-hidden flex gap-4 p-4 scrollbar-hide">
+<div class="min-w-[300px] w-[320px] bg-white dark:bg-surface-dark rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex flex-col shadow-sm">
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs font-bold text-gray-600 dark:text-gray-400">Monte Carlo Uncertainty</span>
+<span class="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 rounded">Systemic vs CNS</span>
+</div>
+<div class="flex-1 relative w-full mt-1">
+<div class="absolute inset-0 flex items-end justify-between px-1">
+<div class="w-full h-full relative">
+<svg class="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
+<path d="M0,80 Q25,75 50,60 T100,40 L100,55 Q75,70 50,80 T0,90 Z" fill="rgba(168, 85, 247, 0.2)" stroke="none"></path>
+<path d="M0,85 Q25,80 50,65 T100,45" fill="none" stroke="#a855f7" stroke-dasharray="2,2" stroke-width="1"></path>
+<path d="M0,60 Q30,50 60,30 T100,20 L100,35 Q70,50 40,65 T0,75 Z" fill="rgba(59, 130, 246, 0.2)" stroke="none"></path>
+<path d="M0,67 Q30,57 60,37 T100,27" fill="none" stroke="#3b82f6" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] text-gray-400">
+<span>Day 1</span>
+<span>Day 15</span>
+<span>Day 30</span>
+</div>
+</div>
+<div class="min-w-[300px] w-[320px] bg-white dark:bg-surface-dark rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex flex-col shadow-sm">
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs font-bold text-gray-600 dark:text-gray-400">Daily Dose vs Limit</span>
+<span class="text-[10px] text-gray-500">Last 7 Days</span>
+</div>
+<div class="flex-1 flex items-end justify-between gap-2 px-1 pb-1">
+<div class="w-full h-full flex items-end gap-1">
+<div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-t-sm relative h-full">
+<div class="absolute bottom-0 w-full bg-primary/80 rounded-t-sm" style="height: 40%"></div>
+</div>
+<div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-t-sm relative h-full">
+<div class="absolute bottom-0 w-full bg-primary/80 rounded-t-sm" style="height: 65%"></div>
+</div>
+<div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-t-sm relative h-full">
+<div class="absolute bottom-0 w-full bg-primary/80 rounded-t-sm" style="height: 30%"></div>
+</div>
+<div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-t-sm relative h-full">
+<div class="absolute bottom-0 w-full bg-orange-500/80 rounded-t-sm" style="height: 85%"></div> 
+</div>
+<div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-t-sm relative h-full">
+<div class="absolute bottom-0 w-full bg-primary/80 rounded-t-sm" style="height: 50%"></div>
+</div>
+<div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-t-sm relative h-full">
+<div class="absolute bottom-0 w-full bg-primary/80 rounded-t-sm" style="height: 60%"></div>
+</div>
+<div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-t-sm relative h-full">
+<div class="absolute bottom-0 w-full bg-primary rounded-t-sm" style="height: 45%"></div>
+</div>
+</div>
+</div>
+<div class="border-t border-dashed border-red-400 w-full mt-1 relative">
+<span class="absolute -top-3 right-0 text-[9px] text-red-400">Max Limit</span>
+</div>
+</div>
+<div class="min-w-[200px] w-[240px] bg-white dark:bg-surface-dark rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex flex-col shadow-sm">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs font-bold text-gray-600 dark:text-gray-400">Spend Burn Rate</span>
+<span class="material-icons text-gray-400 text-sm">attach_money</span>
+</div>
+<div class="flex-1 flex flex-col justify-center">
+<div class="text-2xl font-bold text-gray-900 dark:text-gray-100">$4.82<span class="text-sm font-normal text-gray-500">/day</span></div>
+<div class="flex items-center gap-1 mt-1">
+<span class="text-xs font-medium text-green-500 flex items-center"><span class="material-icons text-[10px]">arrow_downward</span> 12%</span>
+<span class="text-[10px] text-gray-400">vs last cycle</span>
+</div>
+</div>
+<div class="w-full bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
+<div class="bg-gradient-to-r from-green-400 to-blue-500 h-full rounded-full" style="width: 65%"></div>
+</div>
+<div class="flex justify-between mt-1 text-[10px] text-gray-500">
+<span>Monthly Est: $145</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="w-2/5 flex flex-col bg-gray-50 dark:bg-[#0c1017] border-l border-gray-200 dark:border-gray-800">
+<div class="p-6 shrink-0 flex justify-between items-center">
+<div>
+<h2 class="text-xl font-bold">Control Center</h2>
+<p class="text-sm text-gray-500">Active Substances &amp; Inventory</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center justify-center w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-all" title="Add New Order">
+<span class="material-icons text-sm">add_shopping_cart</span>
+</button>
+<button class="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all" title="Generate Vials">
+<span class="material-icons text-sm">science</span>
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
+<div class="bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700/50 hover:border-primary/50 transition-colors">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-3">
+<div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center text-green-600 dark:text-green-400">
+<span class="material-icons">medication_liquid</span>
+</div>
+<div>
+<h3 class="font-bold text-gray-900 dark:text-gray-100 leading-tight">Tirzepatide</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Day 12 of 30</span>
+<span class="text-xs text-gray-400">$2.50/mg</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Runway</div>
+<div class="text-lg font-bold text-gray-800 dark:text-gray-200">~18 Days</div>
+</div>
+</div>
+<div class="flex gap-0.5 mb-2 h-1.5 w-full">
+<div class="h-full bg-blue-500 rounded-l-sm w-[40%]"></div>
+<div class="h-full bg-gray-200 dark:bg-gray-700 rounded-r-sm w-[60%]"></div>
+</div>
+<div class="mb-3">
+<div class="flex justify-between text-xs mb-1.5 font-medium">
+<span class="text-gray-600 dark:text-gray-400">Inventory: 7.2mg / 10mg</span>
+<span class="text-gray-400">72%</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 rounded-full" style="width: 72%"></div>
+</div>
+</div>
+<div class="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">
+<label class="flex items-center gap-2 cursor-pointer group">
+<div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 checked:right-0 checked:border-orange-500" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-200 dark:bg-gray-700 cursor-pointer checked:bg-orange-500/20"></label>
+</div>
+<span class="text-xs font-medium text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">Mark Last Bit</span>
+</label>
+<div class="flex-1"></div>
+<button class="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-white rounded transition-colors bg-gray-50 dark:bg-gray-800">
+                            Log Dose
+                        </button>
+</div>
+</div>
+<div class="bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border border-orange-200 dark:border-orange-900/30 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-bl-3xl"></div>
+<div class="flex justify-between items-start mb-3 relative z-10">
+<div class="flex gap-3">
+<div class="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 dark:text-orange-400">
+<span class="material-icons">warning</span>
+</div>
+<div>
+<h3 class="font-bold text-gray-900 dark:text-gray-100 leading-tight">BPC-157</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">Break Day 5</span>
+<span class="text-xs text-gray-400">$0.85/mg</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<div class="text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase tracking-wider">Low Stock</div>
+<div class="text-lg font-bold text-gray-800 dark:text-gray-200">~2 Days</div>
+</div>
+</div>
+<div class="mb-3 relative z-10">
+<div class="flex justify-between text-xs mb-1.5 font-medium">
+<span class="text-orange-600 dark:text-orange-400">Inventory: 0.8mg / 5mg</span>
+<span class="text-gray-400">16%</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-orange-500 rounded-full" style="width: 16%"></div>
+</div>
+</div>
+<div class="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 relative z-10 items-center">
+<label class="flex items-center gap-2 cursor-pointer group">
+<div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-orange-500 checked:right-0 checked:border-orange-600" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-4 rounded-full bg-orange-200 dark:bg-orange-900/40 cursor-pointer"></label>
+</div>
+<span class="text-xs font-medium text-orange-600 dark:text-orange-400">Last Bit Active</span>
+</label>
+<div class="flex-1"></div>
+<button class="px-3 py-1.5 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 rounded transition-colors shadow-sm">
+                            Restock
+                        </button>
+</div>
+</div>
+<div class="bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700/50 hover:border-primary/50 transition-colors opacity-90">
+<div class="flex justify-between items-start mb-3">
+<div class="flex gap-3">
+<div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
+<span class="material-icons">science</span>
+</div>
+<div>
+<h3 class="font-bold text-gray-900 dark:text-gray-100 leading-tight">CJC-1295</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Day 12 of 60</span>
+<span class="text-xs text-gray-400">$1.20/mg</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Runway</div>
+<div class="text-lg font-bold text-gray-800 dark:text-gray-200">~14 Days</div>
+</div>
+</div>
+<div class="flex gap-0.5 mb-2 h-1.5 w-full">
+<div class="h-full bg-purple-500 rounded-l-sm w-[20%]"></div>
+<div class="h-full bg-gray-200 dark:bg-gray-700 rounded-r-sm w-[80%]"></div>
+</div>
+<div class="mb-3">
+<div class="flex justify-between text-xs mb-1.5 font-medium">
+<span class="text-gray-600 dark:text-gray-400">Inventory: 1.1mg / 2mg</span>
+<span class="text-gray-400">55%</span>
+</div>
+<div class="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+<div class="h-full bg-purple-500 rounded-full" style="width: 55%"></div>
+</div>
+</div>
+<div class="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">
+<label class="flex items-center gap-2 cursor-pointer group">
+<div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 checked:right-0 checked:border-orange-500" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-200 dark:bg-gray-700 cursor-pointer checked:bg-orange-500/20"></label>
+</div>
+<span class="text-xs font-medium text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">Mark Last Bit</span>
+</label>
+<div class="flex-1"></div>
+<button class="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-white rounded transition-colors bg-gray-50 dark:bg-gray-800">
+                            Log Dose
+                        </button>
+</div>
+</div>
+</div>
+<div class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark">
+<button class="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all group">
+<span class="material-icons group-hover:scale-110 transition-transform">qr_code_scanner</span>
+<span class="font-medium">Scan Vial to Activate</span>
+</button>
+</div>
+</section>
+</main>
+
+</body></html>

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Master Data &amp; Config Editor</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#135bec",
+              "background-light": "#f6f6f8",
+              "background-dark": "#101622",
+              "surface-dark": "#1a2233",
+              "surface-light": "#ffffff",
+              "border-dark": "#2d3748",
+              "border-light": "#e2e8f0",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        /* Hide scrollbar for cleaner UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Custom scrollbar for data tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.3);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(156, 163, 175, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-200 h-screen overflow-hidden flex flex-col font-display selection:bg-primary/30">
+<!-- Top Navigation Bar -->
+<header class="h-16 flex-none bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark flex items-center justify-between px-6 z-20">
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-white">
+<span class="material-icons text-xl">science</span>
+</div>
+<div>
+<h1 class="font-bold text-lg leading-tight tracking-tight">PeptideTracker <span class="text-primary font-normal">Admin</span></h1>
+<p class="text-xs text-slate-500 dark:text-slate-400">Master Data Configuration</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
+<span class="material-icons-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
+<span class="material-icons-outlined">help_outline</span>
+</button>
+<div class="h-8 w-px bg-border-light dark:bg-border-dark mx-1"></div>
+<div class="flex items-center gap-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors">
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-purple-500 overflow-hidden border-2 border-white dark:border-slate-700">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="User profile avatar image" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhCIHlHOTvle7UPAV_DbiWX0PUbPkD1fCPMXnCZ3hUfbem2w6IwgwAXOkBAc3P70buPj1TwwLM9PBz-KZh2PF3oiM2-ZBV63P3-UGPPVFrylMoBsi5-zjcFPEwAVSEtFJ8ak3GjLj7nQ4Mrvotbz3FmtT421m_34qdQqMV_oyagytuSbEY44ugZqdUgBseet7o9wO_m0mlSoMTAUVjmLW6kRFX-w_SfLltWhJ9JH0Bn7Ki21njE3XbxtxZ-sLtr1clzVxtbFxUO_g"/>
+</div>
+<div class="hidden md:block text-sm">
+<p class="font-semibold leading-none">Admin User</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Super Admin</p>
+</div>
+<span class="material-icons text-slate-400 text-sm">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Main Workspace -->
+<div class="flex flex-1 overflow-hidden relative">
+<!-- Left Sidebar Navigation -->
+<nav class="w-64 flex-none bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col justify-between py-4">
+<div class="space-y-1 px-3">
+<div class="px-3 mb-2">
+<p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reference Data</p>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary font-medium" href="#">
+<span class="material-icons-outlined text-xl">biotech</span>
+                    Substances
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">alt_route</span>
+                    Routes
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">medication</span>
+                    Formulations
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">vaccines</span>
+                    Devices
+                </a>
+<div class="h-px bg-border-light dark:bg-border-dark my-3 mx-3"></div>
+<div class="px-3 mb-2">
+<p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Operations</p>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">inventory_2</span>
+                    Inventory
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">shopping_cart</span>
+                    Orders
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">timeline</span>
+                    Cycles
+                </a>
+<div class="h-px bg-border-light dark:bg-border-dark my-3 mx-3"></div>
+<div class="px-3 mb-2">
+<p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">System</p>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">functions</span>
+                    Distributions
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">link</span>
+                    Evidence
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl group-hover:text-primary transition-colors">settings</span>
+                    App Settings
+                </a>
+</div>
+<div class="px-4">
+<div class="bg-slate-100 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700/50">
+<div class="flex items-center gap-2 mb-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-xs font-medium text-slate-600 dark:text-slate-300">System Status: Stable</span>
+</div>
+<div class="text-[10px] text-slate-400">v2.4.0 (Build 9422)</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Area (Grid) -->
+<main class="flex-1 flex flex-col bg-background-light dark:bg-background-dark min-w-0">
+<!-- Toolbar -->
+<div class="h-16 flex-none px-6 flex items-center justify-between border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark z-10">
+<div class="flex items-center gap-4 flex-1">
+<h2 class="text-xl font-bold hidden md:block">Substances</h2>
+<div class="h-8 w-px bg-border-light dark:bg-border-dark mx-2 hidden md:block"></div>
+<!-- Search -->
+<div class="relative max-w-md w-full">
+<span class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" placeholder="Search by name, ID, or CAS number..." type="text"/>
+</div>
+<!-- Filters -->
+<div class="hidden lg:flex items-center gap-2">
+<button class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all">
+<span class="material-icons-outlined text-lg">filter_list</span>
+                            Filter
+                        </button>
+<button class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all">
+<span class="material-icons-outlined text-lg">sort</span>
+                            Sort
+                        </button>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<!-- Action Menu -->
+<button class="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-icons-outlined text-lg">file_download</span>
+                        Export CSV
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+<span class="material-icons-outlined text-lg">add</span>
+                        New Substance
+                    </button>
+</div>
+</div>
+<!-- Master Grid -->
+<div class="flex-1 overflow-auto custom-scrollbar relative">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-light dark:bg-surface-dark sticky top-0 z-10 shadow-sm">
+<tr>
+<th class="p-4 border-b border-border-light dark:border-border-dark w-12 text-center">
+<input class="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-transparent" type="checkbox"/>
+</th>
+<th class="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-20">ID</th>
+<th class="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Name</th>
+<th class="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32">Half-Life (hrs)</th>
+<th class="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32">Bioavailability</th>
+<th class="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-24">Unit</th>
+<th class="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32">Status</th>
+<th class="p-4 border-b border-border-light dark:border-border-dark text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-light dark:divide-border-dark bg-surface-light dark:bg-surface-dark">
+<!-- Row 1 (Selected) -->
+<tr class="bg-primary/5 dark:bg-primary/10 group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-l-primary">
+<td class="p-4 text-center">
+<input checked="" class="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-transparent" type="checkbox"/>
+</td>
+<td class="p-4 text-sm font-mono text-slate-500">SUB-001</td>
+<td class="p-4">
+<div class="font-medium text-slate-900 dark:text-slate-100">BPC-157</div>
+<div class="text-xs text-slate-500">Body Protection Compound-157</div>
+</td>
+<td class="p-4 text-sm font-mono tabular-nums">4.0 - 6.0</td>
+<td class="p-4 text-sm font-mono tabular-nums">98%</td>
+<td class="p-4 text-sm">
+<span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-xs font-medium border border-slate-200 dark:border-slate-700">mcg</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                    Active
+                                </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-icons text-sm">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-l-transparent">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-transparent" type="checkbox"/>
+</td>
+<td class="p-4 text-sm font-mono text-slate-500">SUB-002</td>
+<td class="p-4">
+<div class="font-medium text-slate-900 dark:text-slate-100">TB-500</div>
+<div class="text-xs text-slate-500">Thymosin Beta-4</div>
+</td>
+<td class="p-4 text-sm font-mono tabular-nums">24.0 - 36.0</td>
+<td class="p-4 text-sm font-mono tabular-nums">95%</td>
+<td class="p-4 text-sm">
+<span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-xs font-medium border border-slate-200 dark:border-slate-700">mg</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                    Active
+                                </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-icons text-sm">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-l-transparent">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-transparent" type="checkbox"/>
+</td>
+<td class="p-4 text-sm font-mono text-slate-500">SUB-003</td>
+<td class="p-4">
+<div class="font-medium text-slate-900 dark:text-slate-100">CJC-1295 (No DAC)</div>
+<div class="text-xs text-slate-500">Modified GRF 1-29</div>
+</td>
+<td class="p-4 text-sm font-mono tabular-nums">0.5</td>
+<td class="p-4 text-sm font-mono tabular-nums">90%</td>
+<td class="p-4 text-sm">
+<span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-xs font-medium border border-slate-200 dark:border-slate-700">mcg</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                                    Review
+                                </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-icons text-sm">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-l-4 border-l-transparent">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-transparent" type="checkbox"/>
+</td>
+<td class="p-4 text-sm font-mono text-slate-500">SUB-004</td>
+<td class="p-4">
+<div class="font-medium text-slate-900 dark:text-slate-100">Ipamorelin</div>
+<div class="text-xs text-slate-500">Pentapeptide</div>
+</td>
+<td class="p-4 text-sm font-mono tabular-nums">2.0</td>
+<td class="p-4 text-sm font-mono tabular-nums">92%</td>
+<td class="p-4 text-sm">
+<span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-xs font-medium border border-slate-200 dark:border-slate-700">mcg</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                    Active
+                                </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-icons text-sm">edit</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 (Deprecated) -->
+<tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer opacity-60 border-l-4 border-l-transparent">
+<td class="p-4 text-center">
+<input class="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-transparent" type="checkbox"/>
+</td>
+<td class="p-4 text-sm font-mono text-slate-500">SUB-005</td>
+<td class="p-4">
+<div class="font-medium text-slate-900 dark:text-slate-100 line-through">Melanotan I</div>
+<div class="text-xs text-slate-500">Legacy formula</div>
+</td>
+<td class="p-4 text-sm font-mono tabular-nums">1.0</td>
+<td class="p-4 text-sm font-mono tabular-nums">--</td>
+<td class="p-4 text-sm">
+<span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-xs font-medium border border-slate-200 dark:border-slate-700">mg</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-400">
+                                    Deprecated
+                                </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-icons text-sm">edit</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer Stats -->
+<div class="h-10 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-6 flex items-center justify-between text-xs text-slate-500">
+<div>
+                    Showing 1-25 of 142 substances
+                </div>
+<div class="flex gap-4">
+<span>Selected: <strong class="text-primary">1</strong></span>
+<span>Last Synced: 2 mins ago</span>
+</div>
+</div>
+</main>
+<!-- Right Side Context Panel (Collapsible) -->
+<aside class="w-96 flex-none bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark flex flex-col shadow-xl z-20">
+<!-- Header -->
+<div class="p-6 border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-800/20">
+<div class="flex items-start justify-between mb-4">
+<div>
+<div class="text-xs uppercase font-bold text-primary tracking-wider mb-1">Editing</div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white">BPC-157</h2>
+<p class="text-sm text-slate-500">Substance ID: SUB-001</p>
+</div>
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+<span class="material-icons">close</span>
+</button>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                        View History
+                    </button>
+<button class="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-red-500 dark:text-red-400 hover:border-red-300 dark:hover:border-red-900">
+                        Delete
+                    </button>
+</div>
+</div>
+<!-- Content -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+<!-- Distribution Editor -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-sm text-slate-900 dark:text-slate-200 uppercase tracking-wide">Pharmacokinetics</h3>
+<span class="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">Monte Carlo</span>
+</div>
+<div class="bg-slate-100 dark:bg-slate-800/50 rounded-lg p-4 mb-4 border border-slate-200 dark:border-slate-700">
+<!-- Abstract visualization of distribution -->
+<div class="h-16 w-full rounded bg-gradient-to-r from-transparent via-primary/20 to-transparent relative mb-4 border-b border-slate-300 dark:border-slate-600">
+<div class="absolute bottom-0 left-1/4 h-8 w-px bg-slate-400 border-dashed border-l"></div>
+<div class="absolute bottom-0 left-1/2 h-12 w-px bg-primary"></div>
+<div class="absolute bottom-0 left-3/4 h-8 w-px bg-slate-400 border-dashed border-l"></div>
+<!-- Curve visualization path using SVG -->
+<svg class="absolute bottom-0 left-0 w-full h-full" preserveaspectratio="none">
+<path class="text-primary" d="M0,64 Q100,60 150,10 Q200,60 300,64" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+</svg>
+<div class="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] bg-primary text-white px-1.5 rounded">Mode</div>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Min (hrs)</label>
+<input class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-2 text-sm font-mono focus:ring-1 focus:ring-primary focus:border-primary outline-none text-center" type="number" value="3.8"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Mode (hrs)</label>
+<input class="w-full bg-white dark:bg-slate-900 border border-primary dark:border-primary rounded p-2 text-sm font-mono font-bold text-primary focus:ring-1 focus:ring-primary outline-none text-center" type="number" value="4.0"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Max (hrs)</label>
+<input class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-2 text-sm font-mono focus:ring-1 focus:ring-primary focus:border-primary outline-none text-center" type="number" value="6.2"/>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Saturation Limit (mcg)</label>
+<input class="w-full bg-transparent border-b border-slate-300 dark:border-slate-700 py-1 text-sm focus:border-primary outline-none transition-colors" placeholder="No limit" type="number"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-slate-500 mb-1">Clearance Rate (L/hr)</label>
+<input class="w-full bg-transparent border-b border-slate-300 dark:border-slate-700 py-1 text-sm focus:border-primary outline-none transition-colors" type="number" value="0.45"/>
+</div>
+</div>
+</section>
+<div class="h-px bg-border-light dark:bg-border-dark"></div>
+<!-- Evidence Links -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-sm text-slate-900 dark:text-slate-200 uppercase tracking-wide">Evidence Links</h3>
+<button class="text-primary hover:text-primary/80 text-xs font-bold uppercase tracking-wide flex items-center">
+<span class="material-icons text-sm mr-1">add</span> Add
+                        </button>
+</div>
+<div class="space-y-3">
+<div class="bg-white dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-colors group relative">
+<div class="flex items-start gap-3">
+<span class="material-icons text-slate-400 text-sm mt-0.5">article</span>
+<div>
+<p class="text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug pr-4">"Stable gastric pentadecapeptide BPC 157 in trials for..."</p>
+<a class="text-[10px] text-primary hover:underline mt-1 block truncate w-48" href="#">doi.org/10.1016/j.regpep...</a>
+</div>
+</div>
+<button class="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons text-sm">remove_circle_outline</span>
+</button>
+</div>
+<div class="bg-white dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700 hover:border-primary/50 transition-colors group relative">
+<div class="flex items-start gap-3">
+<span class="material-icons text-slate-400 text-sm mt-0.5">article</span>
+<div>
+<p class="text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug pr-4">"BPC 157 and standard angiogenic growth factors"</p>
+<a class="text-[10px] text-primary hover:underline mt-1 block truncate w-48" href="#">pubmed.ncbi.nlm.nih.gov/1...</a>
+</div>
+</div>
+<button class="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons text-sm">remove_circle_outline</span>
+</button>
+</div>
+</div>
+</section>
+<div class="h-px bg-border-light dark:bg-border-dark"></div>
+<!-- Metadata -->
+<section class="text-xs text-slate-500 space-y-2">
+<div class="flex justify-between">
+<span>Created:</span>
+<span class="font-mono">2023-10-12 08:42</span>
+</div>
+<div class="flex justify-between">
+<span>Last Modified:</span>
+<span class="font-mono">2023-11-05 14:20</span>
+</div>
+<div class="flex justify-between">
+<span>Modified By:</span>
+<span>Dr. J. Doe</span>
+</div>
+</section>
+</div>
+<!-- Context Footer -->
+<div class="p-6 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2.5 rounded shadow-lg shadow-primary/25 transition-all flex justify-center items-center gap-2">
+<span class="material-icons text-sm">save</span>
+                    Save Changes
+                </button>
+</div>
+</aside>
+</div>
+<!-- Toast Notification (Hidden by default, showing here for demo) -->
+<div class="fixed bottom-6 right-6 z-50 animate-bounce" style="animation: none;">
+<div class="bg-surface-dark text-white px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 border border-slate-700">
+<span class="material-icons text-green-400">check_circle</span>
+<div>
+<p class="text-sm font-medium">Data Loaded Successfully</p>
+<p class="text-xs text-slate-400">142 records retrieved.</p>
+</div>
+<button class="ml-4 text-slate-500 hover:text-white">
+<span class="material-icons text-sm">close</span>
+</button>
+</div>
+</div>
+</body></html>

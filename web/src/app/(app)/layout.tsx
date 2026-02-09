@@ -4,12 +4,32 @@ import { redirect } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 import { CommandPalette } from '@/components/command-palette'
 import { listFormulationsEnriched, type FormulationEnriched } from '@/lib/repos/formulationsRepo'
+import { getMyProfile } from '@/lib/repos/profilesRepo'
 import { createClient } from '@/lib/supabase/server'
 
 async function sleep(ms: number): Promise<void> {
   const n = Number(ms)
   if (!Number.isFinite(n) || n <= 0) return
   await new Promise((r) => setTimeout(r, n))
+}
+
+function safeTimeZone(tz: string): string {
+  try {
+    // Throws RangeError for invalid IANA names.
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date())
+    return tz
+  } catch {
+    return 'UTC'
+  }
+}
+
+function formatLocalDate(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(d)
 }
 
 export default async function AppLayout({
@@ -68,59 +88,63 @@ export default async function AppLayout({
     }
   })
 
+  let localDateLabel = formatLocalDate(new Date(), 'UTC')
+  try {
+    const profile = await getMyProfile(supabase)
+    const tz = safeTimeZone(profile?.timezone ?? 'UTC')
+    localDateLabel = formatLocalDate(new Date(), tz)
+  } catch (e) {
+    console.warn('Failed to load profile timezone for header date', e)
+  }
+
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <Link className="font-semibold" href="/today">
-              Peptaide
-            </Link>
-            <nav className="flex flex-wrap gap-3 text-sm text-zinc-700">
-              <Link className="hover:text-zinc-900" href="/today">
-                Today
-              </Link>
-              <Link className="hover:text-zinc-900" href="/analytics">
-                Analytics
-              </Link>
-              <Link className="hover:text-zinc-900" href="/substances">
-                Substances
-              </Link>
-              <Link className="hover:text-zinc-900" href="/routes">
-                Routes
-              </Link>
-              <Link className="hover:text-zinc-900" href="/devices">
-                Devices
-              </Link>
-              <Link className="hover:text-zinc-900" href="/formulations">
-                Formulations
-              </Link>
-              <Link className="hover:text-zinc-900" href="/inventory">
-                Inventory
-              </Link>
-              <Link className="hover:text-zinc-900" href="/orders">
-                Orders
-              </Link>
-              <Link className="hover:text-zinc-900" href="/cycles">
-                Cycles
-              </Link>
-              <Link className="hover:text-zinc-900" href="/distributions">
-                Distributions
-              </Link>
-              <Link className="hover:text-zinc-900" href="/evidence-sources">
-                Evidence
-              </Link>
-              <Link className="hover:text-zinc-900" href="/settings">
-                Settings
-              </Link>
-            </nav>
+    <div className="bg-background-light dark:bg-background-dark text-gray-800 dark:text-gray-100 h-screen overflow-hidden flex flex-col">
+      <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark flex items-center justify-between px-6 shrink-0">
+        <div className="flex items-center gap-4 min-w-0">
+          <Link href="/today" className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg shrink-0">
+              P
+            </div>
+            <div className="min-w-0">
+              <div className="text-lg font-semibold tracking-tight truncate">Peptaide</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 leading-none truncate">
+                Log, inventory, and uncertainty-aware analytics
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-3 sm:gap-6">
+          <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
+            <span className="material-icons text-lg">calendar_today</span>
+            <span>{localDateLabel}</span>
           </div>
-          <div className="flex items-center gap-3 text-sm text-zinc-700">
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/settings"
+              className="p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Open settings"
+              title="Settings"
+            >
+              <span className="material-icons">settings</span>
+            </Link>
+
+            <button className="relative p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Notifications">
+              <span className="material-icons">notifications</span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+          </div>
+
+          <div className="hidden md:block">
             <CommandPalette logItems={logItems} />
-            <div className="max-w-[16rem] truncate">{data.user.email}</div>
+          </div>
+
+          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+            <div className="hidden sm:block max-w-[16rem] truncate">{data.user.email}</div>
             <form action={signOut}>
               <button
-                className="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm text-zinc-700 hover:text-zinc-900"
+                className="inline-flex h-9 items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:text-primary dark:hover:text-white transition-colors"
                 type="submit"
               >
                 Sign out
@@ -129,7 +153,10 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl p-4">{children}</main>
+
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full overflow-auto">{children}</div>
+      </main>
     </div>
   )
 }
