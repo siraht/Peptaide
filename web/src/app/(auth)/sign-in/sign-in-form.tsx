@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 
+import { createClient } from '@/lib/supabase/browser'
+
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'error'
 
 export function SignInForm() {
@@ -34,25 +36,51 @@ export function SignInForm() {
     setStatus('sending')
     setMessage(null)
 
+    const supabase = createClient()
     try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const origin = window.location.origin
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${origin}/auth/callback`,
         },
-        body: JSON.stringify({ email }),
       })
-      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
-      if (!res.ok || !data?.ok) {
+      if (error) {
         setStatus('error')
-        setMessage(data?.error || `Failed to send sign-in email (HTTP ${res.status}).`)
+        setMessage(error.message)
         return
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      setStatus('error')
-      setMessage(`Network error sending sign-in email: ${msg}`)
-      return
+      // If the browser can't reach Supabase directly (MagicDNS/DoH/network oddities), fall back to a
+      // same-origin server proxy so the user can still sign in via the 6-digit code.
+      try {
+        const res = await fetch('/api/auth/send-otp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        })
+        const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+        if (!res.ok || !data?.ok) {
+          setStatus('error')
+          setMessage(data?.error || `Failed to send sign-in email (HTTP ${res.status}).`)
+          return
+        }
+        setStatus('sent')
+        const host = window.location.hostname
+        const mailpitHint = mailpitHintForHost(host)
+        setMessage(
+          `Check your email (or Mailpit) for a sign-in link or 6-digit code. If the link fails, use the 6-digit code.${mailpitHint}`,
+        )
+        return
+      } catch (e2) {
+        const msg2 = e2 instanceof Error ? e2.message : String(e2)
+        setStatus('error')
+        setMessage(`Network error sending sign-in email: ${msg}. Fallback failed: ${msg2}`)
+        return
+      }
     }
 
     setStatus('sent')
