@@ -239,6 +239,11 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-09 02:51Z) Orders modeling: represented the physical combo vial `BPC157+TB500` as two logical order items/vial sets (BPC-157 and TB-500) with a 50/50 cost split so each substance can have an active vial and events can link to a vial without violating DB consistency triggers. Evidence: commit `196cd81` notes on the created order items.
 - [x] (2026-02-09 04:03Z) Performance/reliability: fixed `/inventory` timeouts by rewriting `public.v_inventory_status` to compute timezone + bounds once and restrict the 14-day avg usage scan to only inventory formulations (tight `ts` bounds), and added an index on events by `(user_id, vial_id)` to speed per-vial aggregation. Also hardened the app against transient Supabase "JWT issued at future" errors (clock skew right after resets) and updated the conclusive browser harness to cover the new RETA import button. Evidence: commit `4497d9e`; migration `supabase/migrations/20260209031000_094_inventory_status_fast.sql`; harness `web/scripts/tbrowser/peptaide-e2e.mjs`.
 - [x] (2026-02-09 04:13Z) Testing: reran the conclusive browser verification harness (`npm run e2e:browser`) against `next start` after the orders + inventory performance changes; confirmed PASS and recorded artifacts under `/tmp/peptaide-e2e-2026-02-09T04-13-06-266Z`. plan[583-595] plan[690-698] plan[729-751]
+- [x] (2026-02-09 07:20Z) Spreadsheet migration completion: added a `/inventory` reconciliation flow that links imported events to order-backed vials using `administration_events.tags` vial-number tags (`vial_#`), sets `vials.lot` deterministically for those physical vials, sets the newest vial per formulation active (closing earlier ones), and backfills `administration_events.vial_id` + `cost_usd` so spend rollups work. Includes special handling for "SS-31 w/DMSO" as a distinct formulation while still allowing physical vial linkage. Evidence: commit `df45204`; files `web/src/lib/migrate/reconcileImportedVials.ts`, `web/src/app/(app)/inventory/actions.ts`, `web/src/app/(app)/inventory/reconcile-imported-vials-form.tsx`.
+- [x] (2026-02-09 07:20Z) DB hardening: updated `public.v_inventory_status` to include `vials.lot` (for showing `vial_#` in the UI) and clamped remaining/runway estimates to non-negative values (avoid confusing negatives when imported doses slightly exceed nominal vial content due to rounding). Regenerated TS DB types. Evidence: commit `df45204`; migration `supabase/migrations/20260209095000_096_inventory_status_lot_and_clamp.sql`; types `web/src/lib/supabase/database.types.ts`.
+- [x] (2026-02-09 07:20Z) Reliability: extended retry/backoff for transient local Supabase `JWT issued at future` errors on key SSR read paths (today events, formulations list, model coverage) and made repeated skew failures non-fatal (return empty lists rather than 500ing pages right after a reset). Evidence: commit `72fdd8d`; files `web/src/lib/repos/eventsRepo.ts`, `web/src/lib/repos/formulationsRepo.ts`, `web/src/lib/repos/modelCoverageRepo.ts`.
+- [x] (2026-02-09 07:20Z) Analytics performance: rewrote `public.v_daily_totals_*` and `public.v_spend_daily_weekly_monthly` to compute timezone/bounds once (materialized) and push a sargable `administration_events.ts` range filter (last ~365 days) so `/analytics` no longer hits PostgREST `statement_timeout` after importing hundreds of events. Evidence: commit `948d8aa`; migration `supabase/migrations/20260209100000_097_daily_totals_fast.sql`.
+- [x] (2026-02-09 07:20Z) Testing: extended the conclusive browser harness to cover inventory reconciliation and to assert Spend is non-empty after reconciliation (proves `administration_events.cost_usd` backfill works). Also fixed a harness footgun so the default simple-events sample uses an order-backed substance + `vial_1` tag (so the Spend assertion passes without requiring `E2E_SIMPLE_EVENTS_CSV_PATH`). Reran and confirmed PASS under both direct-port and Tailscale Serve origins. Evidence: commits `c6b4aed`, `d2ec0d8`; PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T07-12-50-266Z` (direct port) and `/tmp/peptaide-e2e-2026-02-09T07-15-42-745Z` (Tailscale Serve). plan[583-595] plan[690-698] plan[729-751]
 
 ## Milestones
 
@@ -562,6 +567,17 @@ Record the outputs and checks in `Artifacts and Notes`.
   Evidence:
     Implemented a small retry/backoff around key read paths (today events, formulations list, model coverage) when this exact error string is observed. See commit `4497d9e`.
 
+- Observation: Postgres `CREATE OR REPLACE VIEW` has a strict column-order contract: you may add new columns only at the end. If you try to insert/reorder columns, Postgres treats it as an attempted rename and errors. This matters when evolving `security_invoker` views like `public.v_inventory_status` without dropping them.
+  Evidence:
+    create temp view v_demo as select 1 as a, 2 as b;
+    create or replace temp view v_demo as select 2 as b, 1 as a;
+    ERROR:  cannot change name of view column "a" to "b"
+    HINT:  Use ALTER VIEW ... RENAME COLUMN ... to change name of view column instead.
+
+- Observation: After importing real-world datasets, `/analytics` can hit Supabase PostgREST `statement_timeout` when selecting from daily totals/spend views if they filter on computed local-day values instead of pushing down an index-friendly `administration_events.ts` range predicate.
+  Evidence:
+    Fixed by `supabase/migrations/20260209100000_097_daily_totals_fast.sql` rewriting `public.v_daily_totals_*` and `public.v_spend_daily_weekly_monthly` to compute timezone/bounds once (materialized) and filter `e.ts >= start AND e.ts < end` (last ~365 days).
+
 ## Decision Log
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
@@ -680,6 +696,10 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: The DB enforces that events and vials link to a single formulation/substance consistently (via triggers). Splitting preserves those invariants and keeps per-substance "active vial" and cost attribution working, while still allowing total spend to sum to the physical vial cost.
   Date/Author: 2026-02-09 / Codex
 
+- Decision: During spreadsheet migration, treat physical vial identity as explicit event metadata (`administration_events.tags` contains `vial_#`), then run a one-time reconciliation that maps those tags onto real vial rows (`administration_events.vial_id`), sets `vials.lot = vial_#`, and backfills `administration_events.cost_usd` from order-backed vial cost.
+  Rationale: Real-world spreadsheets often track "vial #1/#2/..." but not internal UUIDs. Keeping vial numbers in tags preserves that provenance while still allowing Peptaide’s inventory model (orders -> vials) to drive cost and runway. The reconciliation step makes the migration idempotent and keeps DB invariants intact (events and vials consistently reference one formulation).
+  Date/Author: 2026-02-09 / Codex
+
 - Decision: `/settings` constrains `profiles.default_mass_unit` choices to true mass units (mg, mcg, g) and keeps IU out of mass defaults.
   Rationale: IU is not a mass unit and IU->mg conversion is substance-specific; treating IU as mass would violate unit correctness and create incorrect analytics.
   Date/Author: 2026-02-07 / Codex
@@ -716,13 +736,21 @@ Record the outputs and checks in `Artifacts and Notes`.
   Rationale: `public.safe_timezone(...)` is robust but expensive (it consults `pg_timezone_names`). Without materialization, Postgres may inline the CTEs and re-evaluate `safe_timezone(...)` per event row, which can exceed PostgREST `statement_timeout` and crash `/today` SSR after imports. Materialization keeps the bounds constant and index-friendly.
   Date/Author: 2026-02-09 / Codex
 
+- Decision: When evolving long-lived `security_invoker` views, only add new columns at the end (Postgres `CREATE OR REPLACE VIEW` column-order contract). `public.v_inventory_status` therefore appends `vials.lot` as its final column, and clamps remaining/runway values to non-negative numbers to avoid confusing negatives from spreadsheet rounding.
+  Rationale: Keeping view replacement safe avoids dropping/recreating views (which can break permissions and dependent queries) and keeps the UI stable for imported datasets whose recorded doses may slightly exceed nominal vial content due to rounding/truncation.
+  Date/Author: 2026-02-09 / Codex
+
+- Decision: For analytics daily totals and spend rollups, compute the invoker’s timezone once (materialized) and push down an index-friendly `administration_events.ts` bounds filter (last ~365 days) rather than filtering on computed local-day fields.
+  Rationale: PostgREST enforces `statement_timeout`; these views must stay sargable to avoid timing out as event logs grow. The UI only queries recent windows (60/180 days), so bounding the scan keeps the views fast while remaining sufficient for the surfaced dashboards.
+  Date/Author: 2026-02-09 / Codex
+
 - Decision: `ensureMyProfile(...)` returns the profile row from the upsert request (`upsert(...).select('*').maybeSingle()`) instead of performing a follow-up `select()` round-trip.
   Rationale: A separate follow-up select has shown rare flakes where it returns no rows even after a successful upsert (manifesting as `profiles.select_after_upsert: missing data` and breaking SSR refreshes). Returning the row from the upsert makes profile creation idempotent and more reliable under load/proxies.
   Date/Author: 2026-02-09 / Codex
 
 ## Outcomes & Retrospective
 
-2026-02-09: The app is now conclusively verified in a real browser (t-browser harness) under both direct-port and Tailscale Serve origins, including the user's real 2025 spreadsheet migration dataset (277 events). A production-impacting `/today` SSR crash (Next digest `1699515079`) caused by PostgREST `statement_timeout` on `public.v_events_today` was fixed by rewriting the view to use materialized timezone bounds and an index-friendly `ts` range. The profile ensure path was also hardened to avoid rare `profiles.select_after_upsert: missing data` flakes.
+2026-02-09: The app is now conclusively verified in a real browser (t-browser harness) under both direct-port and Tailscale Serve origins, including the user's real 2025 spreadsheet migration dataset (277 events). A production-impacting `/today` SSR crash (Next digest `1699515079`) caused by PostgREST `statement_timeout` on `public.v_events_today` was fixed by rewriting the view to use materialized timezone bounds and an index-friendly `ts` range. The profile ensure path was also hardened to avoid rare `profiles.select_after_upsert: missing data` flakes. Spreadsheet migration is now end-to-end complete: imported events can be reconciled to order-backed vials via `vial_#` tags (setting `vials.lot`, backfilling `administration_events.vial_id` + `cost_usd`), which makes Spend rollups populate correctly; `/analytics` daily totals/spend views and `/inventory` inventory status are hardened to avoid statement timeouts after imports.
 
 2026-02-07: Milestone 0 (Repo Bootstrap + Auth Skeleton) is implemented for local development. Milestone 1 (DB schema + RLS + type generation) is implemented locally, including the analytics/coverage views. Milestone 2 (Pure Domain Logic) is implemented for units/uncertainty/dose/cost, with cycles logic partially implemented (gap-based suggestion + auto-start decision helper, but not DB orchestration yet). A `/today` prototyping surface exists to exercise the end-to-end event pipeline (not the final virtualized grid yet).
 
@@ -2200,3 +2228,7 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-09: Performance/reliability: sped up `public.v_inventory_status` to prevent `/inventory` statement timeouts under realistic data, added an events `(user_id, vial_id)` index for per-vial usage aggregation, and hardened key SSR reads against transient local Supabase `JWT issued at future` errors. Updated `Progress`, `Surprises & Discoveries`, and `Decision Log` to keep the plan self-contained and restartable for these changes.
 
 2026-02-09: Testing: reran the conclusive browser harness against `next start` after orders + inventory performance changes; confirmed PASS and recorded the new artifacts dir in `Artifacts and Notes` (`/tmp/peptaide-e2e-2026-02-09T04-13-06-266Z`).
+
+2026-02-09: Spreadsheet migration: completed the "events -> vials -> orders" linkage by adding an `/inventory` reconciliation tool that maps `vial_#` tags onto order-backed vials, sets `vials.lot`, backfills `administration_events.vial_id` + `cost_usd`, and shows vial numbers in inventory status. Also hardened `public.v_inventory_status` (clamp negatives) and sped up `/analytics` daily totals/spend views so imports don’t trigger statement timeouts. See `web/src/lib/migrate/reconcileImportedVials.ts` and migrations `20260209095000_096_inventory_status_lot_and_clamp.sql`, `20260209100000_097_daily_totals_fast.sql`.
+
+2026-02-09: Testing: extended the conclusive browser harness to cover inventory reconciliation + Spend rollups, fixed a harness footgun so the default simple-events sample is order-backed (Semax + `vial_1`), and reran to PASS under both direct-port and Tailscale Serve origins. Evidence: artifacts `/tmp/peptaide-e2e-2026-02-09T07-12-50-266Z` (direct port) and `/tmp/peptaide-e2e-2026-02-09T07-15-42-745Z` (Tailscale Serve).
