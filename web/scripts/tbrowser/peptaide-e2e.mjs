@@ -1149,7 +1149,7 @@ async function exportZipToFile(outPath) {
 
 async function settingsDeleteMyData() {
   logLine('settings: delete-my-data via UI')
-  open(`${BASE_URL}/settings`)
+  open(`${BASE_URL}/settings?tab=app`)
   await waitForBodyText('Settings', { label: 'settings page visible' })
   await evalJs('window.confirm = () => true')
 
@@ -1191,7 +1191,7 @@ async function settingsDeleteMyData() {
 
 async function settingsImportZip({ zipPath, replaceExisting }) {
   logLine(`settings: import zip via UI (replace=${replaceExisting ? '1' : '0'})`)
-  open(`${BASE_URL}/settings`)
+  open(`${BASE_URL}/settings?tab=app`)
   await waitForBodyText('Import bundle', { label: 'settings import section visible' })
   await evalJs('window.confirm = () => true')
 
@@ -1241,7 +1241,7 @@ async function settingsImportZip({ zipPath, replaceExisting }) {
 
 async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCycles }) {
   logLine(`settings: simple events import via UI (replace=${replaceExisting ? '1' : '0'})`)
-  open(`${BASE_URL}/settings`)
+  open(`${BASE_URL}/settings?tab=app`)
   await waitForBodyText('Simple import: events CSV', { label: 'settings simple import section visible' })
   await evalJs('window.confirm = () => true')
 
