@@ -78,8 +78,10 @@ Create / update the env file used by peptaide-web:
     NEXT_PUBLIC_SUPABASE_URL=https://${ts_dns}:${supabase_https_port}
     NEXT_PUBLIC_SUPABASE_ANON_KEY=${anon_key}
 
-    # Server can use the local Supabase URL directly (faster, no TLS)
-    SUPABASE_INTERNAL_URL=http://127.0.0.1:54321
+    # Server can use the local Supabase URL directly (faster, no TLS).
+    # IMPORTANT: keep the same hostname as NEXT_PUBLIC_SUPABASE_URL so Supabase SSR cookie names
+    # match and PKCE exchanges (magic links) work.
+    SUPABASE_INTERNAL_URL=http://${ts_dns}:${supabase_http_port}
     ENV
 
 Start services:
