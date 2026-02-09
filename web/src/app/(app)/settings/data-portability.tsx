@@ -203,15 +203,15 @@ export function DataPortabilitySection() {
   }
 
   return (
-    <section className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Data</h2>
-      <p className="mt-1 text-sm text-zinc-700">
+    <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Data</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Export or import a ZIP of CSV files. Imports run under your signed-in session (RLS enforced).
       </p>
 
       <div className="mt-3">
         <a
-          className="inline-flex h-10 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white"
+          className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
           href="/api/export"
         >
           Export CSV bundle
@@ -219,8 +219,8 @@ export function DataPortabilitySection() {
       </div>
 
       <div className="mt-6">
-        <h3 className="text-sm font-semibold text-zinc-900">Simple import: events CSV</h3>
-        <p className="mt-1 text-sm text-zinc-700">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Simple import: events CSV</h3>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           For sparse spreadsheets, import a single CSV of administration events. The importer will create missing
           substances/routes/formulations with sane defaults and can infer cycles from timestamps. If you already have
           data in this account, enable replace mode (this is not a merge importer).
@@ -228,10 +228,10 @@ export function DataPortabilitySection() {
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="text-zinc-700">Events CSV file</span>
+            <span className="text-slate-700 dark:text-slate-300">Events CSV file</span>
             <input
               data-e2e="simple-events-file"
-              className="h-10 rounded-md border bg-white px-3 text-sm"
+              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => setEventsFile(e.target.files?.[0] ?? null)}
@@ -245,7 +245,7 @@ export function DataPortabilitySection() {
               checked={eventsInferCycles}
               onChange={(e) => setEventsInferCycles(e.target.checked)}
             />
-            <span className="text-zinc-700">Infer cycles from timestamps</span>
+            <span className="text-slate-700 dark:text-slate-300">Infer cycles from timestamps</span>
           </label>
 
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
@@ -255,13 +255,13 @@ export function DataPortabilitySection() {
               checked={eventsReplaceExisting}
               onChange={(e) => setEventsReplaceExisting(e.target.checked)}
             />
-            <span className="text-zinc-700">Replace existing data (delete all my data first)</span>
+            <span className="text-slate-700 dark:text-slate-300">Replace existing data (delete all my data first)</span>
           </label>
 
           <div className="flex gap-2 sm:col-span-2">
             <button
               data-e2e="simple-events-dry-run"
-              className="h-10 rounded-md border bg-white px-4 text-sm font-medium text-zinc-900 disabled:opacity-50"
+              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 disabled:opacity-50"
               type="button"
               disabled={eventsBusy != null}
               onClick={() => runSimpleEventsImport('dry-run')}
@@ -270,7 +270,7 @@ export function DataPortabilitySection() {
             </button>
             <button
               data-e2e="simple-events-apply"
-              className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50"
+              className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
               type="button"
               disabled={eventsBusy != null}
               onClick={() => runSimpleEventsImport('apply')}
@@ -280,20 +280,20 @@ export function DataPortabilitySection() {
           </div>
 
           {eventsResult ? (
-            <div className="rounded-md border bg-zinc-50 p-3 text-sm text-zinc-900 sm:col-span-2">
-              <div className="text-xs text-zinc-600" data-e2e="simple-events-summary">
+            <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-sm text-slate-900 dark:text-slate-100 sm:col-span-2">
+              <div className="text-xs text-slate-600 dark:text-slate-400" data-e2e="simple-events-summary">
                 {`mode=${eventsResult.mode} rows=${eventsResult.summary.input_rows} imported_events=${eventsResult.summary.imported_events} substances=${eventsResult.summary.created_substances} routes=${eventsResult.summary.created_routes} formulations=${eventsResult.summary.created_formulations} cycles=${eventsResult.summary.created_cycles}`}
               </div>
 
               {eventsResult.row_errors?.length ? (
-                <div className="mt-2 text-xs text-zinc-700">
+                <div className="mt-2 text-xs text-slate-700 dark:text-slate-300">
                   {eventsResult.row_errors.slice(0, 3).map((e) => (
                     <div key={e.row} className="font-mono">
                       {`row ${e.row}: ${e.error}`}
                     </div>
                   ))}
                   {eventsResult.row_errors.length > 3 ? (
-                    <div className="text-zinc-600">{`... and ${eventsResult.row_errors.length - 3} more`}</div>
+                    <div className="text-slate-600 dark:text-slate-400">{`... and ${eventsResult.row_errors.length - 3} more`}</div>
                   ) : null}
                 </div>
               ) : null}
@@ -302,25 +302,25 @@ export function DataPortabilitySection() {
         </div>
 
         {eventsError ? (
-          <p className="mt-2 text-sm text-red-700" role="status" data-e2e="simple-events-error">
+          <p className="mt-2 text-sm text-red-700 dark:text-red-300" role="status" data-e2e="simple-events-error">
             {eventsError}
           </p>
         ) : null}
       </div>
 
       <div className="mt-6">
-        <h3 className="text-sm font-semibold text-zinc-900">Import bundle</h3>
-        <p className="mt-1 text-sm text-zinc-700">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Import bundle</h3>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Use <span className="font-medium">Dry run</span> first to validate the ZIP. Import can optionally replace your
           existing data.
         </p>
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="text-zinc-700">Export ZIP file</span>
+            <span className="text-slate-700 dark:text-slate-300">Export ZIP file</span>
             <input
               data-e2e="bundle-zip-file"
-              className="h-10 rounded-md border bg-white px-3 text-sm"
+              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
               type="file"
               accept=".zip"
               onChange={(e) => setBundleFile(e.target.files?.[0] ?? null)}
@@ -334,13 +334,13 @@ export function DataPortabilitySection() {
               checked={replaceExisting}
               onChange={(e) => setReplaceExisting(e.target.checked)}
             />
-            <span className="text-zinc-700">Replace existing data (delete all my data first)</span>
+            <span className="text-slate-700 dark:text-slate-300">Replace existing data (delete all my data first)</span>
           </label>
 
           <div className="flex gap-2 sm:col-span-2">
             <button
               data-e2e="bundle-dry-run"
-              className="h-10 rounded-md border bg-white px-4 text-sm font-medium text-zinc-900 disabled:opacity-50"
+              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 disabled:opacity-50"
               type="button"
               disabled={busy != null}
               onClick={() => runImport('dry-run')}
@@ -349,7 +349,7 @@ export function DataPortabilitySection() {
             </button>
             <button
               data-e2e="bundle-apply"
-              className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white disabled:opacity-50"
+              className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
               type="button"
               disabled={busy != null}
               onClick={() => runImport('apply')}
@@ -359,8 +359,8 @@ export function DataPortabilitySection() {
           </div>
 
           {result ? (
-            <div className="rounded-md border bg-zinc-50 p-3 text-sm text-zinc-900 sm:col-span-2">
-              <div className="text-xs text-zinc-600">
+            <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-sm text-slate-900 dark:text-slate-100 sm:col-span-2">
+              <div className="text-xs text-slate-600 dark:text-slate-400">
                 {result.format ? `format=${result.format}` : 'format=?'}
                 {result.exported_at ? ` exported_at=${result.exported_at}` : ''}
                 {totalRows != null ? ` total_rows=${totalRows}` : ''}
@@ -369,20 +369,20 @@ export function DataPortabilitySection() {
               <div className="mt-2 overflow-x-auto">
                 <table className="min-w-[700px] border-separate border-spacing-0 text-left text-xs">
                   <thead>
-                    <tr className="text-zinc-600">
-                      <th className="border-b px-2 py-2 font-medium">Table</th>
-                      <th className="border-b px-2 py-2 font-medium">Rows</th>
-                      <th className="border-b px-2 py-2 font-medium">Inserted</th>
-                      <th className="border-b px-2 py-2 font-medium">Errors</th>
+                    <tr className="text-slate-600 dark:text-slate-400">
+                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Table</th>
+                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Rows</th>
+                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Inserted</th>
+                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Errors</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.tables.map((t) => (
                       <tr key={t.table}>
-                        <td className="border-b px-2 py-2 font-mono">{t.table}</td>
-                        <td className="border-b px-2 py-2">{t.rowCount}</td>
-                        <td className="border-b px-2 py-2">{t.insertedCount ?? '-'}</td>
-                        <td className="border-b px-2 py-2">{t.errors.length > 0 ? t.errors[0] : '-'}</td>
+                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-mono">{t.table}</td>
+                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2">{t.rowCount}</td>
+                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2">{t.insertedCount ?? '-'}</td>
+                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2">{t.errors.length > 0 ? t.errors[0] : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -394,17 +394,17 @@ export function DataPortabilitySection() {
       </div>
 
       <div className="mt-6 border-t pt-6">
-        <h3 className="text-sm font-semibold text-red-800">Danger zone</h3>
-        <p className="mt-1 text-sm text-zinc-700">
+        <h3 className="text-sm font-semibold text-red-800 dark:text-red-300">Danger zone</h3>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Delete all data for your account (this does not delete your Supabase Auth user). Type{' '}
           <span className="font-mono">DELETE</span> to enable.
         </p>
 
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-zinc-700">Confirm</span>
+            <span className="text-slate-700 dark:text-slate-300">Confirm</span>
             <input
-              className="h-10 rounded-md border px-3 text-sm"
+              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
               placeholder="DELETE"

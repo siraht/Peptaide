@@ -6,6 +6,16 @@ import type { Database } from '@/lib/supabase/database.types'
 export type CycleRuleRow = Database['public']['Tables']['cycle_rules']['Row']
 export type CycleInstanceRow = Database['public']['Tables']['cycle_instances']['Row']
 
+export async function listCycleRules(supabase: DbClient): Promise<CycleRuleRow[]> {
+  const res = await supabase
+    .from('cycle_rules')
+    .select('*')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+
+  return requireData(res.data, res.error, 'cycle_rules.select')
+}
+
 export async function getCycleInstanceById(
   supabase: DbClient,
   opts: { cycleInstanceId: string },

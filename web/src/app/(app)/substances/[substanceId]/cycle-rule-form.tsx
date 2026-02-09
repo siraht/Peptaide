@@ -35,12 +35,12 @@ export function CycleRuleForm(props: {
   }, [router, state.status])
 
   return (
-    <section className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Cycle rule</h2>
-      <p className="mt-1 text-sm text-zinc-700">
+    <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cycle rule</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Controls when logging suggests starting a new cycle for this substance.
       </p>
-      <p className="mt-1 text-sm text-zinc-700">
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Currently: gap threshold <span className="font-medium">{effectiveGapDays}</span> days; auto-start first cycle{' '}
         <span className="font-medium">{effectiveAutoStartFirstCycle ? 'on' : 'off'}</span>.
       </p>
@@ -49,9 +49,9 @@ export function CycleRuleForm(props: {
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Gap days threshold</span>
+          <span className="text-slate-700 dark:text-slate-300">Gap days threshold</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             name="gap_days_to_suggest_new_cycle"
             inputMode="numeric"
             defaultValue={String(effectiveGapDays)}
@@ -65,20 +65,20 @@ export function CycleRuleForm(props: {
             name="auto_start_first_cycle"
             defaultChecked={effectiveAutoStartFirstCycle}
           />
-          <span className="text-zinc-700">Auto-start first cycle</span>
+          <span className="text-slate-700 dark:text-slate-300">Auto-start first cycle</span>
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes (optional)</span>
+          <span className="text-slate-700 dark:text-slate-300">Notes (optional)</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             name="notes"
             defaultValue={cycleRule?.notes ?? ''}
           />
         </label>
 
         <div className="flex flex-wrap gap-3 sm:col-span-2">
-          <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+          <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors" type="submit">
             Save cycle rule
           </button>
         </div>
@@ -88,15 +88,15 @@ export function CycleRuleForm(props: {
         <form className="mt-3" action={deleteCycleRuleAction}>
           <input type="hidden" name="substance_id" value={substanceId} />
           <input type="hidden" name="cycle_rule_id" value={cycleRule.id} />
-          <button className="h-10 rounded-md border bg-white px-4 text-sm text-red-700" type="submit">
+          <button className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm text-red-700 dark:text-red-300" type="submit">
             Remove override
           </button>
         </form>
       ) : null}
 
-      {state.status === 'error' ? <p className="mt-3 text-sm text-red-700">{state.message}</p> : null}
+      {state.status === 'error' ? <p className="mt-3 text-sm text-red-700 dark:text-red-300">{state.message}</p> : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p>
       ) : null}
     </section>
   )

@@ -25,9 +25,9 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Recommendations (user-entered)</h2>
-      <p className="mt-1 text-sm text-zinc-700">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Recommendations (user-entered)</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         These are reference ranges you enter for your own tracking. They are not medical advice.
       </p>
 
@@ -35,8 +35,13 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Category</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="category" defaultValue="cycle_length_days" required>
+          <span className="text-slate-700 dark:text-slate-300">Category</span>
+          <select
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="category"
+            defaultValue="cycle_length_days"
+            required
+          >
             <option value="cycle_length_days">cycle length (days)</option>
             <option value="break_length_days">break length (days)</option>
             <option value="dosing">dosing</option>
@@ -45,8 +50,12 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Route (optional)</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="route_id" defaultValue="">
+          <span className="text-slate-700 dark:text-slate-300">Route (optional)</span>
+          <select
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="route_id"
+            defaultValue=""
+          >
             <option value="">(none)</option>
             {routes.map((r) => (
               <option key={r.id} value={r.id}>
@@ -57,19 +66,27 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Min (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="min_value" inputMode="decimal" />
+          <span className="text-slate-700 dark:text-slate-300">Min (optional)</span>
+          <input
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="min_value"
+            inputMode="decimal"
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Max (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="max_value" inputMode="decimal" />
+          <span className="text-slate-700 dark:text-slate-300">Max (optional)</span>
+          <input
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="max_value"
+            inputMode="decimal"
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Unit</span>
+          <span className="text-slate-700 dark:text-slate-300">Unit</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             name="unit"
             placeholder='e.g. "days", "mg", "mcg", "times/week"'
             required
@@ -77,13 +94,17 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <span className="text-slate-700 dark:text-slate-300">Notes (optional)</span>
+          <input className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100" name="notes" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Evidence source (optional)</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="evidence_source_id" defaultValue="">
+          <span className="text-slate-700 dark:text-slate-300">Evidence source (optional)</span>
+          <select
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="evidence_source_id"
+            defaultValue=""
+          >
             <option value="">(none)</option>
             {evidenceSources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -94,14 +115,14 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         </label>
 
         <div className="sm:col-span-2">
-          <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+          <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors" type="submit">
             Save recommendation
           </button>
         </div>
       </form>
 
-      {state.status === 'error' ? <p className="mt-3 text-sm text-red-700">{state.message}</p> : null}
-      {state.status === 'success' ? <p className="mt-3 text-sm text-emerald-700">{state.message}</p> : null}
+      {state.status === 'error' ? <p className="mt-3 text-sm text-red-700 dark:text-red-300">{state.message}</p> : null}
+      {state.status === 'success' ? <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p> : null}
     </div>
   )
 }

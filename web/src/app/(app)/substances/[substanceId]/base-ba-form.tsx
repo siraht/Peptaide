@@ -31,9 +31,9 @@ export function BaseBioavailabilitySpecForm(props: {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Base bioavailability spec</h2>
-      <p className="mt-1 text-sm text-zinc-700">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Base bioavailability spec</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Sets the base bioavailability fraction distribution for a substance + route + compartment. You can
         create fraction distributions on the{' '}
         <a className="underline hover:text-zinc-900" href="/distributions">
@@ -46,8 +46,12 @@ export function BaseBioavailabilitySpecForm(props: {
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Route</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="route_id" required>
+          <span className="text-slate-700 dark:text-slate-300">Route</span>
+          <select
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="route_id"
+            required
+          >
             {routes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -57,17 +61,21 @@ export function BaseBioavailabilitySpecForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Compartment</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="compartment" required>
+          <span className="text-slate-700 dark:text-slate-300">Compartment</span>
+          <select
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="compartment"
+            required
+          >
             <option value="systemic">systemic</option>
             <option value="cns">cns</option>
           </select>
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Base fraction distribution</span>
+          <span className="text-slate-700 dark:text-slate-300">Base fraction distribution</span>
           <select
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             name="base_fraction_dist_id"
             required
           >
@@ -80,13 +88,17 @@ export function BaseBioavailabilitySpecForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <span className="text-slate-700 dark:text-slate-300">Notes (optional)</span>
+          <input className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100" name="notes" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Evidence source (optional)</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="evidence_source_id" defaultValue="">
+          <span className="text-slate-700 dark:text-slate-300">Evidence source (optional)</span>
+          <select
+            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            name="evidence_source_id"
+            defaultValue=""
+          >
             <option value="">(none)</option>
             {evidenceSources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -98,7 +110,7 @@ export function BaseBioavailabilitySpecForm(props: {
 
         <div className="sm:col-span-2">
           <button
-            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white"
+            className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
             type="submit"
           >
             Save spec
@@ -107,10 +119,10 @@ export function BaseBioavailabilitySpecForm(props: {
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700">{state.message}</p>
+        <p className="mt-3 text-sm text-red-700 dark:text-red-300">{state.message}</p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p>
       ) : null}
     </div>
   )
