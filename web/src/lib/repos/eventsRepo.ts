@@ -84,17 +84,34 @@ export async function listTodayEventsEnriched(
     throw new Error('limit must be a positive integer.')
   }
 
-  let q = supabase.from('v_events_today').select('*')
+  // Local Supabase can occasionally return "JWT issued at future" immediately after stack resets
+  // (container clock skew). Retry briefly so /today doesn't 500 on first load.
+  const maxAttempts = 8
 
-  if (deletedOnly) {
-    q = q.not('deleted_at', 'is', null)
-  } else if (!includeDeleted) {
-    q = q.is('deleted_at', null)
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let q = supabase.from('v_events_today').select('*')
+
+    if (deletedOnly) {
+      q = q.not('deleted_at', 'is', null)
+    } else if (!includeDeleted) {
+      q = q.is('deleted_at', null)
+    }
+
+    const res = await q.order('ts', { ascending: true }).limit(limit)
+    if (!res.error) return res.data ?? []
+
+    const msg = String(res.error.message || '')
+    const isIatFuture = msg.toLowerCase().includes('jwt issued at future')
+    if (!isIatFuture || attempt === maxAttempts) {
+      requireOk(res.error, 'v_events_today.select')
+      return []
+    }
+
+    const backoffMs = 200 * attempt
+    await new Promise((r) => setTimeout(r, backoffMs))
   }
 
-  const res = await q.order('ts', { ascending: true }).limit(limit)
-  requireOk(res.error, 'v_events_today.select')
-  return res.data ?? []
+  return []
 }
 
 export async function getLastEventEnrichedForSubstance(

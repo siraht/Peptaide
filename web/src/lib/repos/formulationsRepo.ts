@@ -25,61 +25,85 @@ function indexById<T extends { id: string }>(rows: T[]): Map<string, T> {
   return m
 }
 
+function isJwtIatFutureMessage(msg: string): boolean {
+  return msg.toLowerCase().includes('jwt issued at future')
+}
+
+async function sleep(ms: number): Promise<void> {
+  const n = Number(ms)
+  if (!Number.isFinite(n) || n <= 0) return
+  await new Promise((r) => setTimeout(r, n))
+}
+
 export async function listFormulationsEnriched(
   supabase: DbClient,
 ): Promise<FormulationEnriched[]> {
-  const formulationsRes = await supabase
-    .from('formulations')
-    .select('*')
-    .is('deleted_at', null)
-    .order('name', { ascending: true })
-  const formulations = requireData(
-    formulationsRes.data,
-    formulationsRes.error,
-    'formulations.select',
-  )
+  // Local Supabase can occasionally return "JWT issued at future" immediately after stack resets
+  // (container clock skew). Retry briefly so authed pages don't 500 on first load.
+  const maxAttempts = 8
 
-  const substanceIds = uniq(formulations.map((f) => f.substance_id))
-  const routeIds = uniq(formulations.map((f) => f.route_id))
-  const deviceIds = uniq(
-    formulations
-      .map((f) => f.device_id)
-      .filter((id): id is string => id != null),
-  )
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const formulationsRes = await supabase
+        .from('formulations')
+        .select('*')
+        .is('deleted_at', null)
+        .order('name', { ascending: true })
+      const formulations = requireData(
+        formulationsRes.data,
+        formulationsRes.error,
+        'formulations.select',
+      )
 
-  const substancesPromise =
-    substanceIds.length === 0
-      ? Promise.resolve({ data: [] as SubstanceRow[], error: null })
-      : supabase.from('substances').select('*').in('id', substanceIds).is('deleted_at', null)
-  const routesPromise =
-    routeIds.length === 0
-      ? Promise.resolve({ data: [] as RouteRow[], error: null })
-      : supabase.from('routes').select('*').in('id', routeIds).is('deleted_at', null)
-  const devicesPromise =
-    deviceIds.length === 0
-      ? Promise.resolve({ data: [] as DeviceRow[], error: null })
-      : supabase.from('devices').select('*').in('id', deviceIds).is('deleted_at', null)
+      const substanceIds = uniq(formulations.map((f) => f.substance_id))
+      const routeIds = uniq(formulations.map((f) => f.route_id))
+      const deviceIds = uniq(
+        formulations
+          .map((f) => f.device_id)
+          .filter((id): id is string => id != null),
+      )
 
-  const [substancesRes, routesRes, devicesRes] = await Promise.all([
-    substancesPromise,
-    routesPromise,
-    devicesPromise,
-  ])
+      const substancesPromise =
+        substanceIds.length === 0
+          ? Promise.resolve({ data: [] as SubstanceRow[], error: null })
+          : supabase.from('substances').select('*').in('id', substanceIds).is('deleted_at', null)
+      const routesPromise =
+        routeIds.length === 0
+          ? Promise.resolve({ data: [] as RouteRow[], error: null })
+          : supabase.from('routes').select('*').in('id', routeIds).is('deleted_at', null)
+      const devicesPromise =
+        deviceIds.length === 0
+          ? Promise.resolve({ data: [] as DeviceRow[], error: null })
+          : supabase.from('devices').select('*').in('id', deviceIds).is('deleted_at', null)
 
-  requireOk(substancesRes.error, 'substances.select_by_id')
-  requireOk(routesRes.error, 'routes.select_by_id')
-  requireOk(devicesRes.error, 'devices.select_by_id')
+      const [substancesRes, routesRes, devicesRes] = await Promise.all([
+        substancesPromise,
+        routesPromise,
+        devicesPromise,
+      ])
 
-  const substancesById = indexById(substancesRes.data ?? [])
-  const routesById = indexById(routesRes.data ?? [])
-  const devicesById = indexById(devicesRes.data ?? [])
+      requireOk(substancesRes.error, 'substances.select_by_id')
+      requireOk(routesRes.error, 'routes.select_by_id')
+      requireOk(devicesRes.error, 'devices.select_by_id')
 
-  return formulations.map((f) => ({
-    formulation: f,
-    substance: substancesById.get(f.substance_id) ?? null,
-    route: routesById.get(f.route_id) ?? null,
-    device: f.device_id ? devicesById.get(f.device_id) ?? null : null,
-  }))
+      const substancesById = indexById(substancesRes.data ?? [])
+      const routesById = indexById(routesRes.data ?? [])
+      const devicesById = indexById(devicesRes.data ?? [])
+
+      return formulations.map((f) => ({
+        formulation: f,
+        substance: substancesById.get(f.substance_id) ?? null,
+        route: routesById.get(f.route_id) ?? null,
+        device: f.device_id ? devicesById.get(f.device_id) ?? null : null,
+      }))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!isJwtIatFutureMessage(msg) || attempt === maxAttempts) throw e
+      await sleep(200 * attempt)
+    }
+  }
+
+  return []
 }
 
 export async function getFormulationEnrichedById(

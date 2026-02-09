@@ -463,7 +463,18 @@ async function evalJs(script) {
 async function waitUntil(fn, { timeoutMs = 30000, intervalMs = 250, label = 'condition' } = {}) {
   const start = Date.now()
   for (;;) {
-    const ok = await fn()
+    let ok = false
+    try {
+      ok = await fn()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      const retryable =
+        msg.includes('Execution context was destroyed') ||
+        msg.includes('most likely because of a navigation') ||
+        msg.includes('Cannot find context with specified id')
+      if (!retryable) throw e
+      ok = false
+    }
     if (ok) return
     if (Date.now() - start > timeoutMs) {
       fail(`Timed out waiting for ${label} after ${timeoutMs}ms`)
@@ -639,7 +650,7 @@ async function seedDemoDataIfAvailable() {
       if (typeof body !== 'string') return false
       return body.includes('Seed demo data') || body.includes('Log (grid)') || body.includes('No formulations exist yet')
     },
-    { label: 'today content rendered' },
+    { label: 'today content rendered', timeoutMs: 120000 },
   )
 
   const hasSeed = await evalJs('document.body.innerText.includes("Seed demo data")')
@@ -963,6 +974,13 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   logLine('orders: vendor + order + item + generate vials')
   open(`${BASE_URL}/orders`)
   await waitForBodyText('Orders', { label: 'orders page visible' })
+
+  // Verify the real-world import button works (idempotent).
+  const hasRetaImport = await evalJs('document.body.innerText.includes("Import RETA-PEPTIDE orders")')
+  if (hasRetaImport) {
+    clickButtonByName('Import RETA-PEPTIDE orders')
+    await waitForBodyText('Imported orders for RETA-PEPTIDE', { label: 'reta import success', timeoutMs: 60000 })
+  }
 
   async function tagOrdersForm(headingText, tag) {
     const ok = await evalJs(

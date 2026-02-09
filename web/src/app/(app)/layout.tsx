@@ -3,8 +3,14 @@ import { redirect } from 'next/navigation'
 
 import { signOut } from '@/app/actions/auth'
 import { CommandPalette } from '@/components/command-palette'
-import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
+import { listFormulationsEnriched, type FormulationEnriched } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
+
+async function sleep(ms: number): Promise<void> {
+  const n = Number(ms)
+  if (!Number.isFinite(n) || n <= 0) return
+  await new Promise((r) => setTimeout(r, n))
+}
 
 export default async function AppLayout({
   children,
@@ -20,15 +26,37 @@ export default async function AppLayout({
 
   // Ensure a profile row exists for the signed-in user. This is idempotent and relies on DB defaults
   // so it will not overwrite user preferences once a profile is configured.
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .upsert({ user_id: data.user.id }, { onConflict: 'user_id', ignoreDuplicates: true })
+  {
+    const maxAttempts = 8
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({ user_id: data.user.id }, { onConflict: 'user_id', ignoreDuplicates: true })
 
-  if (profileError) {
-    console.error('Failed to ensure profile row exists', profileError)
+      if (!profileError) break
+
+      const msg = String(profileError.message || '').toLowerCase()
+      const retryable =
+        msg.includes('jwt issued at future') ||
+        msg.includes('profiles_user_id_fkey') ||
+        msg.includes('violates foreign key constraint')
+
+      if (!retryable || attempt === maxAttempts) {
+        console.error('Failed to ensure profile row exists', profileError)
+        break
+      }
+
+      await sleep(200 * attempt)
+    }
   }
 
-  const formulations = await listFormulationsEnriched(supabase)
+  let formulations: FormulationEnriched[] = []
+  try {
+    formulations = await listFormulationsEnriched(supabase)
+  } catch (e) {
+    console.error('Failed to load formulations for command palette', e)
+    formulations = []
+  }
   const logItems = formulations.map((f) => {
     const substance = f.substance?.display_name ?? 'Unknown substance'
     const route = f.route?.name ?? 'Unknown route'
