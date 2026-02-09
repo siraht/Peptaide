@@ -1528,9 +1528,11 @@ async function main() {
     fs.writeFileSync(
       simpleCsvPath,
       [
-        'substance,ts,dose_ml,mg_per_ml,route',
-        `E2E Simple,2026-01-01T10:00:00Z,0.25,10,SubQ`,
-        `E2E Simple,2026-01-20T10:00:00Z,0.25,10,SubQ`,
+        // Use an order-backed substance + explicit vial tag so reconciliation can attach events to
+        // costed vials and the Spend rollups become non-empty.
+        'substance,ts,dose_ml,mg_per_ml,route,tags',
+        `Semax,2026-01-01T10:00:00Z,0.25,10,subcutaneous,vial_1`,
+        `Semax,2026-01-20T10:00:00Z,0.25,10,subcutaneous,vial_1`,
       ].join('\n') + '\n',
     )
   } else if (!fs.existsSync(simpleCsvPath)) {
