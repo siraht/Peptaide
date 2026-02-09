@@ -2,6 +2,7 @@ import { CreateOrderForm } from './create-order-form'
 import { CreateOrderItemForm } from './create-order-item-form'
 import { CreateVendorForm } from './create-vendor-form'
 import { GenerateVialsForm } from './generate-vials-form'
+import { ImportRetaPeptideOrdersForm } from './import-reta-peptide-orders-form'
 import { deleteOrderAction, deleteOrderItemAction, deleteVendorAction } from './actions'
 
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
@@ -91,6 +92,8 @@ export default async function OrdersPage() {
           Orders and order items, with basic vial generation. Shipping allocation and cost previews come later.
         </p>
       </div>
+
+      <ImportRetaPeptideOrdersForm />
 
       <CreateVendorForm />
 
