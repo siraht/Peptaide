@@ -1079,6 +1079,49 @@ async function inventoryActivateCloseOneVial() {
   }
 }
 
+async function inventoryReconcileImportedVials() {
+  logLine('inventory: reconcile imported vial tags (spreadsheet migration)')
+  open(`${BASE_URL}/inventory`)
+  await waitForBodyText('Inventory', { label: 'inventory page visible' })
+
+  const hasCard = await evalJs('Boolean(document.querySelector(\'[data-e2e="reconcile-imported-vials"]\'))')
+  if (!hasCard) {
+    logLine('inventory: reconcile card not present; skipping')
+    return
+  }
+
+  click('[data-e2e="reconcile-imported-vials-submit"]')
+
+  await waitUntil(
+    async () => {
+      const err = await evalJs(
+        'document.querySelector(\'[data-e2e="reconcile-imported-vials-error"]\')?.textContent?.trim() || ""',
+      )
+      if (typeof err === 'string' && err) return true
+
+      const ok = await evalJs(
+        'document.querySelector(\'[data-e2e="reconcile-imported-vials-success"]\')?.textContent?.trim() || ""',
+      )
+      return typeof ok === 'string' && ok.includes('Reconciled imported vial tags')
+    },
+    { label: 'inventory reconcile imported vials completion', timeoutMs: 120000 },
+  )
+
+  const err = await evalJs(
+    'document.querySelector(\'[data-e2e="reconcile-imported-vials-error"]\')?.textContent?.trim() || ""',
+  )
+  if (typeof err === 'string' && err) {
+    takeScreenshot('reconcile-imported-vials-error')
+    fail(`Reconcile imported vials failed: ${err}`)
+  }
+
+  // Sanity check: at least one lot label should exist once reconciliation assigns vial_# lots.
+  await waitUntil(
+    async () => Boolean(await evalJs('document.body.innerText.includes("vial_")')),
+    { label: 'inventory shows vial_# lots after reconcile', timeoutMs: 60000 },
+  )
+}
+
 async function exportZipToFile(outPath) {
   logLine('data: exporting zip via /api/export (using browser session cookies)')
   const url = `${BASE_URL}/api/export`
@@ -1494,6 +1537,21 @@ async function main() {
     fail(`E2E_SIMPLE_EVENTS_CSV_PATH does not exist: ${simpleCsvPath}`)
   }
   await settingsImportSimpleEventsCsv({ csvPath: simpleCsvPath, replaceExisting: false, inferCycles: true })
+  await inventoryReconcileImportedVials()
+
+  // After reconciliation, spend should exist because events are now linked to costed vials.
+  open(`${BASE_URL}/analytics`)
+  await waitForBodyText('Spend', { label: 'analytics page visible (spend section)' })
+  const spendNoData = await evalJs(`(() => {
+    const h = Array.from(document.querySelectorAll('h2')).find((el) => (el.textContent || '').trim() === 'Spend')
+    const card = h ? h.closest('section') : null
+    if (!card) return null
+    return (card.textContent || '').includes('No data yet.')
+  })()`)
+  if (spendNoData) {
+    takeScreenshot('analytics-spend-empty-after-reconcile')
+    fail('After reconciliation, Spend still shows "No data yet." (event costs were not backfilled).')
+  }
   open(`${BASE_URL}/cycles`)
   await waitForBodyText('Cycles', { label: 'cycles page visible after simple import' })
 
