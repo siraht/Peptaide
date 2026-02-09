@@ -59,6 +59,7 @@ class EventRow:
   date_iso: str  # YYYY-MM-DD
   dose_text: str  # e.g. "333 mcg"
   route: str
+  formulation: str
   notes: str
   tags: str  # semicolon-separated
 
@@ -207,10 +208,12 @@ def convert(
   doses_csv: Path,
   out_csv: Path,
   default_route: str,
+  ss31_route: str,
   routes_json: Optional[Path],
   allow_backfill_missing_doses: bool,
   treat_unit_only_mcg_as_empty: bool,
   ss31_dmso_vial2: bool,
+  ss31_dmso_formulation_name: str,
 ) -> None:
   rows = load_csv_rows(doses_csv)
   concentrations = parse_constants(rows)
@@ -262,6 +265,8 @@ def convert(
       dose_cell = (row[8 + j] or "").strip()
       vial_cell = (row[15 + j] or "").strip()
 
+      is_ss31_dmso = sub == "SS-31" and "dmso" in vial_cell.lower()
+
       if sub == "TB-500":
         # User confirmed BPC + TB share the same vial/dose; the sheet sometimes leaves TB blank.
         if not liq_cell:
@@ -275,9 +280,9 @@ def convert(
       # user confirms ss31_dmso_vial2.
       vial_numeric = parse_vial_number(vial_cell)
       vial_is_weird = bool(vial_cell) and not re.match(r"^\d+$", vial_cell)
-      if vial_is_weird and sub == "SS-31" and vial_cell.startswith("2") and not ss31_dmso_vial2:
+      if is_ss31_dmso and not ss31_dmso_vial2:
         ambiguous.append(
-          f"{date_iso} {sub}: vial label '{vial_cell}' is non-numeric. Confirm it should be treated as vial 2 (and optionally tagged w/DMSO)."
+          f"{date_iso} {sub}: vial label '{vial_cell}' implies a DMSO variant. Confirm it should be treated as vial 2 concentration and imported as a separate formulation."
         )
 
       unit_only_mcg = False
@@ -327,15 +332,28 @@ def convert(
         tags.append(f"cycle_{cyc}")
       if vial_numeric is not None:
         tags.append(f"vial_{vial_numeric}")
-      if sub == "SS-31" and vial_cell == "2-w/DMSO":
+      if is_ss31_dmso:
         tags.append("w_dmso")
+
+      # Route mapping:
+      # - per-user explicit override via routes_json (keys are case-insensitive)
+      # - otherwise, treat SS-31 as intranasal and everything else as default_route (subcutaneous for this dataset)
+      route = routes_by_substance.get(sub.strip().lower())
+      if not route:
+        route = ss31_route if sub == "SS-31" else default_route
+
+      # Formulation mapping:
+      # - normal rows: allow importer default (<substance> - <route>)
+      # - SS-31 w/DMSO: force a distinct formulation name (same substance+route, different name)
+      formulation = ss31_dmso_formulation_name if is_ss31_dmso else ""
 
       events.append(
         EventRow(
           substance=sub,
           date_iso=date_iso,
           dose_text=dose_text,
-          route=routes_by_substance.get(sub.strip().lower(), default_route),
+          route=route,
+          formulation=formulation,
           notes=notes,
           tags=build_tags(*tags),
         )
@@ -352,9 +370,9 @@ def convert(
   out_csv.parent.mkdir(parents=True, exist_ok=True)
   with out_csv.open("w", newline="") as f:
     w = csv.writer(f)
-    w.writerow(["substance", "date", "dose", "route", "notes", "tags"])
+    w.writerow(["substance", "date", "dose", "route", "formulation", "notes", "tags"])
     for e in events:
-      w.writerow([e.substance, e.date_iso, e.dose_text, e.route, e.notes, e.tags])
+      w.writerow([e.substance, e.date_iso, e.dose_text, e.route, e.formulation, e.notes, e.tags])
 
   print(f"Wrote {out_csv} with {len(events)} events.")
 
@@ -364,6 +382,7 @@ def main(argv: Optional[List[str]] = None) -> None:
   p.add_argument("--doses-csv", type=Path, required=True)
   p.add_argument("--out-csv", type=Path, required=True)
   p.add_argument("--default-route", type=str, default="Unspecified")
+  p.add_argument("--ss31-route", type=str, default="intranasal")
   p.add_argument(
     "--routes-json",
     type=Path,
@@ -384,7 +403,13 @@ def main(argv: Optional[List[str]] = None) -> None:
   p.add_argument(
     "--ss31-dmso-vial2",
     action="store_true",
-    help="Treat SS-31 vial label '2-w/DMSO' as vial 2 and tag it with w_dmso.",
+    help="Treat SS-31 vial label like '2-w/DMSO' as vial 2 concentration and import it as a distinct formulation.",
+  )
+  p.add_argument(
+    "--ss31-dmso-formulation-name",
+    type=str,
+    default="SS-31 w/DMSO",
+    help="Formulation name to use for SS-31 DMSO-variant rows.",
   )
 
   args = p.parse_args(argv)
@@ -392,10 +417,12 @@ def main(argv: Optional[List[str]] = None) -> None:
     doses_csv=args.doses_csv,
     out_csv=args.out_csv,
     default_route=args.default_route,
+    ss31_route=args.ss31_route,
     routes_json=args.routes_json,
     allow_backfill_missing_doses=args.allow_backfill_missing_doses,
     treat_unit_only_mcg_as_empty=args.treat_unit_only_mcg_as_empty,
     ss31_dmso_vial2=args.ss31_dmso_vial2,
+    ss31_dmso_formulation_name=args.ss31_dmso_formulation_name,
   )
 
 
