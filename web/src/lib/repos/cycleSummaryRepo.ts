@@ -28,3 +28,14 @@ export async function listCycleSummary(supabase: DbClient): Promise<CycleSummary
 
   return requireData(res.data, res.error, 'v_cycle_summary.select')
 }
+
+export async function listActiveCycleSummary(supabase: DbClient): Promise<CycleSummaryRow[]> {
+  const res = await supabase
+    .from('v_cycle_summary')
+    .select('*')
+    .eq('status', 'active')
+    .order('substance_name', { ascending: true })
+    .order('cycle_number', { ascending: true })
+
+  return requireData(res.data, res.error, 'v_cycle_summary.select_active')
+}

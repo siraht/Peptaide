@@ -6,6 +6,24 @@ import type { Database } from '@/lib/supabase/database.types'
 export type SubstanceRecommendationRow =
   Database['public']['Tables']['substance_recommendations']['Row']
 
+export async function listDosingRecommendationsForSubstances(
+  supabase: DbClient,
+  opts: { substanceIds: string[] },
+): Promise<SubstanceRecommendationRow[]> {
+  const ids = opts.substanceIds.filter(Boolean)
+  if (ids.length === 0) return []
+
+  const res = await supabase
+    .from('substance_recommendations')
+    .select('*')
+    .eq('category', 'dosing')
+    .in('substance_id', ids)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  return requireData(res.data, res.error, 'substance_recommendations.select_dosing_for_substances')
+}
+
 export async function listSubstanceRecommendationsForSubstance(
   supabase: DbClient,
   opts: { substanceId: string },
@@ -63,4 +81,3 @@ export async function softDeleteSubstanceRecommendation(
 
   requireOk(res.error, 'substance_recommendations.soft_delete')
 }
-

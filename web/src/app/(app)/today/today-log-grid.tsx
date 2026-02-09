@@ -27,8 +27,12 @@ function blankRow(formulationId: string): GridRow {
 export function TodayLogGrid(props: {
   formulations: TodayFormulationOption[]
   defaultFormulationId?: string | null
+  doseRecommendationsByFormulationId?: Record<
+    string,
+    { min: number | null; max: number | null; unit: string } | null
+  >
 }) {
-  const { formulations, defaultFormulationId: defaultFormulationIdProp } = props
+  const { formulations, defaultFormulationId: defaultFormulationIdProp, doseRecommendationsByFormulationId } = props
 
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -232,18 +236,28 @@ export function TodayLogGrid(props: {
 
   if (formulations.length === 0) return null
 
+  function formatRecHint(h: { min: number | null; max: number | null; unit: string }): string {
+    const min = h.min
+    const max = h.max
+    const unit = h.unit
+    if (min != null && max != null) return `Rec: ${min}-${max}${unit}`
+    if (min != null) return `Rec: >=${min}${unit}`
+    if (max != null) return `Rec: <=${max}${unit}`
+    return `Rec: ${unit}`
+  }
+
   return (
-    <div className="rounded-lg border bg-white p-4">
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-surface-dark p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-900">Log (grid)</h2>
-          <p className="mt-1 text-sm text-zinc-700">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Log (grid)</h2>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Enter a dose and press Enter to save; focus advances row-by-row. Paste multiple lines of doses to fill
             subsequent rows.
           </p>
         </div>
         <button
-          className="rounded-md border bg-white px-3 py-2 text-sm text-zinc-900"
+          className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:border-primary/50 transition-colors"
           type="button"
           onClick={saveAllFilled}
         >
@@ -254,10 +268,10 @@ export function TodayLogGrid(props: {
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm">
           <thead>
-            <tr className="text-xs text-zinc-600">
-              <th className="border-b px-2 py-2 font-medium">Formulation</th>
-              <th className="border-b px-2 py-2 font-medium">Dose</th>
-              <th className="border-b px-2 py-2 font-medium">Status</th>
+            <tr className="text-xs text-gray-500 uppercase tracking-wide">
+              <th className="border-b border-gray-200 dark:border-gray-800 px-2 py-2 font-medium">Formulation</th>
+              <th className="border-b border-gray-200 dark:border-gray-800 px-2 py-2 font-medium">Dose</th>
+              <th className="border-b border-gray-200 dark:border-gray-800 px-2 py-2 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -265,7 +279,7 @@ export function TodayLogGrid(props: {
               <tr key={idx}>
                 <td className="border-b px-2 py-2">
                   <select
-                    className="h-10 w-full rounded-md border px-3 text-sm"
+                    className="h-10 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 text-sm text-gray-900 dark:text-gray-100"
                     value={row.formulationId}
                     onChange={(e) => {
                       const value = e.target.value
@@ -288,62 +302,74 @@ export function TodayLogGrid(props: {
                   </select>
                 </td>
                 <td className="border-b px-2 py-2">
-                  <input
-                    ref={(el) => {
-                      inputRefs.current[idx] = el
-                    }}
-                    className="h-10 w-full rounded-md border px-3 text-sm"
-                    value={row.inputText}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setRows((prev) => {
-                        const next = [...prev]
-                        const current = next[idx]
-                        if (!current) return prev
-                        next[idx] = { ...current, inputText: value, status: 'idle', message: '' }
-                        return next
-                      })
-                    }}
-                    onPaste={(e) => handlePaste(e, idx)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        if (!row.inputText.trim()) {
-                          focusRowInput(e.shiftKey ? idx - 1 : idx + 1)
+                  <div className="flex flex-col items-end">
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[idx] = el
+                      }}
+                      className="h-10 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                      value={row.inputText}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setRows((prev) => {
+                          const next = [...prev]
+                          const current = next[idx]
+                          if (!current) return prev
+                          next[idx] = { ...current, inputText: value, status: 'idle', message: '' }
+                          return next
+                        })
+                      }}
+                      onPaste={(e) => handlePaste(e, idx)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          if (!row.inputText.trim()) {
+                            focusRowInput(e.shiftKey ? idx - 1 : idx + 1)
+                            return
+                          }
+                          void saveRow(idx, { focusDirection: e.shiftKey ? 'prev' : 'next' })
                           return
                         }
-                        void saveRow(idx, { focusDirection: e.shiftKey ? 'prev' : 'next' })
-                        return
-                      }
-                      if (e.key === 'ArrowDown') {
-                        e.preventDefault()
-                        focusRowInput(idx + 1)
-                        return
-                      }
-                      if (e.key === 'ArrowUp') {
-                        e.preventDefault()
-                        focusRowInput(idx - 1)
-                        return
-                      }
-                    }}
-                    placeholder='e.g. "0.3mL", "250mcg", "2 sprays"'
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    aria-label={`Dose row ${idx + 1}`}
-                    disabled={row.status === 'saving'}
-                  />
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault()
+                          focusRowInput(idx + 1)
+                          return
+                        }
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault()
+                          focusRowInput(idx - 1)
+                          return
+                        }
+                      }}
+                      placeholder='e.g. "0.3mL", "250mcg", "2 sprays"'
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      aria-label={`Dose row ${idx + 1}`}
+                      disabled={row.status === 'saving'}
+                    />
+                    {(() => {
+                      const hint = doseRecommendationsByFormulationId?.[row.formulationId] ?? null
+                      if (!hint) return null
+                      return (
+                        <span className="text-[10px] text-primary/80 dark:text-blue-300/80 mt-1 font-medium bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <span className="material-icons text-[10px]">lightbulb</span>
+                          {formatRecHint(hint)}
+                        </span>
+                      )
+                    })()}
+                  </div>
                 </td>
-                <td className="border-b px-2 py-2 text-zinc-700">
+                <td className="border-b px-2 py-2 text-gray-600 dark:text-gray-400">
                   {row.status === 'saving' ? (
                     <span>Saving...</span>
                   ) : row.status === 'success' ? (
-                    <span className="text-emerald-700">Saved</span>
+                    <span className="text-emerald-700 dark:text-emerald-300">Saved</span>
                   ) : row.status === 'error' ? (
-                    <span className="text-red-700">{row.message}</span>
+                    <span className="text-red-700 dark:text-red-300">{row.message}</span>
                   ) : (
-                    <span className="text-zinc-500">-</span>
+                    <span className="text-gray-400">-</span>
                   )}
                 </td>
               </tr>
