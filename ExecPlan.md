@@ -238,7 +238,7 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-09 02:51Z) Orders: added a `/orders` "Quick import" button that idempotently imports the user's two RETA-PEPTIDE orders (I and II), creates/links vendors + orders + order_items, and generates planned vials per case. Order totals include shipping/fees/tax (stored on `orders`); vial costs exclude shipping (computed from `order_items.price_total_usd / expected_vials`). Evidence: commit `196cd81`; implemented in `web/src/app/(app)/orders/actions.ts`, `web/src/app/(app)/orders/import-reta-peptide-orders-form.tsx`, `web/src/app/(app)/orders/page.tsx`.
 - [x] (2026-02-09 02:51Z) Orders modeling: represented the physical combo vial `BPC157+TB500` as two logical order items/vial sets (BPC-157 and TB-500) with a 50/50 cost split so each substance can have an active vial and events can link to a vial without violating DB consistency triggers. Evidence: commit `196cd81` notes on the created order items.
 - [x] (2026-02-09 04:03Z) Performance/reliability: fixed `/inventory` timeouts by rewriting `public.v_inventory_status` to compute timezone + bounds once and restrict the 14-day avg usage scan to only inventory formulations (tight `ts` bounds), and added an index on events by `(user_id, vial_id)` to speed per-vial aggregation. Also hardened the app against transient Supabase "JWT issued at future" errors (clock skew right after resets) and updated the conclusive browser harness to cover the new RETA import button. Evidence: commit `4497d9e`; migration `supabase/migrations/20260209031000_094_inventory_status_fast.sql`; harness `web/scripts/tbrowser/peptaide-e2e.mjs`.
-- [ ] (2026-02-09 04:10Z) Testing: rerun the conclusive browser verification harness (`npm run e2e:browser`) against `next start` after the orders + inventory performance changes, and record the PASS artifacts directory in `Artifacts and Notes`. plan[583-595] plan[690-698] plan[729-751]
+- [x] (2026-02-09 04:13Z) Testing: reran the conclusive browser verification harness (`npm run e2e:browser`) against `next start` after the orders + inventory performance changes; confirmed PASS and recorded artifacts under `/tmp/peptaide-e2e-2026-02-09T04-13-06-266Z`. plan[583-595] plan[690-698] plan[729-751]
 
 ## Milestones
 
@@ -1764,6 +1764,13 @@ Evidence captured so far (conclusive browser harness, user spreadsheet import):
     # simple events import summary: mode=apply rows=277 imported_events=277 substances=7 routes=2 formulations=8 cycles=17
     # artifacts_dir: /tmp/peptaide-e2e-2026-02-09T01-30-24-666Z
 
+Evidence captured so far (conclusive browser harness, orders import + inventory perf):
+
+    cd /data/projects/peptaide/web
+    E2E_BASE_URL="http://127.0.0.1:3015" npm run e2e:browser
+    # PASS: conclusive browser verification completed
+    # artifacts_dir: /tmp/peptaide-e2e-2026-02-09T04-13-06-266Z
+
     cd /data/projects/peptaide/web
     E2E_BASE_URL="https://flywheel.tail3be29.ts.net:13002" \
     E2E_SIMPLE_EVENTS_CSV_PATH="/data/projects/peptaide/spreadsheetdata/peptaide_simple_events.csv" \
@@ -2191,3 +2198,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-09: Orders: added an idempotent `/orders` quick import for the user's two RETA-PEPTIDE orders (I and II) that creates vendor/orders/items and generates planned vials per case with the correct cost semantics (order totals include shipping/fees/tax; vial cost excludes shipping). Recorded in `Progress`, `Decision Log`, and the plan's testing requirements.
 
 2026-02-09: Performance/reliability: sped up `public.v_inventory_status` to prevent `/inventory` statement timeouts under realistic data, added an events `(user_id, vial_id)` index for per-vial usage aggregation, and hardened key SSR reads against transient local Supabase `JWT issued at future` errors. Updated `Progress`, `Surprises & Discoveries`, and `Decision Log` to keep the plan self-contained and restartable for these changes.
+
+2026-02-09: Testing: reran the conclusive browser harness against `next start` after orders + inventory performance changes; confirmed PASS and recorded the new artifacts dir in `Artifacts and Notes` (`/tmp/peptaide-e2e-2026-02-09T04-13-06-266Z`).
