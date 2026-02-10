@@ -72,14 +72,13 @@ export default async function AnalyticsPage() {
   const profile = await getMyProfile(supabase)
   const timeZone = safeTimeZone(profile?.timezone ?? 'UTC')
 
-  const since60 = dayLocalDaysAgo(60, timeZone)
   const since180 = dayLocalDaysAgo(180, timeZone)
 
   const [admin, effSystemic, effCns, spendDay, spendWeek, spendMonth] = await Promise.all([
-    listDailyTotalsAdmin(supabase, { sinceDayLocal: since60 }),
-    listDailyTotalsEffectiveSystemic(supabase, { sinceDayLocal: since60 }),
-    listDailyTotalsEffectiveCns(supabase, { sinceDayLocal: since60 }),
-    listSpendRollups(supabase, { periodKind: 'day', sincePeriodStartDate: since60 }),
+    listDailyTotalsAdmin(supabase, { sinceDayLocal: since180 }),
+    listDailyTotalsEffectiveSystemic(supabase, { sinceDayLocal: since180 }),
+    listDailyTotalsEffectiveCns(supabase, { sinceDayLocal: since180 }),
+    listSpendRollups(supabase, { periodKind: 'day', sincePeriodStartDate: since180 }),
     listSpendRollups(supabase, { periodKind: 'week', sincePeriodStartDate: since180 }),
     listSpendRollups(supabase, { periodKind: 'month', sincePeriodStartDate: since180 }),
   ])
@@ -93,7 +92,7 @@ export default async function AnalyticsPage() {
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Daily administered dose (mg)</h2>
-        <p className="mt-1 text-sm text-zinc-700">Last 60 local days, grouped by substance.</p>
+        <p className="mt-1 text-sm text-zinc-700">Last 180 local days, grouped by substance.</p>
 
         {admin.length === 0 ? (
           <p className="mt-2 text-sm text-zinc-700">No data yet.</p>
@@ -126,7 +125,7 @@ export default async function AnalyticsPage() {
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Daily effective dose (systemic, mg)</h2>
         <p className="mt-1 text-sm text-zinc-700">
-          Last 60 local days. Note: these p05/p50/p95 values are summed per day, so they are an approximate band, not
+          Last 180 local days. Note: these p05/p50/p95 values are summed per day, so they are an approximate band, not
           true daily quantiles.
         </p>
 
@@ -165,7 +164,7 @@ export default async function AnalyticsPage() {
       <section className="rounded-lg border bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Daily effective dose (CNS, mg)</h2>
         <p className="mt-1 text-sm text-zinc-700">
-          Last 60 local days. Same note as systemic: summed percentiles are an approximate band.
+          Last 180 local days. Same note as systemic: summed percentiles are an approximate band.
         </p>
 
         {effCns.length === 0 ? (
