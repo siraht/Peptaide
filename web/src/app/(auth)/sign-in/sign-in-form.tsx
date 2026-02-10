@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 
-import { createClient } from '@/lib/supabase/browser'
-
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'error'
 
 export function SignInForm() {
@@ -11,6 +9,16 @@ export function SignInForm() {
   const [code, setCode] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState<string | null>(null)
+  const [devCode, setDevCode] = useState<string | null>(null)
+
+  function emailFromDom(): string {
+    try {
+      const el = document.querySelector('input[name="email"]') as HTMLInputElement | null
+      return String(el?.value || '').trim()
+    } catch {
+      return ''
+    }
+  }
 
   function mailpitHintForHost(host: string): string {
     const h = String(host || '').trim()
@@ -31,62 +39,73 @@ export function SignInForm() {
     return ` For local Supabase, open Mailpit at http://${h}:54324.`
   }
 
+  async function postJson<T>(url: string, body: unknown, { timeoutMs = 15000 }: { timeoutMs?: number } = {}): Promise<T> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      const data = (await res.json().catch(() => null)) as T | null
+      if (!res.ok || !data) {
+        const msg =
+          data && typeof data === 'object' && 'error' in data
+            ? String((data as { error?: unknown }).error ?? '')
+            : ''
+        throw new Error(msg || `Request failed (HTTP ${res.status}).`)
+      }
+      return data
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setStatus('sending')
     setMessage(null)
+    setDevCode(null)
 
-    const supabase = createClient()
     try {
-      const origin = window.location.origin
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${origin}/auth/callback`,
-        },
-      })
-      if (error) {
+      const form = new FormData(e.currentTarget)
+      const emailRaw = String(form.get('email') || '').trim()
+      setEmail(emailRaw)
+
+      if (!emailRaw) {
         setStatus('error')
-        setMessage(error.message)
+        setMessage('Email is required.')
         return
       }
+
+      const data = await postJson<{ ok: boolean; error?: string; dev_code?: string }>(
+        '/api/auth/send-otp',
+        { email: emailRaw },
+        { timeoutMs: 15000 },
+      )
+
+      if (!data.ok) {
+        setStatus('error')
+        setMessage(data.error || 'Failed to send sign-in email.')
+        return
+      }
+
+      setStatus('sent')
+      const host = window.location.hostname
+      const mailpitHint = mailpitHintForHost(host)
+      const hint = data.dev_code ? ' (Dev: code is shown below.)' : ''
+      setMessage(`Check your email (or Mailpit) for a sign-in link or 6-digit code.${mailpitHint}${hint}`)
+      if (data.dev_code) setDevCode(String(data.dev_code))
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      // If the browser can't reach Supabase directly (MagicDNS/DoH/network oddities), fall back to a
-      // same-origin server proxy so the user can still sign in via the 6-digit code.
-      try {
-        const res = await fetch('/api/auth/send-otp', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email }),
-        })
-        const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
-        if (!res.ok || !data?.ok) {
-          setStatus('error')
-          setMessage(data?.error || `Failed to send sign-in email (HTTP ${res.status}).`)
-          return
-        }
-        setStatus('sent')
-        const host = window.location.hostname
-        const mailpitHint = mailpitHintForHost(host)
-        setMessage(
-          `Check your email (or Mailpit) for a sign-in link or 6-digit code. If the link fails, use the 6-digit code.${mailpitHint}`,
-        )
-        return
-      } catch (e2) {
-        const msg2 = e2 instanceof Error ? e2.message : String(e2)
-        setStatus('error')
-        setMessage(`Network error sending sign-in email: ${msg}. Fallback failed: ${msg2}`)
-        return
-      }
+      setStatus('error')
+      setMessage(`Failed to send sign-in email: ${msg}`)
+      return
     }
-
-    setStatus('sent')
-    const host = window.location.hostname
-    const mailpitHint = mailpitHintForHost(host)
-    setMessage(`Check your email (or Mailpit) for a sign-in link or 6-digit code.${mailpitHint}`)
   }
 
   async function onVerifyCode(e: React.FormEvent<HTMLFormElement>) {
@@ -94,20 +113,30 @@ export function SignInForm() {
     setStatus('verifying')
     setMessage(null)
 
-    const token = code.trim()
+    const token = String(new FormData(e.currentTarget).get('code') || '').trim()
+    setCode(token)
+    const emailEffective = email.trim() || emailFromDom()
+    setEmail(emailEffective)
+
+    if (!emailEffective) {
+      setStatus('error')
+      setMessage('Email is required.')
+      return
+    }
+    if (!token) {
+      setStatus('error')
+      setMessage('Code is required.')
+      return
+    }
 
     try {
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, token }),
+      const data = await postJson<{ ok: boolean; error?: string }>('/api/auth/verify-otp', {
+        email: emailEffective,
+        token,
       })
-      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
-      if (!res.ok || !data?.ok) {
+      if (!data.ok) {
         setStatus('error')
-        setMessage(data?.error || `Failed to verify code (HTTP ${res.status}).`)
+        setMessage(data.error || 'Failed to verify code.')
         return
       }
     } catch (e) {
@@ -120,29 +149,27 @@ export function SignInForm() {
     window.location.href = '/today'
   }
 
-  const sendDisabled = status === 'sending' || status === 'verifying' || email.trim().length === 0
-  const codeDisabled =
-    status === 'sending' || status === 'verifying' || email.trim().length === 0 || code.trim().length === 0
+  const sendDisabled = status === 'sending' || status === 'verifying'
+  const codeDisabled = status === 'sending' || status === 'verifying'
 
   return (
     <div className="mt-4 space-y-3">
       <form className="space-y-3" onSubmit={onSubmit}>
         <label className="block">
-          <span className="text-sm font-medium">Email</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</span>
           <input
             autoCapitalize="off"
             autoComplete="email"
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-1 h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             name="email"
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             type="email"
-            value={email}
           />
         </label>
 
         <button
-          className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="h-10 w-full rounded-md bg-primary px-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
           disabled={sendDisabled}
           type="submit"
         >
@@ -150,22 +177,21 @@ export function SignInForm() {
         </button>
       </form>
 
-      <div className="rounded-md border bg-zinc-50 p-3">
-        <p className="text-sm text-zinc-700">Have a code instead? Enter it below.</p>
+      <div className="rounded-lg border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-3">
+        <p className="text-sm text-slate-600 dark:text-slate-300">Have a code instead? Enter it below.</p>
 
         <form className="mt-2 flex gap-2" onSubmit={onVerifyCode}>
           <input
             autoComplete="one-time-code"
-            className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+            className="h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             inputMode="numeric"
             name="code"
             onChange={(e) => setCode(e.target.value)}
             placeholder="6-digit code"
             type="text"
-            value={code}
           />
           <button
-            className="shrink-0 rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
             disabled={codeDisabled}
             type="submit"
           >
@@ -174,8 +200,24 @@ export function SignInForm() {
         </form>
       </div>
 
+      {devCode ? (
+        <div className="rounded-lg border border-border-light dark:border-border-dark bg-primary/10 p-3 text-sm text-slate-900 dark:text-slate-100">
+          <div className="text-xs font-semibold text-primary">Dev OTP code</div>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <div className="font-mono text-lg tracking-widest">{devCode}</div>
+            <button
+              className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
+              type="button"
+              onClick={() => setCode(devCode)}
+            >
+              Use code
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {message && (
-        <p className="text-sm text-zinc-700" role="status">
+        <p className="text-sm text-slate-600 dark:text-slate-300" role="status">
           {message}
         </p>
       )}

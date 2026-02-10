@@ -5,10 +5,63 @@ import { getSupabaseServerEnv } from '@/lib/supabase/env'
 
 export const runtime = 'nodejs'
 
+type MailpitList = { messages?: Array<{ ID?: string; To?: Array<{ Address?: string }>; Created?: string }> }
+type MailpitMessage = { Text?: string; HTML?: string }
+
 function firstHeaderValue(v: string | null): string | null {
   if (!v) return null
   const first = v.split(',')[0]?.trim()
   return first || null
+}
+
+function readEmail(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return ''
+  const email = (payload as { email?: unknown }).email
+  return typeof email === 'string' ? email.trim() : ''
+}
+
+function extractOtpCodeFromMagicLinkText(text: string): string | null {
+  const s = String(text || '')
+  const match = s.match(/(?:enter the code:\\s*)(\\d{6})/i)
+  if (match && match[1]) return match[1]
+  const match2 = s.match(/\\b(\\d{6})\\b/)
+  if (match2 && match2[1]) return match2[1]
+  return null
+}
+
+async function mailpitFetchJson<T>(baseUrl: string, pathname: string): Promise<T> {
+  const url = new URL(pathname, baseUrl)
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`Mailpit ${url.toString()} returned HTTP ${res.status}`)
+  }
+  return (await res.json()) as T
+}
+
+async function waitForOtpCodeFromMailpit(email: string, opts: { baseUrl: string; sinceMs: number; timeoutMs?: number }): Promise<string | null> {
+  const timeoutMs = opts.timeoutMs ?? 8000
+  const start = Date.now()
+  for (;;) {
+    const list = await mailpitFetchJson<MailpitList>(opts.baseUrl, '/api/v1/messages')
+    const messages = Array.isArray(list.messages) ? list.messages : []
+
+    const match = messages.find((m) => {
+      if (!m || !m.ID) return false
+      const createdMs = m.Created ? Date.parse(m.Created) : null
+      if (createdMs && createdMs < opts.sinceMs) return false
+      const tos = Array.isArray(m.To) ? m.To : []
+      return tos.some((t) => t && String(t.Address || '').toLowerCase() === email.toLowerCase())
+    })
+
+    if (match?.ID) {
+      const msg = await mailpitFetchJson<MailpitMessage>(opts.baseUrl, `/api/v1/message/${match.ID}`)
+      const code = extractOtpCodeFromMagicLinkText(msg.Text || msg.HTML || '')
+      if (code) return code
+    }
+
+    if (Date.now() - start > timeoutMs) return null
+    await new Promise((r) => setTimeout(r, 400))
+  }
 }
 
 function getRequestOrigin(request: NextRequest): string {
@@ -29,10 +82,15 @@ export async function POST(request: NextRequest): Promise<Response> {
     // ignore
   }
 
-  const email = typeof (payload as any)?.email === 'string' ? String((payload as any).email).trim() : ''
+  const email = readEmail(payload)
   if (!email) {
     return NextResponse.json({ ok: false, error: 'Email is required.' }, { status: 400 })
   }
+
+  const shouldExposeOtp =
+    process.env.NODE_ENV !== 'production' && String(process.env.PEPTAIDE_DEV_EXPOSE_OTP || '').trim() === '1'
+  const mailpitBaseUrl = String(process.env.PEPTAIDE_MAILPIT_URL || 'http://127.0.0.1:54324').trim()
+  const sinceMs = Date.now()
 
   const origin = getRequestOrigin(request)
   const { url: supabaseUrl, anonKey } = getSupabaseServerEnv()
@@ -54,6 +112,14 @@ export async function POST(request: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
   }
 
+  if (shouldExposeOtp) {
+    try {
+      const devCode = await waitForOtpCodeFromMailpit(email, { baseUrl: mailpitBaseUrl, sinceMs: sinceMs - 2000 })
+      if (devCode) return NextResponse.json({ ok: true, dev_code: devCode })
+    } catch {
+      // Ignore mailpit issues; sending the email is the primary behavior.
+    }
+  }
+
   return NextResponse.json({ ok: true })
 }
-

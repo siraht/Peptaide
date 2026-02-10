@@ -5,6 +5,12 @@ import { getSupabaseServerEnv } from '@/lib/supabase/env'
 
 export const runtime = 'nodejs'
 
+function readString(payload: unknown, key: 'email' | 'token'): string {
+  if (!payload || typeof payload !== 'object') return ''
+  const value = (payload as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 export async function POST(request: NextRequest): Promise<Response> {
   let payload: unknown = null
   try {
@@ -13,8 +19,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     // ignore
   }
 
-  const email = typeof (payload as any)?.email === 'string' ? String((payload as any).email).trim() : ''
-  const token = typeof (payload as any)?.token === 'string' ? String((payload as any).token).trim() : ''
+  const email = readString(payload, 'email')
+  const token = readString(payload, 'token')
   if (!email) {
     return NextResponse.json({ ok: false, error: 'Email is required.' }, { status: 400 })
   }
@@ -54,4 +60,3 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   return response
 }
-
