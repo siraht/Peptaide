@@ -17,19 +17,19 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
 
 ## Progress
 
-- [x] (2026-02-10 02:17Z) Read `.agent/PLANSwHD.md` and inspected current `/settings` sidebar links and the pages they point to. plan[1-999]
-- [ ] (2026-02-10 02:20Z) Create a shared Settings Hub route-group layout that renders the left sidebar for all settings-linked pages, and move the relevant routes under it without changing URLs. plan[120-260]
-- [ ] (2026-02-10 02:20Z) Refactor `/settings` page to use the shared sidebar (no duplicate sidebar markup) and keep existing `data-e2e` hooks stable. plan[261-360]
-- [ ] (2026-02-10 02:20Z) Restyle each settings-linked page and its forms/tables to use the Stitch theme tokens (`bg-background-*`, `bg-surface-*`, `border-border-*`, slate/gray text) so they do not look like legacy inserts. plan[361-520]
-- [ ] (2026-02-10 02:20Z) Add a DB-level inventory summary view that aggregates total stock per formulation (and joins active vial details) so `/today` can render total stock + runway. plan[521-650]
-- [ ] (2026-02-10 02:20Z) Update `/today` Control Center to use the new inventory summary (total stock) instead of per-active-vial remaining/content, preserving existing behaviors and `data-e2e` hooks. plan[651-740]
-- [ ] (2026-02-10 02:20Z) Validation: run typecheck/lint (if present) and run the “conclusive” browser verification (`node web/scripts/tbrowser/peptaide-e2e.mjs`) to ensure no regressions on the new UI shell. plan[741-820]
-- [ ] (2026-02-10 02:20Z) Write outcomes/retro and capture any surprises (for example, CSS/scroll container issues, sticky header offsets). plan[821-900]
+- [x] (2026-02-10 02:17Z) Read `.agent/PLANSwHD.md` and inspected current `/settings` sidebar links and the pages they point to. plan[1-205]
+- [x] (2026-02-10 03:10Z) Create a shared Settings Hub route-group layout that renders the left sidebar for all settings-linked pages, and move the relevant routes under it without changing URLs. plan[69-155]
+- [x] (2026-02-10 03:10Z) Refactor `/settings` page to use the shared sidebar (no duplicate sidebar markup) and keep existing `data-e2e` hooks stable. plan[69-155]
+- [ ] (2026-02-10 03:20Z) Restyle each settings-linked page and its forms/tables to use the Stitch theme tokens (`bg-background-*`, `bg-surface-*`, `border-border-*`, slate/gray text) so they do not look like legacy inserts. plan[88-111]
+- [ ] (2026-02-10 03:20Z) Add a DB-level inventory summary view that aggregates total stock per formulation (and joins active vial details) so `/today` can render total stock + runway. plan[97-111]
+- [ ] (2026-02-10 03:20Z) Update `/today` Control Center to use the new inventory summary (total stock) instead of per-active-vial remaining/content, preserving existing behaviors and `data-e2e` hooks. plan[97-111]
+- [ ] (2026-02-10 03:20Z) Validation: run typecheck/lint (if present) and run the “conclusive” browser verification (`node web/scripts/tbrowser/peptaide-e2e.mjs`) to ensure no regressions on the new UI shell. plan[112-164]
+- [ ] (2026-02-10 03:20Z) Write outcomes/retro and capture any surprises (for example, CSS/scroll container issues, sticky header offsets). plan[47-49]
 
 ## Surprises & Discoveries
 
 - Observation: The Stitch-style `/settings` page renders its own left sidebar and links directly to legacy pages like `/routes` and `/inventory`. Those pages live under `web/src/app/(app)/<route>` and use older zinc/white styling. They are outside of the settings page’s internal sidebar layout, so navigating to them naturally “drops” the sidebar.  
-  Evidence: `web/src/app/(app)/settings/page.tsx` links to `/routes`, `/formulations`, `/devices`, `/inventory`, `/orders`, `/cycles`, `/distributions`, `/evidence-sources`.
+  Evidence: `web/src/app/(app)/(hub)/settings/page.tsx` links to `/routes`, `/formulations`, `/devices`, `/inventory`, `/orders`, `/cycles`, `/distributions`, `/evidence-sources`.
 
 - Observation: `/today` “Control Center” cards are derived from `listInventoryStatus()` which reads `public.v_inventory_status`, and the page filters to `status === 'active'`. The progress bar and runway therefore represent only the active vial, not total on-hand stock from all vials.  
   Evidence: `web/src/app/(app)/today/page.tsx` uses `const activeInventory = inventory.filter((v) => v.status === 'active' ...)`.
@@ -38,6 +38,10 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
 
 - Decision: Implement the persistent left sidebar using a Next.js route group layout (a directory name wrapped in parentheses) so URLs do not change and the sidebar is shared across multiple pages.  
   Rationale: This fixes the “sidebar disappears when clicking settings links” problem without redesigning `/today` or changing top-level routing. It also centralizes the sidebar markup so future nav changes are one edit.  
+  Date/Author: 2026-02-10 / Codex
+
+- Decision: Make the Settings Hub layout’s content area `overflow-hidden` and require each page to own its own scroll container.  
+  Rationale: `/settings` is a 3-column workspace (left hub nav, main table, right editor). If the layout imposes a global scroll container, it becomes difficult to keep the right editor fixed while the table scrolls. Letting each page manage its own scroll keeps `/settings` working and forces legacy pages to be explicit about scrolling.  
   Date/Author: 2026-02-10 / Codex
 
 - Decision: Compute “total stock” in the database as a security-invoker view (similar to `v_inventory_status`) and consume it via a small repo wrapper.  
@@ -53,7 +57,7 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
 This repo is a Next.js app with the App Router in `web/src/app/`.
 
 - The authenticated application pages live under `web/src/app/(app)/...` and are wrapped by `web/src/app/(app)/layout.tsx` (header, command palette, etc).
-- The Stitch-style settings page is `web/src/app/(app)/settings/page.tsx`. It currently renders its own left sidebar and links out to other pages.
+- The Stitch-style settings page is `web/src/app/(app)/(hub)/settings/page.tsx`. The persistent sidebar for all hub pages is in `web/src/app/(app)/(hub)/layout.tsx` and `web/src/components/settings-hub/sidebar.tsx`.
 - Theme tokens used by the Stitch mockups are defined in `web/src/app/globals.css` via `@theme inline` CSS variables:
   - `--color-primary`, `--color-background-light`, `--color-surface-dark`, etc.
   - Tailwind class names like `bg-background-light` and `border-border-light` reference those tokens.
@@ -170,7 +174,7 @@ Acceptance is:
 
 ## Artifacts and Notes
 
-- Settings hub nav source of truth: `web/src/app/(app)/settings/page.tsx` (to be refactored into shared sidebar).
+- Settings hub nav source of truth: `web/src/components/settings-hub/sidebar.tsx`.
 - Inventory view used today: `supabase/migrations/20260209095000_096_inventory_status_lot_and_clamp.sql`.
 - `/today` Control Center logic: `web/src/app/(app)/today/page.tsx` (active vials only today; to be changed).
 
@@ -199,4 +203,4 @@ New app interface:
 Plan revisions:
 
 - (2026-02-10) Initial plan created after repo inspection.
-
+- (2026-02-10) Updated `Progress` and `Context` after implementing the Settings Hub layout + route moves (commit `9b6f9e4`).
