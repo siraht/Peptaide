@@ -4,6 +4,7 @@ import { listActiveCycleSummary } from '@/lib/repos/cycleSummaryRepo'
 import { listDailyTotalsAdmin } from '@/lib/repos/dailyTotalsRepo'
 import { listTodayEventsEnriched } from '@/lib/repos/eventsRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
+import { listInventorySummary } from '@/lib/repos/inventorySummaryRepo'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listModelCoverage } from '@/lib/repos/modelCoverageRepo'
 import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
@@ -122,7 +123,7 @@ export default async function TodayPage({
   const since7 = dayLocalDaysAgo(7, timeZone)
 
   // Avoid server-side waterfalls: these queries are independent.
-  const [formulations, events, coverage, inventory, spendDay, dailyAdmin, activeCycles] = await Promise.all([
+  const [formulations, events, coverage, inventory, inventorySummary, spendDay, dailyAdmin, activeCycles] = await Promise.all([
     listFormulationsEnriched(supabase),
     listTodayEventsEnriched(supabase, {
       limit: 200,
@@ -130,6 +131,7 @@ export default async function TodayPage({
     }),
     listModelCoverage(supabase),
     listInventoryStatus(supabase),
+    listInventorySummary(supabase),
     listSpendRollups(supabase, { periodKind: 'day', sincePeriodStartDate: since7 }),
     listDailyTotalsAdmin(supabase, { sinceDayLocal: since7 }),
     listActiveCycleSummary(supabase),
@@ -228,7 +230,28 @@ export default async function TodayPage({
     if (v.vial_id) invByVialId.set(v.vial_id, v)
   }
 
-  const activeInventory = inventory.filter((v) => v.status === 'active' && v.formulation_id && v.substance_id)
+  const stockedInventory = (() => {
+    const rows = inventorySummary.filter((v) => v.formulation_id && v.substance_id)
+
+    const out = rows.filter((v) => {
+      const remaining = toFiniteNumber(v.total_remaining_mass_mg)
+      const content = toFiniteNumber(v.total_content_mass_mg)
+      if (remaining == null || content == null) return true
+      return remaining > 0 && content > 0
+    })
+
+    // Prefer showing "lowest runway first" to make restocking obvious.
+    out.sort((a, b) => {
+      const ra = toFiniteNumber(a.runway_days_estimate_total_mg)
+      const rb = toFiniteNumber(b.runway_days_estimate_total_mg)
+      if (ra == null && rb == null) return 0
+      if (ra == null) return 1
+      if (rb == null) return -1
+      return ra - rb
+    })
+
+    return out
+  })()
 
   const activeCycleBySubstanceId = new Map<string, (typeof activeCycles)[number]>()
   for (const c of activeCycles) {
@@ -636,7 +659,7 @@ export default async function TodayPage({
         <div className="p-6 shrink-0 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold">Control Center</h2>
-            <p className="text-sm text-gray-500">Active inventory</p>
+            <p className="text-sm text-gray-500">Total stock</p>
           </div>
           <div className="flex gap-2">
             <Link
@@ -659,21 +682,38 @@ export default async function TodayPage({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
-          {activeInventory.length === 0 ? (
+          {stockedInventory.length === 0 ? (
             <div className="rounded-xl p-4 border border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark text-sm text-gray-600 dark:text-gray-400">
-              No active vials yet. Activate a planned vial in <Link className="underline hover:text-white" href="/inventory">Inventory</Link>.
+              No stock yet. Generate planned vials in <Link className="underline hover:text-white" href="/orders">Orders</Link> or add vials in{' '}
+              <Link className="underline hover:text-white" href="/inventory">Inventory</Link>.
             </div>
           ) : (
-            activeInventory.slice(0, 12).map((v) => {
-              const remaining = toFiniteNumber(v.remaining_mass_mg)
-              const content = toFiniteNumber(v.content_mass_mg)
-              const pct = remaining != null && content != null && content > 0 ? Math.max(0, Math.min(1, remaining / content)) : null
+            stockedInventory.slice(0, 12).map((v) => {
+              const remainingTotal = toFiniteNumber(v.total_remaining_mass_mg)
+              const contentTotal = toFiniteNumber(v.total_content_mass_mg)
+              const pctTotal =
+                remainingTotal != null && contentTotal != null && contentTotal > 0
+                  ? Math.max(0, Math.min(1, remainingTotal / contentTotal))
+                  : null
 
-              const runway = toFiniteNumber(v.runway_days_estimate_mg)
+              const remainingActive = toFiniteNumber(v.active_remaining_mass_mg)
+              const contentActive = toFiniteNumber(v.active_content_mass_mg)
+              const pctActive =
+                remainingActive != null && contentActive != null && contentActive > 0
+                  ? Math.max(0, Math.min(1, remainingActive / contentActive))
+                  : null
+
+              const runway = toFiniteNumber(v.runway_days_estimate_total_mg)
               const lowStock = runway != null && runway < 3
 
-              const costUsd = toFiniteNumber(v.cost_usd)
-              const costPerMg = costUsd != null && content != null && content > 0 ? costUsd / content : null
+              const costUsdKnown = toFiniteNumber(v.total_cost_usd_known)
+              const vialsTotal = toFiniteNumber(v.vial_count_total)
+              const vialsCostKnown = toFiniteNumber(v.vial_count_cost_known)
+              const costPerMg =
+                costUsdKnown != null && contentTotal != null && contentTotal > 0
+                  ? costUsdKnown / contentTotal
+                  : null
+              const costAllKnown = vialsTotal != null && vialsCostKnown != null && vialsTotal > 0 && vialsCostKnown === vialsTotal
 
               const cycle = v.substance_id ? activeCycleBySubstanceId.get(v.substance_id) ?? null : null
               // Keep render pure: derive the day index from the view's `cycle_length_days` (which uses `now()`
@@ -690,12 +730,12 @@ export default async function TodayPage({
 
               return (
                 <div
-                  key={v.vial_id ?? `${v.substance_id}-${v.formulation_id}`}
+                  key={v.formulation_id ?? `${v.substance_id}-${v.formulation_name}`}
                   className={`bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border transition-colors ${
                     lowStock ? 'border-orange-200 dark:border-orange-900/30' : 'border-gray-200 dark:border-gray-700/50 hover:border-primary/50'
                   }`}
                   data-e2e="today-inventory-card"
-                  data-vial-id={v.vial_id ?? ''}
+                  data-vial-id={v.active_vial_id ?? ''}
                   data-formulation-id={v.formulation_id ?? ''}
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -715,15 +755,17 @@ export default async function TodayPage({
                               {cycleLabel}
                             </span>
                           ) : null}
-                          {v.lot ? (
+                          {v.active_lot ? (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                              {v.lot}
+                              {v.active_lot}
                             </span>
                           ) : null}
                           {costPerMg == null ? (
                             <span className="text-xs text-gray-400">-</span>
                           ) : (
-                            <span className="text-xs text-gray-400">${formatNumber(costPerMg, 2)}/mg</span>
+                            <span className="text-xs text-gray-400">
+                              {costAllKnown ? '' : '~'}${formatNumber(costPerMg, 2)}/mg
+                            </span>
                           )}
                         </div>
                       </div>
@@ -744,14 +786,34 @@ export default async function TodayPage({
                   <div className="mb-3">
                     <div className="flex justify-between text-xs mb-1.5 font-medium">
                       <span className={lowStock ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400'}>
-                        Inventory:{' '}
-                        {remaining == null ? '-' : `${formatNumber(remaining, 2)}mg`} / {content == null ? '-' : `${formatNumber(content, 2)}mg`}
+                        Total stock:{' '}
+                        {remainingTotal == null ? '-' : `${formatNumber(remainingTotal, 2)}mg`} /{' '}
+                        {contentTotal == null ? '-' : `${formatNumber(contentTotal, 2)}mg`}
                       </span>
-                      <span className="text-gray-400">{pct == null ? '-' : `${Math.round(pct * 100)}%`}</span>
+                      <span className="text-gray-400">{pctTotal == null ? '-' : `${Math.round(pctTotal * 100)}%`}</span>
                     </div>
                     <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${lowStock ? 'bg-orange-500' : 'bg-green-500'}`} style={{ width: pct == null ? '0%' : `${Math.round(pct * 100)}%` }} />
+                      <div
+                        className={`h-full rounded-full ${lowStock ? 'bg-orange-500' : 'bg-green-500'}`}
+                        style={{ width: pctTotal == null ? '0%' : `${Math.round(pctTotal * 100)}%` }}
+                      />
                     </div>
+
+                    {v.active_vial_id && pctActive != null ? (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] mb-1 font-medium text-gray-500 dark:text-gray-400">
+                          <span>
+                            Current vial:{' '}
+                            {remainingActive == null ? '-' : `${formatNumber(remainingActive, 2)}mg`} /{' '}
+                            {contentActive == null ? '-' : `${formatNumber(contentActive, 2)}mg`}
+                          </span>
+                          <span>{`${Math.round(pctActive * 100)}%`}</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-gray-400 dark:bg-gray-500" style={{ width: `${Math.round(pctActive * 100)}%` }} />
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">

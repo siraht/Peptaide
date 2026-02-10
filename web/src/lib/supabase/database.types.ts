@@ -162,6 +162,13 @@ export type Database = {
             foreignKeyName: "administration_events_vial_fk"
             columns: ["user_id", "vial_id"]
             isOneToOne: false
+            referencedRelation: "v_inventory_summary"
+            referencedColumns: ["user_id", "active_vial_id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
             referencedRelation: "vials"
             referencedColumns: ["user_id", "id"]
           },
@@ -1456,6 +1463,13 @@ export type Database = {
             foreignKeyName: "administration_events_vial_fk"
             columns: ["user_id", "vial_id"]
             isOneToOne: false
+            referencedRelation: "v_inventory_summary"
+            referencedColumns: ["user_id", "active_vial_id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
             referencedRelation: "vials"
             referencedColumns: ["user_id", "id"]
           },
@@ -1539,6 +1553,13 @@ export type Database = {
             foreignKeyName: "administration_events_vial_fk"
             columns: ["user_id", "vial_id"]
             isOneToOne: false
+            referencedRelation: "v_inventory_summary"
+            referencedColumns: ["user_id", "active_vial_id"]
+          },
+          {
+            foreignKeyName: "administration_events_vial_fk"
+            columns: ["user_id", "vial_id"]
+            isOneToOne: false
             referencedRelation: "vials"
             referencedColumns: ["user_id", "id"]
           },
@@ -1574,6 +1595,47 @@ export type Database = {
           used_volume_ml: number | null
           user_id: string | null
           vial_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vials_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "formulations"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "vials_formulation_fk"
+            columns: ["user_id", "formulation_id"]
+            isOneToOne: false
+            referencedRelation: "v_model_coverage"
+            referencedColumns: ["user_id", "formulation_id"]
+          },
+        ]
+      }
+      v_inventory_summary: {
+        Row: {
+          active_content_mass_mg: number | null
+          active_lot: string | null
+          active_remaining_mass_mg: number | null
+          active_used_mass_mg: number | null
+          active_vial_id: string | null
+          avg_daily_administered_mg_14d: number | null
+          formulation_id: string | null
+          formulation_name: string | null
+          route_id: string | null
+          route_name: string | null
+          runway_days_estimate_active_mg: number | null
+          runway_days_estimate_total_mg: number | null
+          substance_id: string | null
+          substance_name: string | null
+          total_content_mass_mg: number | null
+          total_cost_usd_known: number | null
+          total_remaining_mass_mg: number | null
+          total_used_mass_mg: number | null
+          user_id: string | null
+          vial_count_cost_known: number | null
+          vial_count_total: number | null
         }
         Relationships: [
           {
