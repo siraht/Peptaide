@@ -1,4 +1,4 @@
-# Settings Hub Layout + Inventory Total Stock Rollups
+# Settings Hub Styling + Inventory Total Stock + Sign-In Reliability
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
@@ -12,6 +12,7 @@ After this change:
 
 1. All pages reachable from the settings sidebar render inside a shared “Settings Hub” layout that keeps the left sidebar visible while navigating between those pages, and those pages use the same theme tokens as the Stitch mockups (colors, surfaces, borders, typography).
 2. The `/today` “Control Center” inventory cards show total in-stock inventory (across all vials you have on hand), not just the currently active vial. Optionally, the UI can show both “Current vial” and “Total stock”, but “Total stock” must exist.
+3. Signing in from a remote browser (for example, a phone on the tailnet) works reliably even when Supabase is not directly reachable from the client, and end-to-end browser verification does not wipe real data by default.
 
 You can see it working by starting the app, navigating to `/settings`, clicking into each linked page, and observing that the sidebar persists and the page styling matches the theme. Then navigate to `/today` and confirm the inventory bars reflect all vials (planned + active + closed leftover, excluding discarded), not only the active vial.
 
@@ -20,11 +21,13 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
 - [x] (2026-02-10 02:17Z) Read `.agent/PLANSwHD.md` and inspected current `/settings` sidebar links and the pages they point to. plan[1-205]
 - [x] (2026-02-10 03:10Z) Create a shared Settings Hub route-group layout that renders the left sidebar for all settings-linked pages, and move the relevant routes under it without changing URLs. plan[69-155]
 - [x] (2026-02-10 03:10Z) Refactor `/settings` page to use the shared sidebar (no duplicate sidebar markup) and keep existing `data-e2e` hooks stable. plan[69-155]
-- [ ] (2026-02-10 03:20Z) Restyle each settings-linked page and its forms/tables to use the Stitch theme tokens (`bg-background-*`, `bg-surface-*`, `border-border-*`, slate/gray text) so they do not look like legacy inserts. plan[88-111]
-- [ ] (2026-02-10 03:20Z) Add a DB-level inventory summary view that aggregates total stock per formulation (and joins active vial details) so `/today` can render total stock + runway. plan[97-111]
-- [ ] (2026-02-10 03:20Z) Update `/today` Control Center to use the new inventory summary (total stock) instead of per-active-vial remaining/content, preserving existing behaviors and `data-e2e` hooks. plan[97-111]
-- [ ] (2026-02-10 03:20Z) Validation: run typecheck/lint (if present) and run the “conclusive” browser verification (`node web/scripts/tbrowser/peptaide-e2e.mjs`) to ensure no regressions on the new UI shell. plan[112-164]
-- [ ] (2026-02-10 03:20Z) Write outcomes/retro and capture any surprises (for example, CSS/scroll container issues, sticky header offsets). plan[47-49]
+- [x] (2026-02-10 03:25Z) Restyle each settings-linked page and its forms/tables to use the Stitch theme tokens (`bg-background-*`, `bg-surface-*`, `border-border-*`, slate/gray text) so they do not look like legacy inserts. Evidence: commit `3f4b0f2`. plan[88-111]
+- [x] (2026-02-10 03:26Z) Add a DB-level inventory summary view that aggregates total stock per formulation (and joins active vial details) so `/today` can render total stock + runway. Evidence: commit `8e9b433`. plan[97-111]
+- [x] (2026-02-10 03:26Z) Update `/today` Control Center to use the new inventory summary (total stock) instead of per-active-vial remaining/content, preserving existing behaviors and `data-e2e` hooks. Evidence: commit `8e9b433`. plan[97-111]
+- [x] (2026-02-10 03:59Z) Fix remote sign-in reliability by routing OTP send/verify through same-origin server routes, persisting PKCE cookies for magic links, and optionally exposing the Mailpit OTP code in dev. Evidence: commits `ad967d5`, `0a9080d`. plan[164-205]
+- [x] (2026-02-10 04:01Z) Make the “conclusive” browser verification safer and more complete: do not reset the DB unless explicitly requested, add a hub sidebar clickthrough sweep, and update the settings visual contract to account for the shared hub sidebar. Evidence: commits `755e0db`, `c5d3191`. plan[112-164]
+- [x] (2026-02-10 04:01Z) Validation: `npm run typecheck`, `npm run lint`, `npm test`, and `node web/scripts/tbrowser/peptaide-e2e.mjs` all pass. Evidence: last E2E run printed `PASS` and wrote artifacts to `/tmp/peptaide-e2e-2026-02-10T04-00-03-885Z`. plan[112-164]
+- [x] (2026-02-10 04:01Z) Write outcomes/retro and capture surprises. plan[47-49]
 
 ## Surprises & Discoveries
 
@@ -33,6 +36,12 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
 
 - Observation: `/today` “Control Center” cards are derived from `listInventoryStatus()` which reads `public.v_inventory_status`, and the page filters to `status === 'active'`. The progress bar and runway therefore represent only the active vial, not total on-hand stock from all vials.  
   Evidence: `web/src/app/(app)/today/page.tsx` uses `const activeInventory = inventory.filter((v) => v.status === 'active' ...)`.
+
+- Observation: Server-side OTP send initially broke magic-link sign-in because PKCE state (code verifier) was not persisted in browser cookies. Switching `/api/auth/send-otp` to a Supabase SSR client that writes PKCE cookies fixed the redirect-to-`/today` flow.  
+  Evidence: E2E failure `Timed out waiting for redirect to /today` (before) vs `PASS: conclusive browser verification completed` (after).
+
+- Observation: The “conclusive” E2E harness previously ran `supabase db reset --yes` by default, which can wipe real local data if run casually.  
+  Evidence: `web/scripts/tbrowser/peptaide-e2e.mjs` now skips reset unless `E2E_RESET_DB=1` is set.
 
 ## Decision Log
 
@@ -48,9 +57,23 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
   Rationale: The rollup needs consistent unit conversion/clamping behavior and should be cheap to query. Doing it in SQL avoids duplicating unit conversion logic in React and keeps RLS behavior consistent.  
   Date/Author: 2026-02-10 / Codex
 
+- Decision: Route OTP send/verify through same-origin API routes so remote clients do not need direct network access to Supabase, and (in dev only) optionally expose the Mailpit OTP code to unblock login when Mailpit is not reachable from the client device.  
+  Rationale: Mobile/tailnet clients often cannot reach `127.0.0.1:54321` or `localhost:54321` and may not be able to open Mailpit. Same-origin auth flows work anywhere the Next server is reachable, while keeping the service-role surface area at zero.  
+  Date/Author: 2026-02-10 / Codex
+
+- Decision: Change the E2E harness default to **not** reset the DB, and require an explicit `E2E_RESET_DB=1` to wipe + reseed.  
+  Rationale: Prevent accidental loss of real user data while keeping deterministic reset available for CI.  
+  Date/Author: 2026-02-10 / Codex
+
 ## Outcomes & Retrospective
 
-(To be filled in as milestones complete.)
+Implemented a shared Settings Hub layout (persistent left sidebar) and restyled all settings-linked pages to match the Stitch theme tokens, eliminating the “legacy insert” look and the disappearing sidebar.
+
+Updated `/today` Control Center inventory cards to reflect total in-stock inventory across all on-hand vials (planned + active + closed; excluding discarded) using a DB-level rollup view.
+
+Improved sign-in reliability for remote browsers by routing OTP send/verify through same-origin API routes, ensuring PKCE cookies are persisted for magic-link sign-in, and adding an optional dev-only “show OTP code” path when Mailpit is not reachable from the client.
+
+Hardened browser E2E verification by making DB reset opt-in, adding a hub sidebar clickthrough sweep, and keeping the Stitch visual contracts aligned with the new shared hub sidebar.
 
 ## Context and Orientation
 
@@ -170,13 +193,13 @@ Acceptance is:
 
 - Moving routes into a route group is idempotent as long as each URL path is defined only once. If a move causes a conflict, remove the duplicated old path.
 - The DB migration is additive (new view). It can be applied multiple times because it uses `create or replace view`.
-- If the local DB needs rebuilding, `supabase db reset --yes` will wipe data; the spreadsheet import runner `node web/scripts/tbrowser/import-spreadsheetdata.mjs` can re-import events + reconcile to restore an October-present dataset for `t.hinton@protonmail.com`.
+- If the local DB needs rebuilding, `supabase db reset --yes` will wipe data. The E2E harness no longer resets by default; set `E2E_RESET_DB=1` to opt into a wipe + reseed when desired. The spreadsheet import runner `node web/scripts/tbrowser/import-spreadsheetdata.mjs` can re-import events + reconcile to restore an October-present dataset for `t.hinton@protonmail.com`.
 
 ## Artifacts and Notes
 
 - Settings hub nav source of truth: `web/src/components/settings-hub/sidebar.tsx`.
 - Inventory view used today: `supabase/migrations/20260209095000_096_inventory_status_lot_and_clamp.sql`.
-- `/today` Control Center logic: `web/src/app/(app)/today/page.tsx` (active vials only today; to be changed).
+- `/today` Control Center logic: `web/src/app/(app)/today/page.tsx` (Control Center uses `v_inventory_summary` totals; events table still uses per-vial `v_inventory_status`).
 
 ## Interfaces and Dependencies
 
@@ -204,3 +227,4 @@ Plan revisions:
 
 - (2026-02-10) Initial plan created after repo inspection.
 - (2026-02-10) Updated `Progress` and `Context` after implementing the Settings Hub layout + route moves (commit `9b6f9e4`).
+- (2026-02-10) Marked the styling + inventory total-stock work complete, and expanded the plan to include sign-in reliability + safer E2E defaults. Evidence: commits `3f4b0f2`, `8e9b433`, `ad967d5`, `755e0db`.
