@@ -723,23 +723,6 @@ async function signInWithMagicLink(email) {
   )
 }
 
-async function signInWithCode(email) {
-  const { code } = await requestOtpEmail(email)
-  logLine('auth: verifying OTP code')
-
-  waitFor('input[name="code"]')
-  fill('input[name="code"]', code)
-  clickButtonByName('Sign in')
-
-  await waitUntil(
-    async () => {
-      const url = await evalJs('window.location.href')
-      return typeof url === 'string' && url.startsWith(`${BASE_URL}/today`)
-    },
-    { label: 'redirect to /today via code' },
-  )
-}
-
 async function signInWithCodePreferDevUi(email) {
   logLine(`auth: requesting OTP for ${email} (prefer dev UI)`)
   open(`${BASE_URL}/sign-in`)
@@ -814,9 +797,13 @@ async function seedDemoDataIfAvailable() {
   // Wait for either the empty-state or the grid before deciding whether to seed.
   await waitUntil(
     async () => {
-      const body = await evalJs('document.body.innerText')
-      if (typeof body !== 'string') return false
-      return body.includes('Seed demo data') || body.includes('Log (grid)') || body.includes('No formulations exist yet')
+      const res = await evalJs(`(() => ({
+        body: document.body.innerText || '',
+        hasLogTable: Boolean(document.querySelector('[data-e2e="today-log-table"]')),
+      }))()`)
+      if (!res || typeof res !== 'object') return false
+      const body = String(res.body || '')
+      return body.includes('Seed demo data') || body.includes('No formulations exist yet') || Boolean(res.hasLogTable)
     },
     { label: 'today content rendered', timeoutMs: 120000 },
   )
@@ -827,10 +814,9 @@ async function seedDemoDataIfAvailable() {
   clickButtonByName('Seed demo data')
   await waitUntil(
     async () => {
-      const hasGrid = await evalJs('document.body.innerText.includes("Log (grid)")')
-      return Boolean(hasGrid)
+      return Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-log-table"]\'))'))
     },
-    { label: 'today grid after seeding', timeoutMs: 45000 },
+    { label: 'today log table after seeding', timeoutMs: 45000 },
   )
 }
 
@@ -1026,47 +1012,59 @@ async function addFormulationModifier({ formulationLabelIncludes, distLabelInclu
   await waitForBodyText('Saved', { label: 'modifier saved' })
 }
 
-async function logEventInTodayGrid({ formulationLabelIncludes, rowIndex1Based, inputText }) {
-  open(`${BASE_URL}/today`)
-  await waitForBodyText('Log (grid)', { label: 'today grid visible' })
+async function logEventInTodayTable({ formulationLabelIncludes, inputText, timeHHMM, notes, via = 'enter' } = {}) {
+  open(`${BASE_URL}/today?focus=log`)
+  waitFor('[data-e2e="today-log-table"]')
 
   // Override confirm for cycle prompts (default-yes for e2e).
   await evalJs('window.confirm = () => true')
 
-  const row = rowIndex1Based
-  const formulationSel = `select[aria-label="Formulation row ${row}"]`
-  const doseSel = `input[aria-label="Dose row ${row}"]`
+  const formulationSel = '[data-e2e="today-log-input-formulation"]'
+  const timeSel = '[data-e2e="today-log-input-time"]'
+  const doseSel = '[data-e2e="today-log-input-dose"]'
+  const notesSel = '[data-e2e="today-log-input-notes"]'
 
   if (formulationLabelIncludes) {
-    const options = await evalJs(
-      `Array.from(document.querySelectorAll(${JSON.stringify(formulationSel)} + " option")).map(o => ({ value: o.value, text: (o.textContent || '').trim() }))`,
-    )
-    if (!Array.isArray(options)) fail('Could not read formulation options on /today grid')
-    const found = options.find((o) => o && typeof o.text === 'string' && o.text.includes(formulationLabelIncludes))
-    if (!found || !found.value) {
-      fail(`Could not find /today formulation option containing "${formulationLabelIncludes}"`)
-    }
-    runAgentBrowser(['select', formulationSel, found.value])
+    const formulationId = await selectOptionValue(formulationSel, formulationLabelIncludes)
+    runAgentBrowser(['select', formulationSel, formulationId])
   }
+
+  if (timeHHMM) {
+    click(timeSel)
+    fill(timeSel, String(timeHHMM))
+  }
+
+  if (notes) {
+    click(notesSel)
+    fill(notesSel, String(notes))
+  }
+
+  const beforeCount = Number(await evalJs('document.querySelectorAll(\'[data-e2e="today-log-row"]\').length'))
+  if (!Number.isFinite(beforeCount)) fail('Could not read today log row count before save.')
 
   click(doseSel)
   fill(doseSel, inputText)
-  press('Enter')
+
+  if (via === 'click') {
+    click('[data-e2e="today-log-submit"]')
+  } else {
+    press('Enter')
+  }
 
   await waitUntil(
     async () => {
-      const ok = await evalJs(
-        `(() => {
-          const input = document.querySelector(${JSON.stringify(doseSel)})
-          const row = input ? input.closest('tr') : null
-          const statusCell = row ? row.querySelector('td:last-child') : null
-          return Boolean(statusCell && (statusCell.textContent || '').includes('Saved'))
-        })()`,
-      )
-      return Boolean(ok)
+      const after = Number(await evalJs('document.querySelectorAll(\'[data-e2e="today-log-row"]\').length'))
+      return Number.isFinite(after) && after > beforeCount
     },
-    { label: `today grid save row ${row}` },
+    { label: 'today log saved (table)', timeoutMs: 60000 },
   )
+
+  if (notes) {
+    await waitUntil(
+      async () => Boolean(await evalJs(`document.querySelector('[data-e2e="today-log-table"]')?.innerText.includes(${JSON.stringify(String(notes))})`)),
+      { label: 'today notes persisted', timeoutMs: 60000 },
+    )
+  }
 }
 
 async function todayHubDeepInteractions() {
@@ -1074,12 +1072,49 @@ async function todayHubDeepInteractions() {
 
   open(`${BASE_URL}/today`)
   waitFor('[data-e2e="today-root"]')
-  await waitForBodyText('Log (grid)', { label: 'today grid visible (hub)' })
+  waitFor('[data-e2e="today-log-table"]')
 
   // Default-yes prompt: pressing Enter selects OK.
   await evalJs('window.confirm = () => true')
 
   await assertTodayStitchVisualContract()
+
+  // Control Center: substance grouping contract (one card for demo substance, multiple current vials).
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-inventory-card"]\'))')),
+    { label: 'today control center inventory cards present', timeoutMs: 60000 },
+  )
+  {
+    const demoCards = Number(
+      await evalJs(
+        `(() =>
+          Array.from(document.querySelectorAll('[data-e2e="today-inventory-card"]'))
+            .filter((c) => (c.textContent || '').includes('Demo substance')).length
+        )()`,
+      ),
+    )
+    if (!Number.isFinite(demoCards)) fail('Could not read demo substance card count.')
+    if (demoCards !== 1) {
+      takeScreenshot('today-demo-substance-dup-cards')
+      fail(`Expected exactly 1 Control Center card for Demo substance, but found ${demoCards}.`)
+    }
+
+    const demoCurrentVials = Number(
+      await evalJs(
+        `(() => {
+          const card = Array.from(document.querySelectorAll('[data-e2e="today-inventory-card"]'))
+            .find((c) => (c.textContent || '').includes('Demo substance'))
+          return card ? card.querySelectorAll('[data-e2e="today-inventory-current-vial"]').length : 0
+        })()`,
+      ),
+    )
+    if (!Number.isFinite(demoCurrentVials)) fail('Could not read demo current vial count.')
+    if (demoCurrentVials < 2) {
+      takeScreenshot('today-demo-substance-missing-multi-vials')
+      fail(`Expected Demo substance to show >=2 current-vial bars, but found ${demoCurrentVials}.`)
+    }
+  }
+  assertHealthy('today-inventory-grouping')
 
   // Quick Log: clicking a chip must route to /today?focus=log&formulation_id=... and focus the first row.
   await waitUntil(
@@ -1102,18 +1137,18 @@ async function todayHubDeepInteractions() {
 
   await waitUntil(
     async () => {
-      const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
-      return typeof aria === 'string' && aria.includes('Dose row 1')
+      const tag = await evalJs('document.activeElement?.getAttribute(\"data-e2e\") || \"\"')
+      return typeof tag === 'string' && tag === 'today-log-input-dose'
     },
-    { label: 'quick log focuses Dose row 1', timeoutMs: 30000 },
+    { label: 'quick log focuses inline dose input', timeoutMs: 30000 },
   )
 
   {
     const formulationId = await evalJs('new URL(window.location.href).searchParams.get("formulation_id") || ""')
-    const selected = await evalJs('document.querySelector(\'select[aria-label="Formulation row 1"]\')?.value || ""')
+    const selected = await evalJs('document.querySelector(\'[data-e2e="today-log-input-formulation"]\')?.value || ""')
     if (typeof formulationId !== 'string' || !formulationId) fail('quick log URL missing formulation_id')
     if (selected !== formulationId) {
-      fail(`quick log did not set default formulation: expected ${formulationId} but row1 selected ${selected}`)
+      fail(`quick log did not set default formulation: expected ${formulationId} but got ${selected}`)
     }
   }
   assertHealthy('today-quick-log-focus')
@@ -1131,41 +1166,55 @@ async function todayHubDeepInteractions() {
   )
   await waitUntil(
     async () => {
-      const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
-      return typeof aria === 'string' && aria.includes('Dose row 1')
+      const tag = await evalJs('document.activeElement?.getAttribute(\"data-e2e\") || \"\"')
+      return typeof tag === 'string' && tag === 'today-log-input-dose'
     },
-    { label: 'custom quick log focuses Dose row 1', timeoutMs: 30000 },
+    { label: 'custom quick log focuses inline dose input', timeoutMs: 30000 },
   )
   assertHealthy('today-custom-quick-log')
 
-  async function waitForGridRowSaved(rowIndex1Based) {
-    const row = Number(rowIndex1Based)
-    if (!Number.isFinite(row) || row <= 0) fail(`Invalid rowIndex1Based: ${rowIndex1Based}`)
+  // Inline log table: save via Enter and via click.
+  async function saveInlineRow({ inputText, via }) {
+    const before = Number(await evalJs('document.querySelectorAll(\'[data-e2e=\"today-log-row\"]\').length'))
+    if (!Number.isFinite(before)) fail('Could not read today log row count before save.')
+
+    click('[data-e2e=\"today-log-input-dose\"]')
+    fill('[data-e2e=\"today-log-input-dose\"]', inputText)
+    if (via === 'click') click('[data-e2e=\"today-log-submit\"]')
+    else press('Enter')
+
     await waitUntil(
-      async () =>
-        Boolean(
-          await evalJs(
-            `(() => {
-              const row = ${row}
-              const doseSel = 'input[aria-label="Dose row ' + row + '"]'
-              const input = document.querySelector(doseSel)
-              const tr = input ? input.closest('tr') : null
-              const statusCell = tr ? tr.querySelector('td:last-child') : null
-              return Boolean(statusCell && (statusCell.textContent || '').includes('Saved'))
-            })()`,
-          ),
-        ),
-      { label: `today grid row ${row} saved`, timeoutMs: 60000 },
+      async () => {
+        const after = Number(await evalJs('document.querySelectorAll(\'[data-e2e=\"today-log-row\"]\').length'))
+        return Number.isFinite(after) && after > before
+      },
+      { label: `today inline save (${via})`, timeoutMs: 60000 },
     )
   }
 
-  // Save filled rows: fill two rows, click the button, and assert both rows persist successfully.
-  fill('input[aria-label="Dose row 1"]', '0.11mL')
-  fill('input[aria-label="Dose row 2"]', '0.12mL')
-  clickButtonByName('Save filled rows')
-  await waitForGridRowSaved(1)
-  await waitForGridRowSaved(2)
-  assertHealthy('today-save-filled-rows')
+  await saveInlineRow({ inputText: '0.11mL', via: 'enter' })
+  await saveInlineRow({ inputText: '0.12mL', via: 'click' })
+  assertHealthy('today-inline-save')
+
+  // Copy-row should populate the inline input row.
+  const firstRowInput = String(
+    await evalJs(`(() => {
+      const row = document.querySelector('[data-e2e=\"today-log-row\"]')
+      const cell = row ? row.querySelector('td:nth-child(3)') : null
+      return (cell && cell.textContent ? cell.textContent : '').trim()
+    })()`),
+  )
+  if (!firstRowInput) fail('Could not read first today log row input text for copy test.')
+
+  clickFirst('[data-e2e=\"today-log-row-copy\"]')
+  await waitUntil(
+    async () => {
+      const v = await evalJs('document.querySelector(\'[data-e2e=\"today-log-input-dose\"]\')?.value || \"\"')
+      return typeof v === 'string' && v.trim() === firstRowInput
+    },
+    { label: 'today copy-row populates inline dose input', timeoutMs: 30000 },
+  )
+  assertHealthy('today-copy-row')
 
   // Control Center: icon links should route correctly.
   open(`${BASE_URL}/today`)
@@ -1187,7 +1236,7 @@ async function todayHubDeepInteractions() {
   await waitForBodyText('Analytics', { label: 'analytics via view history' })
   assertHealthy('today-nav-analytics')
 
-  // Control Center: "Log Dose" links should route to focus=log + formulation_id, and preselect row 1.
+  // Control Center: "Log Dose" links should route to focus=log + formulation_id, and preselect the inline formulation select.
   open(`${BASE_URL}/today`)
   await waitForBodyText('Control Center', { label: 'today control center visible' })
   const hasLogDose = await evalJs('Boolean(document.querySelector(\'[data-e2e="today-inventory-log-dose"]\'))')
@@ -1204,18 +1253,18 @@ async function todayHubDeepInteractions() {
     )
 
     const formulationId = await evalJs('new URL(window.location.href).searchParams.get("formulation_id") || ""')
-    const selected = await evalJs('document.querySelector(\'select[aria-label="Formulation row 1"]\')?.value || ""')
+    const selected = await evalJs('document.querySelector(\'[data-e2e="today-log-input-formulation"]\')?.value || ""')
     if (typeof formulationId !== 'string' || !formulationId) fail('log dose URL missing formulation_id')
     if (selected !== formulationId) {
-      fail(`inventory card log dose did not preselect formulation: expected ${formulationId} but row1 selected ${selected}`)
+      fail(`inventory card log dose did not preselect formulation: expected ${formulationId} but got ${selected}`)
     }
 
     await waitUntil(
       async () => {
-        const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
-        return typeof aria === 'string' && aria.includes('Dose row 1')
+        const tag = await evalJs('document.activeElement?.getAttribute(\"data-e2e\") || \"\"')
+        return typeof tag === 'string' && tag === 'today-log-input-dose'
       },
-      { label: 'inventory log dose focuses Dose row 1', timeoutMs: 30000 },
+      { label: 'inventory log dose focuses inline dose input', timeoutMs: 30000 },
     )
     assertHealthy('today-control-log-dose')
   } else {
@@ -1274,12 +1323,16 @@ async function commandPaletteDeepInteractions() {
     },
     { label: 'cmdk routes to /today?focus=log', timeoutMs: 60000 },
   )
+  await waitUntil(async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-log-table"]\'))')), {
+    label: 'today log table visible (cmdk)',
+    timeoutMs: 60000,
+  })
   await waitUntil(
     async () => {
-      const aria = await evalJs('document.activeElement?.getAttribute("aria-label") || ""')
-      return typeof aria === 'string' && aria.includes('Dose row 1')
+      const tag = await evalJs('document.activeElement?.getAttribute("data-e2e") || ""')
+      return typeof tag === 'string' && tag === 'today-log-input-dose'
     },
-    { label: 'cmdk log event focuses Dose row 1', timeoutMs: 30000 },
+    { label: 'cmdk log event focuses inline dose input', timeoutMs: 30000 },
   )
   assertHealthy('cmdk-nav-today-focus-log')
 }
@@ -2171,12 +2224,11 @@ async function settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationInc
   assertHealthy('settings-editor-closed')
 
   // Cross-page integration sanity: /today grid should now show at least one "Rec:" hint.
-  open(`${BASE_URL}/today`)
-  await waitForBodyText('Log (grid)', { label: 'today grid visible (post settings edits)' })
-  // Ensure at least one row is using a formulation that matches the demo substance we attached the recommendation to.
-  waitFor('select[aria-label="Formulation row 1"]')
-  const demoFormulationId = await selectOptionValue('select[aria-label="Formulation row 1"]', 'Demo formulation')
-  runAgentBrowser(['select', 'select[aria-label="Formulation row 1"]', demoFormulationId])
+  open(`${BASE_URL}/today?focus=log`)
+  waitFor('[data-e2e="today-log-table"]')
+  // Ensure the inline row is using the formulation we attached the recommendation to.
+  const demoFormulationId = await selectOptionValue('[data-e2e="today-log-input-formulation"]', 'Demo formulation')
+  runAgentBrowser(['select', '[data-e2e="today-log-input-formulation"]', demoFormulationId])
 
   await waitUntil(async () => Boolean(await evalJs('document.body.innerText.includes("Rec:")')), {
     label: 'today shows Rec hint from settings recommendation',
@@ -2382,10 +2434,11 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
     takeScreenshot('simple-import-today-empty')
     fail('After simple import, /today shows empty state (no formulations). Import did not create formulations as expected.')
   }
-  if (!todayBody.includes('Log (grid)')) {
-    takeScreenshot('simple-import-today-no-grid')
-    const snippet = todayBody.replace(/\s+/g, ' ').slice(0, 300)
-    fail(`After simple import, /today did not show the log grid. Body starts: ${snippet}`)
+  const hasLogTable = await evalJs('Boolean(document.querySelector(\'[data-e2e="today-log-table"]\'))')
+  if (!hasLogTable) {
+    takeScreenshot('simple-import-today-no-log-table')
+    const snippet = todayBody.replace(/\\s+/g, ' ').slice(0, 300)
+    fail(`After simple import, /today did not show the log table. Body starts: ${snippet}`)
   }
 }
 
@@ -2519,10 +2572,15 @@ async function main() {
   })
 
   // Log events with multiple input types.
-  await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 1, inputText: '0.3mL' })
-  await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 2, inputText: '250mcg' })
-  await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 3, inputText: '500 IU' })
-  await logEventInTodayGrid({ formulationLabelIncludes: E2E_FORMULATION_IN, rowIndex1Based: 4, inputText: '2 sprays' })
+  await logEventInTodayTable({
+    formulationLabelIncludes: 'Demo formulation',
+    inputText: '0.3mL',
+    timeHHMM: '01:23',
+    notes: `e2e note ${RUN_ID}`,
+  })
+  await logEventInTodayTable({ formulationLabelIncludes: 'Demo formulation', inputText: '250mcg' })
+  await logEventInTodayTable({ formulationLabelIncludes: 'Demo formulation', inputText: '500 IU' })
+  await logEventInTodayTable({ formulationLabelIncludes: E2E_FORMULATION_IN, inputText: '2 sprays' })
 
   // Deep coverage for the Stitch /today hub (quick log, control center, focus behavior).
   await todayHubDeepInteractions()
@@ -2595,8 +2653,8 @@ async function main() {
   await settingsImportZip({ zipPath: exportPath, replaceExisting: false })
   open(`${BASE_URL}/today`)
   await waitUntil(
-    async () => Boolean(await evalJs('document.body.innerText.includes("Log (grid)")')),
-    { label: 'today grid after import', timeoutMs: 60000 },
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-log-table"]\'))')),
+    { label: 'today log table after import', timeoutMs: 60000 },
   )
 
   // Page sweep (desktop).
