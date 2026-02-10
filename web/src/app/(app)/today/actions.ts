@@ -201,6 +201,28 @@ export async function seedDemoDataAction(): Promise<void> {
     'demo.formulation.upsert',
   )
 
+  // 2b) Second formulation for the same substance (used by E2E to validate substance-level grouping
+  // in the /today Control Center when multiple formulations are in stock).
+  const formulationAltUpsert = await supabase
+    .from('formulations')
+    .upsert(
+      {
+        user_id: user.id,
+        substance_id: substance.id,
+        route_id: route.id,
+        name: 'Demo formulation (alt)',
+        is_default_for_route: false,
+      },
+      { onConflict: 'user_id,substance_id,route_id,name' },
+    )
+    .select('*')
+    .single()
+  const formulationAlt = requireData(
+    formulationAltUpsert.data,
+    formulationAltUpsert.error,
+    'demo.formulation_alt.upsert',
+  )
+
   // 3) Active vial (if missing)
   const activeVialRes = await supabase
     .from('vials')
@@ -224,6 +246,32 @@ export async function seedDemoDataAction(): Promise<void> {
       cost_usd: 100,
     })
     requireOk(vialInsert.error, 'demo.vials.insert')
+  }
+
+  // 3b) Active vial for the alt formulation (if missing)
+  const altActiveVialRes = await supabase
+    .from('vials')
+    .select('*')
+    .eq('formulation_id', formulationAlt.id)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+    .maybeSingle()
+  requireOk(altActiveVialRes.error, 'demo.vials.select_active_alt')
+  if (!altActiveVialRes.data) {
+    const vialInsert = await supabase.from('vials').insert({
+      user_id: user.id,
+      substance_id: substance.id,
+      formulation_id: formulationAlt.id,
+      status: 'active',
+      lot: 'DEMO-ALT',
+      content_mass_value: 10,
+      content_mass_unit: 'mg',
+      total_volume_value: 10,
+      total_volume_unit: 'mL',
+      concentration_mg_per_ml: 1,
+      cost_usd: 100,
+    })
+    requireOk(vialInsert.error, 'demo.vials.insert_alt')
   }
 
   // 4) Distributions + specs (systemic only)
