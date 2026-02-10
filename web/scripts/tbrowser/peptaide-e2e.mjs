@@ -693,6 +693,7 @@ async function requestOtpEmail(email) {
   logLine(`auth: requesting OTP for ${email}`)
   open(`${BASE_URL}/sign-in`)
   waitFor('input[name="email"]')
+  await assertSignInStitchVisualContract()
 
   await evalJs('window.confirm = () => true')
 
@@ -736,6 +737,62 @@ async function signInWithCode(email) {
       return typeof url === 'string' && url.startsWith(`${BASE_URL}/today`)
     },
     { label: 'redirect to /today via code' },
+  )
+}
+
+async function signInWithCodePreferDevUi(email) {
+  logLine(`auth: requesting OTP for ${email} (prefer dev UI)`)
+  open(`${BASE_URL}/sign-in`)
+  waitFor('input[name="email"]')
+  await assertSignInStitchVisualContract()
+
+  await evalJs('window.confirm = () => true')
+
+  fill('input[name="email"]', email)
+  // Mailpit runs in a different container and can have minor clock skew; tracking existing IDs
+  // is more reliable than a strict timestamp filter.
+  const existingIds = await mailpitMessageIdsForEmail(email)
+  const since = Date.now()
+  clickButtonByName('Send sign-in link')
+
+  // Wait for the UI to surface the post-send status message.
+  await waitUntil(
+    async () => {
+      const text = await evalJs('document.querySelector(\'p[role="status"]\')?.textContent || ""')
+      return typeof text === 'string' && text.includes('Check your email')
+    },
+    { label: 'sign-in status message after send', timeoutMs: 60000 },
+  )
+
+  const statusText = await evalJs('document.querySelector(\'p[role="status"]\')?.textContent || ""')
+  const devExposed = typeof statusText === 'string' && statusText.includes('Dev:')
+
+  if (devExposed) {
+    logLine('auth: using dev OTP UI (no Mailpit dependency for the client)')
+    await waitForBodyText('Dev OTP code', { label: 'dev OTP code visible', timeoutMs: 60000 })
+    clickButtonByName('Use code')
+    await waitUntil(
+      async () => {
+        const v = await evalJs('document.querySelector(\'input[name="code"]\')?.value || ""')
+        return typeof v === 'string' && v.trim().length >= 6
+      },
+      { label: 'dev OTP use-code filled input', timeoutMs: 10000 },
+    )
+  } else {
+    logLine('auth: dev OTP UI not exposed; falling back to Mailpit code')
+    const { code } = await waitForOtpEmail(email, { sinceMs: since - 2000, excludeIds: existingIds })
+    waitFor('input[name="code"]')
+    fill('input[name="code"]', code)
+  }
+
+  clickButtonByName('Sign in')
+
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      return typeof url === 'string' && url.startsWith(`${BASE_URL}/today`)
+    },
+    { label: 'redirect to /today via code (prefer dev UI)', timeoutMs: 60000 },
   )
 }
 
@@ -1305,7 +1362,9 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   const hasRetaImport = await evalJs('document.body.innerText.includes("Import RETA-PEPTIDE orders")')
   if (hasRetaImport) {
     clickButtonByName('Import RETA-PEPTIDE orders')
-    await waitForBodyText('Imported orders for RETA-PEPTIDE', { label: 'reta import success', timeoutMs: 60000 })
+    // The success message can be transient due to router.refresh(). Wait for stable, persisted evidence:
+    // the imported Order I ordered_at date should appear in the Orders table.
+    await waitForBodyText('2025-09-24', { label: 'reta import persisted order visible', timeoutMs: 120000 })
   }
 
   async function tagOrdersForm(headingText, tag) {
@@ -1756,6 +1815,41 @@ function approxEq(a, b, { tol = 2 } = {}) {
   const nb = typeof b === 'number' ? b : Number(b)
   if (!Number.isFinite(na) || !Number.isFinite(nb)) return false
   return Math.abs(na - nb) <= tol
+}
+
+async function assertSignInStitchVisualContract() {
+  const res = await evalJs(`(() => {
+    const css = getComputedStyle(document.documentElement)
+    const bodyCss = getComputedStyle(document.body)
+
+    const primaryBtn = document.querySelector('form button[type="submit"]')
+
+    return {
+      dark: document.documentElement.classList.contains('dark'),
+      primary: css.getPropertyValue('--color-primary').trim(),
+      bgDark: css.getPropertyValue('--color-background-dark').trim(),
+      surfaceDark: css.getPropertyValue('--color-surface-dark').trim(),
+      fontManropeVar:
+        bodyCss.getPropertyValue('--font-manrope').trim() || css.getPropertyValue('--font-manrope').trim(),
+      primaryBtnBg: primaryBtn ? getComputedStyle(primaryBtn).backgroundColor : null,
+    }
+  })()`)
+
+  if (!res || typeof res !== 'object') fail('Could not read sign-in stitch visual contract.')
+
+  if (!res.dark) fail('Expected documentElement.dark class for Stitch theme, but it was missing.')
+  if (res.primary !== '#135bec') fail(`Expected --color-primary=#135bec but got "${res.primary}".`)
+  if (res.bgDark !== '#101622') fail(`Expected --color-background-dark=#101622 but got "${res.bgDark}".`)
+  if (res.surfaceDark !== '#1a2233') fail(`Expected --color-surface-dark=#1a2233 but got "${res.surfaceDark}".`)
+  if (typeof res.fontManropeVar !== 'string' || !res.fontManropeVar.trim()) {
+    fail('Expected --font-manrope to be set (Manrope loaded), but it was empty.')
+  }
+
+  // Primary buttons should resolve to the Stitch primary blue.
+  const bg = String(res.primaryBtnBg || '')
+  if (!bg.includes('rgb(19, 91, 236)')) {
+    fail(`Expected sign-in primary button background rgb(19, 91, 236) but got "${bg}".`)
+  }
 }
 
 async function assertTodayStitchVisualContract() {
@@ -2468,6 +2562,23 @@ async function main() {
   const formulationHref = await evalJs('document.querySelector(\'a[href^="/formulations/"]\')?.getAttribute("href")')
   const cycleHref = await evalJs('document.querySelector(\'a[href^="/cycles/"]\')?.getAttribute("href")')
 
+  // Sanity: the hub sidebar should persist on detail pages too (not just list pages).
+  const detailLinks = [
+    { label: 'substance-detail', href: substanceHref },
+    { label: 'device-detail', href: deviceHref },
+    { label: 'formulation-detail', href: formulationHref },
+    { label: 'cycle-detail', href: cycleHref },
+  ].filter((x) => typeof x.href === 'string' && x.href.startsWith('/'))
+
+  for (const x of detailLinks) {
+    open(`${BASE_URL}${x.href}`)
+    waitFor('main')
+    waitFor(300)
+    await assertHubSidebarPresent(`detail-${x.label}`)
+    takeScreenshot(`detail-${x.label}`)
+    assertHealthy(`detail-${x.label}`)
+  }
+
   // Data portability: export -> delete -> import -> verify restored.
   const exportPath = path.join(ARTIFACTS_DIR, 'export.zip')
   const exportInfo = await exportZipToFile(exportPath)
@@ -2500,7 +2611,7 @@ async function main() {
 
   // Multi-user RLS: sign out, sign in as B, verify A's deep links are 404/not-found.
   await signOut()
-  await signInWithCode(EMAIL_B)
+  await signInWithCodePreferDevUi(EMAIL_B)
 
   // User B should see empty state on /today.
   await waitUntil(

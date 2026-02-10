@@ -17,6 +17,7 @@
  * - IMPORT_MAILPIT_URL (default http://127.0.0.1:54324)
  * - IMPORT_EMAIL (default t.hinton@protonmail.com)
  * - IMPORT_CSV_PATH (default <repo>/spreadsheetdata/peptaide_simple_events.csv)
+ * - IMPORT_REPLACE_EXISTING=1 (DANGEROUS: delete all existing user data before importing; default 0)
  * - IMPORT_SESSION (agent-browser session name; default peptaide-import-<timestamp>)
  * - IMPORT_ARTIFACTS_DIR (default /tmp/peptaide-import-<timestamp>)
  * - IMPORT_HEADED=1 (run headed)
@@ -50,6 +51,7 @@ const CSV_PATH =
 const SESSION = process.env.IMPORT_SESSION || `peptaide-import-${RUN_ID}`
 const ARTIFACTS_DIR = process.env.IMPORT_ARTIFACTS_DIR || path.join('/tmp', `peptaide-import-${RUN_ID}`)
 const HEADED = isTruthyEnv(process.env.IMPORT_HEADED)
+const REPLACE_EXISTING = isTruthyEnv(process.env.IMPORT_REPLACE_EXISTING)
 
 const localAgentBrowser = path.join(WEB_DIR, 'node_modules', '.bin', 'agent-browser')
 const AGENT_BROWSER_BIN =
@@ -423,6 +425,7 @@ async function main() {
   logLine(`mailpit_url: ${MAILPIT_URL}`)
   logLine(`email: ${EMAIL}`)
   logLine(`csv: ${CSV_PATH}`)
+  logLine(`replace_existing: ${REPLACE_EXISTING ? '1' : '0'}`)
   logLine(`session: ${SESSION}`)
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 
@@ -437,7 +440,7 @@ async function main() {
   await signInWithCode(EMAIL)
   takeScreenshot('signed-in-today')
 
-  await settingsImportSimpleEventsCsv({ csvPath: CSV_PATH, replaceExisting: true, inferCycles: true })
+  await settingsImportSimpleEventsCsv({ csvPath: CSV_PATH, replaceExisting: REPLACE_EXISTING, inferCycles: true })
   takeScreenshot('after-simple-import-settings')
 
   await inventoryReconcileImportedVials()
