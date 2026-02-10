@@ -56,6 +56,9 @@ const ARTIFACTS_DIR = process.env.E2E_ARTIFACTS_DIR || path.join('/tmp', `peptai
 
 const HEADED = isTruthyEnv(process.env.E2E_HEADED)
 const FULL_SCREENSHOT = isTruthyEnv(process.env.E2E_FULL)
+const RESET_DB = isTruthyEnv(process.env.E2E_RESET_DB)
+// Backwards-compat escape hatch: older runs set E2E_SKIP_DB_RESET=1. Default behavior is now "skip"
+// unless E2E_RESET_DB=1 is explicitly provided.
 const SKIP_DB_RESET = isTruthyEnv(process.env.E2E_SKIP_DB_RESET)
 
 const MOCKUP_TODAY_SCREEN = path.join(REPO_ROOT, 'mockups', 'logging_&_inventory_control_hub', 'screen.png')
@@ -127,13 +130,13 @@ function runCmd(bin, args, { cwd, allowFailure = false } = {}) {
 }
 
 async function resetLocalSupabaseDb() {
-  if (SKIP_DB_RESET) {
-    logLine('supabase: skipping db reset (E2E_SKIP_DB_RESET=1)')
-    return
-  }
-
   logLine('supabase: ensuring local dev stack is running')
   runCmd('supabase', ['start'], { cwd: REPO_ROOT, allowFailure: true })
+
+  if (!RESET_DB || SKIP_DB_RESET) {
+    logLine('supabase: skipping db reset (set E2E_RESET_DB=1 to wipe + reseed)')
+    return
+  }
 
   // `supabase db reset` can transiently 502 while the local gateway restarts. Prefer a longer
   // retry loop so the "conclusive" run is resilient to local infra flakiness.
@@ -1851,6 +1854,57 @@ async function assertSettingsStitchVisualContract() {
   }
 }
 
+async function assertHubSidebarPresent(label) {
+  const ok = await evalJs('Boolean(document.querySelector(\'[data-e2e="hub-sidebar"]\'))')
+  if (ok) return
+  takeScreenshot(`${label}-missing-hub-sidebar`)
+  fail(`Expected Settings Hub sidebar to be present on this page, but it was missing. (${label})`)
+}
+
+async function hubSidebarClickthroughSweep() {
+  logLine('hub: sidebar clickthrough sweep')
+
+  const targets = [
+    { navText: 'Substances', path: '/settings', bodyText: 'Substances' },
+    { navText: 'Routes', path: '/routes', bodyText: 'Routes' },
+    { navText: 'Formulations', path: '/formulations', bodyText: 'Formulations' },
+    { navText: 'Devices', path: '/devices', bodyText: 'Devices' },
+    { navText: 'Inventory', path: '/inventory', bodyText: 'Inventory' },
+    { navText: 'Orders', path: '/orders', bodyText: 'Orders' },
+    { navText: 'Cycles', path: '/cycles', bodyText: 'Cycles' },
+    { navText: 'Distributions', path: '/distributions', bodyText: 'Distributions' },
+    { navText: 'Evidence', path: '/evidence-sources', bodyText: 'Evidence sources' },
+    { navText: 'App Settings', path: '/settings', bodyText: 'Settings', queryIncludes: 'tab=app' },
+  ]
+
+  open(`${BASE_URL}/settings`)
+  await waitForBodyText('Substances', { label: 'hub clickthrough: /settings visible', timeoutMs: 60000 })
+  await assertHubSidebarPresent('hub-clickthrough-settings')
+
+  for (const t of targets) {
+    clearDiagnostics()
+
+    // Click through the sidebar nav link to validate the shared route-group layout actually persists.
+    click(`[data-e2e="hub-sidebar"] a:has-text("${t.navText}")`)
+
+    await waitUntil(
+      async () => {
+        const url = await evalJs('window.location.href')
+        if (typeof url !== 'string') return false
+        const u = new URL(url)
+        if (u.pathname !== t.path) return false
+        if (t.queryIncludes && !u.search.includes(t.queryIncludes)) return false
+        return true
+      },
+      { label: `hub clickthrough: nav to ${t.navText}`, timeoutMs: 60000 },
+    )
+
+    await waitForBodyText(t.bodyText, { label: `hub clickthrough: ${t.navText} body text`, timeoutMs: 60000 })
+    await assertHubSidebarPresent(`hub-clickthrough-${t.navText}`)
+    assertHealthy(`hub-clickthrough-${t.navText}`)
+  }
+}
+
 async function settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes } = {}) {
   logLine('settings: substances workspace deep interactions')
 
@@ -2244,19 +2298,19 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
 
 async function sweepPages({ labelPrefix }) {
   const pages = [
-    { label: 'today', path: '/today' },
-    { label: 'setup', path: '/setup' },
-    { label: 'analytics', path: '/analytics' },
-    { label: 'substances', path: '/substances' },
-    { label: 'routes', path: '/routes' },
-    { label: 'devices', path: '/devices' },
-    { label: 'formulations', path: '/formulations' },
-    { label: 'inventory', path: '/inventory' },
-    { label: 'orders', path: '/orders' },
-    { label: 'cycles', path: '/cycles' },
-    { label: 'distributions', path: '/distributions' },
-    { label: 'evidence-sources', path: '/evidence-sources' },
-    { label: 'settings', path: '/settings' },
+    { label: 'today', path: '/today', expectHubSidebar: false },
+    { label: 'setup', path: '/setup', expectHubSidebar: false },
+    { label: 'analytics', path: '/analytics', expectHubSidebar: false },
+    { label: 'substances', path: '/substances', expectHubSidebar: true },
+    { label: 'routes', path: '/routes', expectHubSidebar: true },
+    { label: 'devices', path: '/devices', expectHubSidebar: true },
+    { label: 'formulations', path: '/formulations', expectHubSidebar: true },
+    { label: 'inventory', path: '/inventory', expectHubSidebar: true },
+    { label: 'orders', path: '/orders', expectHubSidebar: true },
+    { label: 'cycles', path: '/cycles', expectHubSidebar: true },
+    { label: 'distributions', path: '/distributions', expectHubSidebar: true },
+    { label: 'evidence-sources', path: '/evidence-sources', expectHubSidebar: true },
+    { label: 'settings', path: '/settings', expectHubSidebar: true },
   ]
 
   for (const p of pages) {
@@ -2266,6 +2320,7 @@ async function sweepPages({ labelPrefix }) {
     waitFor('main')
     // Give the page a moment to settle so network/console diagnostics are meaningful.
     waitFor(300)
+    if (p.expectHubSidebar) await assertHubSidebarPresent(label)
     takeScreenshot(label)
     assertHealthy(label)
   }
@@ -2296,6 +2351,7 @@ async function main() {
 
   // Verify shell navigation UX (cmd palette + focus=log routing) against the current UI.
   await commandPaletteDeepInteractions()
+  await hubSidebarClickthroughSweep()
 
   // Evidence sources are used as optional citations in the settings/substance editor. Create one that we
   // keep (to attach), and a second one that we delete (to cover soft-delete UX).

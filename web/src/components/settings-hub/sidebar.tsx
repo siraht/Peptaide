@@ -71,7 +71,10 @@ export function SettingsHubSidebar() {
   })()
 
   return (
-    <nav className="w-64 flex-none bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col justify-between py-4">
+    <nav
+      className="w-64 flex-none bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col justify-between py-4"
+      data-e2e="hub-sidebar"
+    >
       <div className="space-y-1 px-3">
         <div className="px-3 mb-2">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reference Data</p>
@@ -144,4 +147,3 @@ export function SettingsHubSidebar() {
     </nav>
   )
 }
-
