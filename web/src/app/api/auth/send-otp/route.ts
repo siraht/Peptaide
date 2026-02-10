@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
 
 import { getSupabaseServerEnv } from '@/lib/supabase/env'
@@ -7,6 +7,15 @@ export const runtime = 'nodejs'
 
 type MailpitList = { messages?: Array<{ ID?: string; To?: Array<{ Address?: string }>; Created?: string }> }
 type MailpitMessage = { Text?: string; HTML?: string }
+type CookieOptions = {
+  domain?: string
+  expires?: Date
+  httpOnly?: boolean
+  maxAge?: number
+  path?: string
+  sameSite?: boolean | 'lax' | 'strict' | 'none'
+  secure?: boolean
+}
 
 function firstHeaderValue(v: string | null): string | null {
   if (!v) return null
@@ -95,9 +104,22 @@ export async function POST(request: NextRequest): Promise<Response> {
   const origin = getRequestOrigin(request)
   const { url: supabaseUrl, anonKey } = getSupabaseServerEnv()
 
-  const supabase = createClient(supabaseUrl, anonKey, {
+  const cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }> = []
+
+  const supabase = createServerClient(supabaseUrl, anonKey, {
     auth: {
       flowType: 'pkce',
+    },
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(items) {
+        // Keep request cookies in sync (important if multiple writes happen).
+        items.forEach(({ name, value }) => request.cookies.set(name, value))
+        // Buffer cookie writes so we can attach them to the final JSON response.
+        items.forEach(({ name, value, options }) => cookiesToSet.push({ name, value, options }))
+      },
     },
   })
 
@@ -112,14 +134,18 @@ export async function POST(request: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
   }
 
+  const body: { ok: boolean; dev_code?: string } = { ok: true }
+
   if (shouldExposeOtp) {
     try {
       const devCode = await waitForOtpCodeFromMailpit(email, { baseUrl: mailpitBaseUrl, sinceMs: sinceMs - 2000 })
-      if (devCode) return NextResponse.json({ ok: true, dev_code: devCode })
+      if (devCode) body.dev_code = devCode
     } catch {
       // Ignore mailpit issues; sending the email is the primary behavior.
     }
   }
 
-  return NextResponse.json({ ok: true })
+  const response = NextResponse.json(body)
+  cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+  return response
 }
