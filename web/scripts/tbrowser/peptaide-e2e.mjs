@@ -1065,6 +1065,24 @@ async function logEventInTodayTable({ formulationLabelIncludes, inputText, timeH
       { label: 'today notes persisted', timeoutMs: 60000 },
     )
   }
+
+  if (notes && timeHHMM) {
+    await waitUntil(
+      async () => {
+        const res = await evalJs(`(() => {
+          const needle = ${JSON.stringify(String(notes))}
+          const rows = Array.from(document.querySelectorAll('[data-e2e="today-log-row"]'))
+          const row = rows.find((r) => (r.textContent || '').includes(needle))
+          if (!row) return { found: false, timeText: '' }
+          const timeText = String(row.querySelector('td:nth-child(1)')?.textContent || '').trim()
+          return { found: true, timeText }
+        })()`)
+        if (!res || typeof res !== 'object' || !('found' in res) || !res.found) return false
+        return timeTextIncludesHHMM(res.timeText, timeHHMM)
+      },
+      { label: 'today time persisted for notes row', timeoutMs: 60000 },
+    )
+  }
 }
 
 async function todayHubDeepInteractions() {
@@ -1073,6 +1091,12 @@ async function todayHubDeepInteractions() {
   open(`${BASE_URL}/today`)
   waitFor('[data-e2e="today-root"]')
   waitFor('[data-e2e="today-log-table"]')
+  waitFor('[data-e2e="today-log-input-row"]')
+  waitFor('[data-e2e="today-log-input-time"]')
+  waitFor('[data-e2e="today-log-input-formulation"]')
+  waitFor('[data-e2e="today-log-input-dose"]')
+  waitFor('[data-e2e="today-log-input-notes"]')
+  waitFor('[data-e2e="today-log-submit"]')
 
   // Default-yes prompt: pressing Enter selects OK.
   await evalJs('window.confirm = () => true')
@@ -1084,34 +1108,109 @@ async function todayHubDeepInteractions() {
     async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-inventory-card"]\'))')),
     { label: 'today control center inventory cards present', timeoutMs: 60000 },
   )
+  let demoCurrentVialFormulationIds = []
   {
-    const demoCards = Number(
-      await evalJs(
-        `(() =>
-          Array.from(document.querySelectorAll('[data-e2e="today-inventory-card"]'))
-            .filter((c) => (c.textContent || '').includes('Demo substance')).length
-        )()`,
-      ),
-    )
-    if (!Number.isFinite(demoCards)) fail('Could not read demo substance card count.')
-    if (demoCards !== 1) {
-      takeScreenshot('today-demo-substance-dup-cards')
-      fail(`Expected exactly 1 Control Center card for Demo substance, but found ${demoCards}.`)
+    const inv = await evalJs(`(() => {
+      const cards = Array.from(document.querySelectorAll('[data-e2e="today-inventory-card"]'))
+      const substanceIds = cards.map((c) => String(c.getAttribute('data-substance-id') || '').trim())
+      const missingSubstanceIds = substanceIds.filter((id) => !id).length
+      const dupSubstanceIds = substanceIds
+        .filter(Boolean)
+        .filter((id, idx, arr) => arr.indexOf(id) !== idx)
+
+      const demoCards = cards.filter((c) => (c.textContent || '').includes('Demo substance'))
+      const demoCard = demoCards[0] || null
+
+      function parseNum(x) {
+        const cleaned = String(x || '').replace(/,/g, '')
+        const n = Number(cleaned)
+        return Number.isFinite(n) ? n : null
+      }
+
+      function parsePair(text, re) {
+        const m = String(text || '').match(re)
+        if (!m) return [null, null]
+        return [parseNum(m[1]), parseNum(m[2])]
+      }
+
+      const demoText = demoCard ? (demoCard.textContent || '') : ''
+      const [demoTotalRemaining, demoTotalContent] = parsePair(
+        demoText,
+        /Total stock:\\s*([0-9.,]+)mg\\s*\\/\\s*([0-9.,]+)mg/i,
+      )
+
+      const currentEls = demoCard ? Array.from(demoCard.querySelectorAll('[data-e2e="today-inventory-current-vial"]')) : []
+      const demoCurrentFormulationIds = currentEls
+        .map((el) => String(el.getAttribute('data-formulation-id') || '').trim())
+        .filter(Boolean)
+      const demoCurrentPairs = currentEls.map((el) =>
+        parsePair(el.textContent || '', /Current vial[^:]*:\\s*([0-9.,]+)mg\\s*\\/\\s*([0-9.,]+)mg/i),
+      )
+
+      return {
+        cardCount: cards.length,
+        missingSubstanceIds,
+        dupSubstanceIds,
+        demoCardCount: demoCards.length,
+        demoTotalRemaining,
+        demoTotalContent,
+        demoCurrentFormulationIds,
+        demoCurrentPairs,
+      }
+    })()`)
+
+    if (!inv || typeof inv !== 'object') fail('Could not read Control Center inventory contract.')
+
+    if (inv.missingSubstanceIds !== 0) {
+      takeScreenshot('today-inventory-card-missing-substance-id')
+      fail(`Expected all inventory cards to have data-substance-id, but ${inv.missingSubstanceIds} were missing.`)
     }
 
-    const demoCurrentVials = Number(
-      await evalJs(
-        `(() => {
-          const card = Array.from(document.querySelectorAll('[data-e2e="today-inventory-card"]'))
-            .find((c) => (c.textContent || '').includes('Demo substance'))
-          return card ? card.querySelectorAll('[data-e2e="today-inventory-current-vial"]').length : 0
-        })()`,
-      ),
-    )
-    if (!Number.isFinite(demoCurrentVials)) fail('Could not read demo current vial count.')
-    if (demoCurrentVials < 2) {
+    const dupIds = Array.isArray(inv.dupSubstanceIds) ? inv.dupSubstanceIds : []
+    if (dupIds.length > 0) {
+      takeScreenshot('today-inventory-dup-substance-cards')
+      fail(`Expected <=1 Control Center card per substance_id, but duplicates found: ${dupIds.join(',')}.`)
+    }
+
+    if (inv.demoCardCount !== 1) {
+      takeScreenshot('today-demo-substance-dup-cards')
+      fail(`Expected exactly 1 Control Center card for Demo substance, but found ${inv.demoCardCount}.`)
+    }
+
+    const demoFids = Array.isArray(inv.demoCurrentFormulationIds) ? inv.demoCurrentFormulationIds : []
+    demoCurrentVialFormulationIds = demoFids
+    if (demoFids.length < 2) {
       takeScreenshot('today-demo-substance-missing-multi-vials')
-      fail(`Expected Demo substance to show >=2 current-vial bars, but found ${demoCurrentVials}.`)
+      fail(`Expected Demo substance to show >=2 current-vial bars, but found ${demoFids.length}.`)
+    }
+    if (new Set(demoFids).size !== demoFids.length) {
+      takeScreenshot('today-demo-substance-dup-formulation-ids')
+      fail(`Expected Demo substance current-vial bars to have unique formulation IDs, but got: ${demoFids.join(',')}.`)
+    }
+
+    const totalContent = Number(inv.demoTotalContent)
+    const totalRemaining = Number(inv.demoTotalRemaining)
+    if (!Number.isFinite(totalContent) || !Number.isFinite(totalRemaining)) {
+      takeScreenshot('today-demo-substance-totals-parse-failed')
+      fail(
+        `Expected Demo substance total stock values to be parseable numbers, got remaining=${String(inv.demoTotalRemaining)} content=${String(inv.demoTotalContent)}.`,
+      )
+    }
+
+    const pairs = Array.isArray(inv.demoCurrentPairs) ? inv.demoCurrentPairs : []
+    const currentRemaining = pairs.map((p) => Number(p?.[0])).filter(Number.isFinite)
+    const currentContent = pairs.map((p) => Number(p?.[1])).filter(Number.isFinite)
+    if (currentRemaining.length < 2 || currentContent.length < 2) {
+      takeScreenshot('today-demo-substance-current-parse-failed')
+      fail('Expected Demo substance current-vial values to be parseable numbers for >=2 vials.')
+    }
+    const maxRemaining = Math.max(...currentRemaining)
+    const maxContent = Math.max(...currentContent)
+    if (!(totalRemaining > maxRemaining && totalContent > maxContent)) {
+      takeScreenshot('today-demo-substance-total-not-aggregated')
+      fail(
+        `Expected Demo substance total stock to exceed any single current vial (aggregated across formulations), got totalRemaining=${totalRemaining} maxCurrentRemaining=${maxRemaining} totalContent=${totalContent} maxCurrentContent=${maxContent}.`,
+      )
     }
   }
   assertHealthy('today-inventory-grouping')
@@ -1173,15 +1272,33 @@ async function todayHubDeepInteractions() {
   )
   assertHealthy('today-custom-quick-log')
 
-  // Inline log table: save via Enter and via click.
-  async function saveInlineRow({ inputText, via }) {
+  // Inline log table: save via Enter and via click. Also cover the "press Enter in notes" path.
+  async function saveInlineRow({ inputText, notes, timeHHMM, via, submitFrom = 'dose' } = {}) {
     const before = Number(await evalJs('document.querySelectorAll(\'[data-e2e=\"today-log-row\"]\').length'))
     if (!Number.isFinite(before)) fail('Could not read today log row count before save.')
 
-    click('[data-e2e=\"today-log-input-dose\"]')
-    fill('[data-e2e=\"today-log-input-dose\"]', inputText)
+    if (timeHHMM) {
+      click('[data-e2e="today-log-input-time"]')
+      fill('[data-e2e="today-log-input-time"]', String(timeHHMM))
+    }
+
+    click('[data-e2e="today-log-input-dose"]')
+    fill('[data-e2e="today-log-input-dose"]', inputText)
+
+    if (notes) {
+      click('[data-e2e="today-log-input-notes"]')
+      fill('[data-e2e="today-log-input-notes"]', String(notes))
+    }
+
     if (via === 'click') click('[data-e2e=\"today-log-submit\"]')
-    else press('Enter')
+    else {
+      if (submitFrom === 'notes') {
+        click('[data-e2e="today-log-input-notes"]')
+      } else {
+        click('[data-e2e="today-log-input-dose"]')
+      }
+      press('Enter')
+    }
 
     await waitUntil(
       async () => {
@@ -1190,29 +1307,118 @@ async function todayHubDeepInteractions() {
       },
       { label: `today inline save (${via})`, timeoutMs: 60000 },
     )
+
+    if (notes) {
+      await waitUntil(
+        async () =>
+          Boolean(
+            await evalJs(
+              `document.querySelector('[data-e2e="today-log-table"]')?.innerText.includes(${JSON.stringify(String(notes))})`,
+            ),
+          ),
+        { label: 'today inline notes persisted', timeoutMs: 60000 },
+      )
+    }
+
+    if (notes && timeHHMM) {
+      await waitUntil(
+        async () => {
+          const res = await evalJs(`(() => {
+            const needle = ${JSON.stringify(String(notes))}
+            const rows = Array.from(document.querySelectorAll('[data-e2e="today-log-row"]'))
+            const row = rows.find((r) => (r.textContent || '').includes(needle))
+            if (!row) return { found: false, timeText: '' }
+            const timeText = String(row.querySelector('td:nth-child(1)')?.textContent || '').trim()
+            return { found: true, timeText }
+          })()`)
+          if (!res || typeof res !== 'object' || !('found' in res) || !res.found) return false
+          return timeTextIncludesHHMM(res.timeText, timeHHMM)
+        },
+        { label: 'today inline time persisted for notes row', timeoutMs: 60000 },
+      )
+    }
   }
 
   await saveInlineRow({ inputText: '0.11mL', via: 'enter' })
   await saveInlineRow({ inputText: '0.12mL', via: 'click' })
+  await saveInlineRow({
+    inputText: '0.13mL',
+    notes: `e2e inline notes ${RUN_ID}`,
+    timeHHMM: '02:34',
+    via: 'enter',
+    submitFrom: 'notes',
+  })
   assertHealthy('today-inline-save')
 
-  // Copy-row should populate the inline input row.
-  const firstRowInput = String(
-    await evalJs(`(() => {
-      const row = document.querySelector('[data-e2e=\"today-log-row\"]')
-      const cell = row ? row.querySelector('td:nth-child(3)') : null
-      return (cell && cell.textContent ? cell.textContent : '').trim()
-    })()`),
-  )
-  if (!firstRowInput) fail('Could not read first today log row input text for copy test.')
+  // Copy-row should populate the inline input row (dose + notes + formulation select).
+  const copyNeedle = `e2e note ${RUN_ID}`
+  const copyRow = await evalJs(`(() => {
+    const needle = ${JSON.stringify(`e2e note ${RUN_ID}`)}
+    const rows = Array.from(document.querySelectorAll('[data-e2e="today-log-row"]'))
+    const row = rows.find((r) => (r.textContent || '').includes(needle)) || null
+    if (!row) return null
 
-  clickFirst('[data-e2e=\"today-log-row-copy\"]')
+    const timeText = String(row.querySelector('td:nth-child(1)')?.textContent || '').trim()
+    const doseText = String(row.querySelector('td:nth-child(3)')?.textContent || '').trim()
+    const notesText = String(row.querySelector('td:nth-child(5)')?.textContent || '').trim()
+    const metaText = String(row.querySelector('td:nth-child(2) div:nth-child(2)')?.textContent || '').trim()
+    const formulationName = metaText.split('•')[0].trim()
+
+    return { timeText, doseText, notesText, formulationName }
+  })()`)
+
+  if (!copyRow || typeof copyRow !== 'object') {
+    takeScreenshot('today-copy-row-missing-source')
+    fail(`Could not find today log row containing notes "${copyNeedle}" for copy-row test.`)
+  }
+  if (typeof copyRow.timeText !== 'string' || !timeTextIncludesHHMM(copyRow.timeText, '01:23')) {
+    takeScreenshot('today-copy-row-time-mismatch')
+    fail(`Expected the "${copyNeedle}" row to display time including "01:23", but got "${String(copyRow.timeText)}".`)
+  }
+  if (typeof copyRow.doseText !== 'string' || !copyRow.doseText.trim()) fail('Could not read dose text for copy-row test.')
+  if (typeof copyRow.notesText !== 'string' || copyRow.notesText.trim() !== copyNeedle) {
+    takeScreenshot('today-copy-row-notes-mismatch')
+    fail(`Expected copy-row notes to equal "${copyNeedle}", but got "${String(copyRow.notesText)}".`)
+  }
+
+  click(`[data-e2e="today-log-row"]:has-text("${copyNeedle}") [data-e2e="today-log-row-copy"]`)
   await waitUntil(
     async () => {
-      const v = await evalJs('document.querySelector(\'[data-e2e=\"today-log-input-dose\"]\')?.value || \"\"')
-      return typeof v === 'string' && v.trim() === firstRowInput
+      const v = await evalJs('document.querySelector(\'[data-e2e="today-log-input-dose"]\')?.value || ""')
+      return typeof v === 'string' && v.trim() === String(copyRow.doseText).trim()
     },
     { label: 'today copy-row populates inline dose input', timeoutMs: 30000 },
+  )
+  await waitUntil(
+    async () => {
+      const v = await evalJs('document.querySelector(\'[data-e2e="today-log-input-notes"]\')?.value || ""')
+      return typeof v === 'string' && v.trim() === copyNeedle
+    },
+    { label: 'today copy-row populates inline notes input', timeoutMs: 30000 },
+  )
+  const selectedLabel = await evalJs(`(() => {
+    const sel = document.querySelector('[data-e2e="today-log-input-formulation"]')
+    const opt = sel && sel.selectedOptions ? sel.selectedOptions[0] : null
+    return opt ? (opt.textContent || '').trim() : ''
+  })()`)
+  if (
+    typeof copyRow.formulationName === 'string' &&
+    copyRow.formulationName &&
+    typeof selectedLabel === 'string' &&
+    !selectedLabel.includes(copyRow.formulationName)
+  ) {
+    takeScreenshot('today-copy-row-formulation-mismatch')
+    fail(
+      `Expected copy-row to select formulation including "${copyRow.formulationName}", but selected option label was "${selectedLabel}".`,
+    )
+  }
+
+  await waitUntil(
+    async () => {
+      const tag = await evalJs('document.activeElement?.getAttribute(\"data-e2e\") || \"\"')
+      return typeof tag === 'string' && tag === 'today-log-input-dose'
+    },
+    { label: 'today copy-row focuses dose input', timeoutMs: 30000 },
   )
   assertHealthy('today-copy-row')
 
@@ -1237,38 +1443,58 @@ async function todayHubDeepInteractions() {
   assertHealthy('today-nav-analytics')
 
   // Control Center: "Log Dose" links should route to focus=log + formulation_id, and preselect the inline formulation select.
-  open(`${BASE_URL}/today`)
-  await waitForBodyText('Control Center', { label: 'today control center visible' })
-  const hasLogDose = await evalJs('Boolean(document.querySelector(\'[data-e2e="today-inventory-log-dose"]\'))')
-  if (hasLogDose) {
-    clickFirst('[data-e2e="today-inventory-log-dose"]')
-    await waitUntil(
-      async () => {
-        const url = await evalJs('window.location.href')
-        if (typeof url !== 'string') return false
-        const u = new URL(url)
-        return u.pathname === '/today' && u.searchParams.get('focus') === 'log' && Boolean(u.searchParams.get('formulation_id'))
-      },
-      { label: 'inventory card log dose routes to focus=log', timeoutMs: 60000 },
-    )
+  // Coverage: click at least 2 current-vial bars when we have them (guards against "always uses first vial" bugs).
+  if (demoCurrentVialFormulationIds.length >= 2) {
+    for (const [idx, fid] of demoCurrentVialFormulationIds.slice(0, 2).entries()) {
+      open(`${BASE_URL}/today`)
+      await waitForBodyText('Control Center', { label: 'today control center visible' })
+      click(
+        `[data-e2e="today-inventory-current-vial"][data-formulation-id="${fid}"] a[data-e2e="today-inventory-log-dose"]`,
+      )
+      await waitUntil(
+        async () => {
+          const url = await evalJs('window.location.href')
+          if (typeof url !== 'string') return false
+          const u = new URL(url)
+          return u.pathname === '/today' && u.searchParams.get('focus') === 'log' && u.searchParams.get('formulation_id') === fid
+        },
+        { label: `inventory card log dose routes to focus=log (${idx + 1})`, timeoutMs: 60000 },
+      )
 
-    const formulationId = await evalJs('new URL(window.location.href).searchParams.get("formulation_id") || ""')
-    const selected = await evalJs('document.querySelector(\'[data-e2e="today-log-input-formulation"]\')?.value || ""')
-    if (typeof formulationId !== 'string' || !formulationId) fail('log dose URL missing formulation_id')
-    if (selected !== formulationId) {
-      fail(`inventory card log dose did not preselect formulation: expected ${formulationId} but got ${selected}`)
+      const selected = await evalJs('document.querySelector(\'[data-e2e="today-log-input-formulation"]\')?.value || ""')
+      if (selected !== fid) {
+        fail(`inventory card log dose did not preselect formulation: expected ${fid} but got ${selected}`)
+      }
+
+      await waitUntil(
+        async () => {
+          const tag = await evalJs('document.activeElement?.getAttribute(\"data-e2e\") || \"\"')
+          return typeof tag === 'string' && tag === 'today-log-input-dose'
+        },
+        { label: `inventory log dose focuses inline dose input (${idx + 1})`, timeoutMs: 30000 },
+      )
+      assertHealthy(`today-control-log-dose-${idx + 1}`)
     }
-
-    await waitUntil(
-      async () => {
-        const tag = await evalJs('document.activeElement?.getAttribute(\"data-e2e\") || \"\"')
-        return typeof tag === 'string' && tag === 'today-log-input-dose'
-      },
-      { label: 'inventory log dose focuses inline dose input', timeoutMs: 30000 },
-    )
-    assertHealthy('today-control-log-dose')
   } else {
-    logLine('today: no active inventory log dose link found; skipping')
+    // Fallback: at least click one log-dose link if present.
+    open(`${BASE_URL}/today`)
+    await waitForBodyText('Control Center', { label: 'today control center visible (fallback log-dose)' })
+    const hasLogDose = await evalJs('Boolean(document.querySelector(\'[data-e2e="today-inventory-log-dose"]\'))')
+    if (hasLogDose) {
+      clickFirst('[data-e2e="today-inventory-log-dose"]')
+      await waitUntil(
+        async () => {
+          const url = await evalJs('window.location.href')
+          if (typeof url !== 'string') return false
+          const u = new URL(url)
+          return u.pathname === '/today' && u.searchParams.get('focus') === 'log' && Boolean(u.searchParams.get('formulation_id'))
+        },
+        { label: 'inventory card log dose routes to focus=log (fallback)', timeoutMs: 60000 },
+      )
+      assertHealthy('today-control-log-dose-fallback')
+    } else {
+      logLine('today: no active inventory log dose link found; skipping')
+    }
   }
 
   // Scan button is a placeholder UX for now; it should not crash or trigger requests.
@@ -1868,6 +2094,20 @@ function approxEq(a, b, { tol = 2 } = {}) {
   const nb = typeof b === 'number' ? b : Number(b)
   if (!Number.isFinite(na) || !Number.isFinite(nb)) return false
   return Math.abs(na - nb) <= tol
+}
+
+function timeTextIncludesHHMM(timeText, hhmm) {
+  const t = String(timeText || '')
+  const raw = String(hhmm || '')
+
+  const m = raw.match(/^(\d{2}):(\d{2})$/)
+  if (!m) return t.includes(raw)
+
+  const hh = m[1]
+  const mm = m[2]
+  const alt = `${Number(hh)}:${mm}`
+
+  return t.includes(`${hh}:${mm}`) || t.includes(alt)
 }
 
 async function assertSignInStitchVisualContract() {
