@@ -35,11 +35,21 @@ const WEB_DIR = path.resolve(__dirname, '..', '..')
 const REPO_ROOT = path.resolve(WEB_DIR, '..')
 
 const RUN_ID = new Date().toISOString().replace(/[:.]/g, '-')
+const NAME_TAG = process.env.E2E_NAME_TAG || RUN_ID.slice(-10)
+
+// Keep these names unique per run so the harness can be executed safely with E2E_SKIP_DB_RESET=1.
+const E2E_VENDOR_NAME = `E2E Vendor ${NAME_TAG}`
+const E2E_DIST_FRACTION = `E2E: fraction 0.5 ${NAME_TAG}`
+const E2E_DIST_MULTIPLIER = `E2E: multiplier 2.0 ${NAME_TAG}`
+const E2E_DIST_VOL_PER_SPRAY = `E2E: vol per spray 0.10 ${NAME_TAG}`
+const E2E_DEVICE_SPRAY = `E2E Spray ${NAME_TAG}`
+const E2E_ROUTE_INTRANA = `E2E intranasal ${NAME_TAG}`
+const E2E_FORMULATION_IN = `E2E IN formulation ${NAME_TAG}`
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3002'
 const MAILPIT_URL = process.env.E2E_MAILPIT_URL || 'http://127.0.0.1:54324'
-const EMAIL_A = process.env.E2E_EMAIL_A || 'e2e.a@example.com'
-const EMAIL_B = process.env.E2E_EMAIL_B || 'e2e.b@example.com'
+const EMAIL_A = process.env.E2E_EMAIL_A || `e2e.a+${NAME_TAG}@example.com`
+const EMAIL_B = process.env.E2E_EMAIL_B || `e2e.b+${NAME_TAG}@example.com`
 
 const SESSION = process.env.E2E_SESSION || `peptaide-e2e-${RUN_ID}`
 const ARTIFACTS_DIR = process.env.E2E_ARTIFACTS_DIR || path.join('/tmp', `peptaide-e2e-${RUN_ID}`)
@@ -1314,16 +1324,16 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   const vendorForm = await tagOrdersForm('Add vendor', 'vendor')
 
   // Vendor
-  fill(`${vendorForm} input[name="name"]`, 'E2E Vendor')
+  fill(`${vendorForm} input[name="name"]`, E2E_VENDOR_NAME)
   click(`${vendorForm} button[type="submit"]`)
-  await waitForBodyText('E2E Vendor', { label: 'vendor created in UI' })
+  await waitForBodyText(E2E_VENDOR_NAME, { label: 'vendor created in UI' })
 
   // Order form only appears after at least one vendor exists.
   await waitForBodyText('Add order', { label: 'order form visible' })
   const orderForm = await tagOrdersForm('Add order', 'order')
 
   // Order
-  const vendorId = await selectOptionValue(`${orderForm} select[name="vendor_id"]`, 'E2E Vendor')
+  const vendorId = await selectOptionValue(`${orderForm} select[name="vendor_id"]`, E2E_VENDOR_NAME)
   runAgentBrowser(['select', `${orderForm} select[name="vendor_id"]`, vendorId])
   fill(`${orderForm} input[name="shipping_cost_usd"]`, '5')
   fill(`${orderForm} input[name="total_cost_usd"]`, '105')
@@ -1334,7 +1344,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   const itemForm = await tagOrdersForm('Add order item', 'item')
 
   // Order item
-  const orderId = await selectOptionValue(`${itemForm} select[name="order_id"]`, 'E2E Vendor')
+  const orderId = await selectOptionValue(`${itemForm} select[name="order_id"]`, E2E_VENDOR_NAME)
   const substanceId = await selectOptionValue(`${itemForm} select[name="substance_id"]`, substanceLabelIncludes)
   const formulationId = await selectOptionValue(`${itemForm} select[name="formulation_id"]`, formulationLabelIncludes)
   runAgentBrowser(['select', `${itemForm} select[name="order_id"]`, orderId])
@@ -1355,7 +1365,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
         `(() => {
           const opts = Array.from(document.querySelectorAll(${JSON.stringify(`${genForm} select[name="order_item_id"] option`)}))
             .map((o) => (o.textContent || '').trim())
-          return opts.some((t) => t.includes('E2E Vendor'))
+          return opts.some((t) => t.includes(${JSON.stringify(E2E_VENDOR_NAME)}))
         })()`,
       )
       return Boolean(ok)
@@ -1364,7 +1374,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   )
 
   // Generate vials from order item.
-  const orderItemId = await selectOptionValue(`${genForm} select[name="order_item_id"]`, 'E2E Vendor')
+  const orderItemId = await selectOptionValue(`${genForm} select[name="order_item_id"]`, E2E_VENDOR_NAME)
   runAgentBrowser(['select', `${genForm} select[name="order_item_id"]`, orderItemId])
   fill(`${genForm} input[name="content_mass_value"]`, '10')
   runAgentBrowser(['select', `${genForm} select[name="content_mass_unit"]`, 'mg'])
@@ -1907,10 +1917,10 @@ async function settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationInc
   // Base bioavailability spec: select the E2E route + a known fraction distribution and save.
   const baForm = 'form[data-e2e="settings-base-ba-form"]'
   waitFor(baForm)
-  const routeId = await selectOptionValue(`${baForm} select[name="route_id"]`, 'E2E intranasal')
+  const routeId = await selectOptionValue(`${baForm} select[name="route_id"]`, E2E_ROUTE_INTRANA)
   runAgentBrowser(['select', `${baForm} select[name="route_id"]`, routeId])
   runAgentBrowser(['select', `${baForm} select[name="compartment"]`, 'systemic'])
-  const distId = await selectOptionValue(`${baForm} select[name="base_fraction_dist_id"]`, 'E2E: fraction 0.5')
+  const distId = await selectOptionValue(`${baForm} select[name="base_fraction_dist_id"]`, E2E_DIST_FRACTION)
   runAgentBrowser(['select', `${baForm} select[name="base_fraction_dist_id"]`, distId])
   fill(`${baForm} input[name="notes"]`, `e2e ${RUN_ID}`)
   click(`${baForm} button[type="submit"]`)
@@ -2016,6 +2026,11 @@ async function settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationInc
   // Cross-page integration sanity: /today grid should now show at least one "Rec:" hint.
   open(`${BASE_URL}/today`)
   await waitForBodyText('Log (grid)', { label: 'today grid visible (post settings edits)' })
+  // Ensure at least one row is using a formulation that matches the demo substance we attached the recommendation to.
+  waitFor('select[aria-label="Formulation row 1"]')
+  const demoFormulationId = await selectOptionValue('select[aria-label="Formulation row 1"]', 'Demo formulation')
+  runAgentBrowser(['select', 'select[aria-label="Formulation row 1"]', demoFormulationId])
+
   await waitUntil(async () => Boolean(await evalJs('document.body.innerText.includes("Rec:")')), {
     label: 'today shows Rec hint from settings recommendation',
     timeoutMs: 60000,
@@ -2290,19 +2305,19 @@ async function main() {
   await createEvidenceSourceViaUi({ citation: evidenceCitationDelete, notes: `e2e delete ${RUN_ID}` })
 
   // Create a small set of distributions for setup/calibration/modifiers.
-  await createDistribution({ name: 'E2E: fraction 0.5', valueType: 'fraction', distType: 'point', p1: 0.5 })
-  await createDistribution({ name: 'E2E: multiplier 2.0', valueType: 'multiplier', distType: 'point', p1: 2.0 })
+  await createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 })
+  await createDistribution({ name: E2E_DIST_MULTIPLIER, valueType: 'multiplier', distType: 'point', p1: 2.0 })
   await createDistribution({
-    name: 'E2E: vol per spray 0.10',
+    name: E2E_DIST_VOL_PER_SPRAY,
     valueType: 'volume_ml_per_unit',
     distType: 'point',
     p1: 0.1,
   })
 
   // Add a device + calibration route + formulation + vial + specs, then log with device units.
-  await createDevice({ name: 'E2E Spray', kind: 'spray', defaultUnit: 'spray' })
+  await createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' })
   await bulkAddRoutes({
-    names: ['E2E intranasal'],
+    names: [E2E_ROUTE_INTRANA],
     defaultKind: 'device_units',
     defaultUnit: 'spray',
     supportsCalibration: true,
@@ -2312,13 +2327,13 @@ async function main() {
   await settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes: evidenceCitationKeep })
 
   await bulkAddFormulation({
-    formulationName: 'E2E IN formulation',
+    formulationName: E2E_FORMULATION_IN,
     substanceLabelIncludes: 'Demo substance',
-    routeLabelIncludes: 'E2E intranasal',
-    deviceLabelIncludes: 'E2E Spray',
+    routeLabelIncludes: E2E_ROUTE_INTRANA,
+    deviceLabelIncludes: E2E_DEVICE_SPRAY,
   })
   await createVial({
-    formulationLabelIncludes: 'E2E IN formulation',
+    formulationLabelIncludes: E2E_FORMULATION_IN,
     massValue: 10,
     massUnit: 'mg',
     volumeValue: 10,
@@ -2327,38 +2342,38 @@ async function main() {
   })
   await addBaseBaSpec({
     substanceLabelIncludes: 'Demo substance',
-    routeLabelIncludes: 'E2E intranasal',
-    distLabelIncludes: 'E2E: fraction 0.5',
+    routeLabelIncludes: E2E_ROUTE_INTRANA,
+    distLabelIncludes: E2E_DIST_FRACTION,
   })
   await addDeviceCalibration({
-    deviceLabelIncludes: 'E2E Spray',
-    routeLabelIncludes: 'E2E intranasal',
+    deviceLabelIncludes: E2E_DEVICE_SPRAY,
+    routeLabelIncludes: E2E_ROUTE_INTRANA,
     unitLabel: 'spray',
-    distLabelIncludes: 'E2E: vol per spray 0.10',
+    distLabelIncludes: E2E_DIST_VOL_PER_SPRAY,
   })
   await addFormulationModifier({
-    formulationLabelIncludes: 'E2E IN formulation',
-    distLabelIncludes: 'E2E: multiplier 2.0',
+    formulationLabelIncludes: E2E_FORMULATION_IN,
+    distLabelIncludes: E2E_DIST_MULTIPLIER,
   })
 
   // CRUD coverage for deep-link setup pages (not the Stitch workspace): device detail and formulation detail.
   await deviceDetailCalibrationCrudViaUi({
-    deviceNameIncludes: 'E2E Spray',
-    routeLabelIncludes: 'E2E intranasal',
-    distLabelIncludes: 'E2E: vol per spray 0.10',
+    deviceNameIncludes: E2E_DEVICE_SPRAY,
+    routeLabelIncludes: E2E_ROUTE_INTRANA,
+    distLabelIncludes: E2E_DIST_VOL_PER_SPRAY,
     unitLabel: 'spray2',
   })
   await formulationDetailComponentSpecCrudViaUi({
-    formulationNameIncludes: 'E2E IN formulation',
+    formulationNameIncludes: E2E_FORMULATION_IN,
     componentName: `E2E component ${RUN_ID}`,
-    multiplierDistLabelIncludes: 'E2E: multiplier 2.0',
+    multiplierDistLabelIncludes: E2E_DIST_MULTIPLIER,
   })
 
   // Log events with multiple input types.
   await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 1, inputText: '0.3mL' })
   await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 2, inputText: '250mcg' })
   await logEventInTodayGrid({ formulationLabelIncludes: 'Demo formulation', rowIndex1Based: 3, inputText: '500 IU' })
-  await logEventInTodayGrid({ formulationLabelIncludes: 'E2E IN formulation', rowIndex1Based: 4, inputText: '2 sprays' })
+  await logEventInTodayGrid({ formulationLabelIncludes: E2E_FORMULATION_IN, rowIndex1Based: 4, inputText: '2 sprays' })
 
   // Deep coverage for the Stitch /today hub (quick log, control center, focus behavior).
   await todayHubDeepInteractions()
@@ -2369,7 +2384,7 @@ async function main() {
   // Delete the evidence source we marked for deletion (soft-delete coverage) after the settings interactions.
   await deleteEvidenceSourceViaUi({ citation: evidenceCitationDelete })
 
-  await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'E2E IN formulation' })
+  await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: E2E_FORMULATION_IN })
   await inventoryActivateCloseOneVial()
 
   // Capture a /today screenshot at the same viewport size as the Stitch mockup artifact (1600x1280) so
