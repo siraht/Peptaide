@@ -17,9 +17,9 @@ type MailpitMessage = { Text?: string; HTML?: string }
 
 function extractOtpCode(text: string): string | null {
   const s = String(text || '')
-  const match = s.match(/(?:enter the code:\\s*)(\\d{6})/i)
+  const match = s.match(/(?:enter the code:\s*)(\d{6})/i)
   if (match && match[1]) return match[1]
-  const match2 = s.match(/\\b(\\d{6})\\b/)
+  const match2 = s.match(/\b(\d{6})\b/)
   if (match2 && match2[1]) return match2[1]
   return null
 }
@@ -96,4 +96,3 @@ export async function GET(request: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: false, error: msg }, { status: 500, headers: { 'Cache-Control': 'no-store' } })
   }
 }
-
