@@ -48,7 +48,25 @@ async function mailpitFetchJson<T>(baseUrl: string, pathname: string): Promise<T
   return (await res.json()) as T
 }
 
-async function waitForOtpCodeFromMailpit(email: string, opts: { baseUrl: string; sinceMs: number; timeoutMs?: number }): Promise<string | null> {
+async function mailpitMessageIdsForEmail(email: string, baseUrl: string): Promise<Set<string>> {
+  const list = await mailpitFetchJson<MailpitList>(baseUrl, '/api/v1/messages')
+  const messages = Array.isArray(list.messages) ? list.messages : []
+  const ids = new Set<string>()
+
+  for (const m of messages) {
+    if (!m || !m.ID) continue
+    const tos = Array.isArray(m.To) ? m.To : []
+    const toMatch = tos.some((t) => t && String(t.Address || '').toLowerCase() === email.toLowerCase())
+    if (toMatch) ids.add(String(m.ID))
+  }
+
+  return ids
+}
+
+async function waitForOtpCodeFromMailpit(
+  email: string,
+  opts: { baseUrl: string; excludeIds?: Set<string>; sinceMs?: number; timeoutMs?: number },
+): Promise<string | null> {
   const timeoutMs = opts.timeoutMs ?? 8000
   const start = Date.now()
   for (;;) {
@@ -57,8 +75,9 @@ async function waitForOtpCodeFromMailpit(email: string, opts: { baseUrl: string;
 
     const match = messages.find((m) => {
       if (!m || !m.ID) return false
+      if (opts.excludeIds && opts.excludeIds.has(String(m.ID))) return false
       const createdMs = m.Created ? Date.parse(m.Created) : null
-      if (createdMs && createdMs < opts.sinceMs) return false
+      if (opts.sinceMs && createdMs && createdMs < opts.sinceMs) return false
       const tos = Array.isArray(m.To) ? m.To : []
       return tos.some((t) => t && String(t.Address || '').toLowerCase() === email.toLowerCase())
     })
@@ -106,7 +125,14 @@ export async function POST(request: NextRequest): Promise<Response> {
   // Keep gated behind an explicit env var and same-origin enforcement.
   const shouldExposeOtp = String(process.env.PEPTAIDE_DEV_EXPOSE_OTP || '').trim() === '1'
   const mailpitBaseUrl = String(process.env.PEPTAIDE_MAILPIT_URL || 'http://127.0.0.1:54324').trim()
-  const sinceMs = Date.now()
+  let excludeMailpitIds: Set<string> | null = null
+  if (shouldExposeOtp) {
+    try {
+      excludeMailpitIds = await mailpitMessageIdsForEmail(email, mailpitBaseUrl)
+    } catch {
+      excludeMailpitIds = null
+    }
+  }
 
   const origin = getRequestOrigin(request)
   const { url: supabaseUrl, anonKey } = getSupabaseServerEnv()
@@ -145,7 +171,11 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   if (shouldExposeOtp) {
     try {
-      const devCode = await waitForOtpCodeFromMailpit(email, { baseUrl: mailpitBaseUrl, sinceMs: sinceMs - 2000 })
+      const devCode = await waitForOtpCodeFromMailpit(email, {
+        baseUrl: mailpitBaseUrl,
+        excludeIds: excludeMailpitIds ?? undefined,
+        timeoutMs: 15000,
+      })
       if (devCode) body.dev_code = devCode
     } catch {
       // Ignore mailpit issues; sending the email is the primary behavior.
