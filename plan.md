@@ -28,6 +28,8 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
 - [x] (2026-02-10 04:01Z) Make the “conclusive” browser verification safer and more complete: do not reset the DB unless explicitly requested, add a hub sidebar clickthrough sweep, and update the settings visual contract to account for the shared hub sidebar. Evidence: commits `755e0db`, `c5d3191`. plan[112-164]
 - [x] (2026-02-10 04:01Z) Validation: `npm run typecheck`, `npm run lint`, `npm test`, and `node web/scripts/tbrowser/peptaide-e2e.mjs` all pass. Evidence: last E2E run printed `PASS` and wrote artifacts to `/tmp/peptaide-e2e-2026-02-10T04-00-03-885Z`. plan[112-164]
 - [x] (2026-02-10 04:01Z) Write outcomes/retro and capture surprises. plan[47-49]
+- [x] (2026-02-10 05:01Z) E2E hardening: assert Stitch styling is applied on `/sign-in`, exercise the dev OTP code UI path (for clients that cannot open Mailpit), assert hub sidebar persists on hub detail pages, and stabilize the RETA orders import check using persisted evidence (order date in Orders table) instead of a transient success message. Evidence: commit `1a9e7e6`; E2E PASS artifacts `/tmp/peptaide-e2e-2026-02-10T05-01-05-013Z`. plan[112-205]
+- [x] (2026-02-10 05:01Z) Make the spreadsheet import harness safer: default to `replace=0` and require `IMPORT_REPLACE_EXISTING=1` to delete all user data before importing. Evidence: commit `1a9e7e6`. plan[112-205]
 
 ## Surprises & Discoveries
 
@@ -42,6 +44,9 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
 
 - Observation: The “conclusive” E2E harness previously ran `supabase db reset --yes` by default, which can wipe real local data if run casually.  
   Evidence: `web/scripts/tbrowser/peptaide-e2e.mjs` now skips reset unless `E2E_RESET_DB=1` is set.
+
+- Observation: The Orders “Import RETA-PEPTIDE orders” E2E step was flaky when asserting on the success message text because the component calls `router.refresh()` immediately after success, which can unmount/reset the transient message. The harness now waits for persisted evidence (the imported order date appears in the Orders table) instead.  
+  Evidence: E2E failure `Timed out waiting for reta import success after 60000ms` (before) vs `PASS: conclusive browser verification completed` (after) in `/tmp/peptaide-e2e-2026-02-10T05-01-05-013Z`.
 
 ## Decision Log
 
@@ -65,6 +70,14 @@ You can see it working by starting the app, navigating to `/settings`, clicking 
   Rationale: Prevent accidental loss of real user data while keeping deterministic reset available for CI.  
   Date/Author: 2026-02-10 / Codex
 
+- Decision: Make the spreadsheet import automation default to “merge” mode and require explicit opt-in (`IMPORT_REPLACE_EXISTING=1`) to delete all existing user data.  
+  Rationale: This importer is run manually in real dev environments; a delete-all default is too risky and can surprise users who meant to “add missing history,” not wipe everything.  
+  Date/Author: 2026-02-10 / Codex
+
+- Decision: In E2E, assert the Orders RETA import via persisted data (order date present) rather than a transient success message.  
+  Rationale: `router.refresh()` can make in-page success messages too short-lived to assert reliably; persisted rows in list tables are stable and still prove the feature worked.  
+  Date/Author: 2026-02-10 / Codex
+
 ## Outcomes & Retrospective
 
 Implemented a shared Settings Hub layout (persistent left sidebar) and restyled all settings-linked pages to match the Stitch theme tokens, eliminating the “legacy insert” look and the disappearing sidebar.
@@ -74,6 +87,8 @@ Updated `/today` Control Center inventory cards to reflect total in-stock invent
 Improved sign-in reliability for remote browsers by routing OTP send/verify through same-origin API routes, ensuring PKCE cookies are persisted for magic-link sign-in, and adding an optional dev-only “show OTP code” path when Mailpit is not reachable from the client.
 
 Hardened browser E2E verification by making DB reset opt-in, adding a hub sidebar clickthrough sweep, and keeping the Stitch visual contracts aligned with the new shared hub sidebar.
+
+Expanded E2E validation to cover the dev OTP code UI path (so remote clients do not need Mailpit), assert Stitch styling loads on `/sign-in`, assert hub sidebar persistence on hub detail pages, and stabilized the Orders RETA import check to reduce flakiness.
 
 ## Context and Orientation
 
