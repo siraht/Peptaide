@@ -30,25 +30,28 @@ Completed baseline work (already shipped; this plan builds on it):
 New work (this change set):
 
 - [x] (2026-02-10 17:35Z) Mockup deep dive: reviewed `mockups/logging_&_inventory_control_hub/code.html` and mapped it to current `/today` implementation gaps (inline input row inside the log table, time+notes support, copy-row action, and substance-level Control Center grouping with multiple current-vial bars). plan[1-245]
-- [ ] Extend event creation to accept `time_hhmm` and `notes`, compute `administration_events.ts` for “today” in the user profile timezone, and persist `notes`. Add unit tests for the time conversion helper.
-- [ ] Replace `TodayLogGrid` with a mockup-derived “Enhanced Log Table” component that renders:
+- [x] (2026-02-10 18:24Z) Extend event creation to accept `time_hhmm` and `notes`, compute `administration_events.ts` for “today” in the user profile timezone, and persist `notes`. Unit tests added for the time conversion helper. Evidence: commit `eb61809`. plan[1-245]
+- [x] (2026-02-10 18:24Z) Replace `TodayLogGrid` with a mockup-derived “Enhanced Log Table” component that renders:
   - today event rows,
   - an inline active input row (time, compound/formulation select, dose input, route badge, notes input, check button),
   - per-row copy action that pre-fills the active input row.
-- [ ] Update `/today` quick log pills and “Log Dose” links to focus and pre-select the new inline active input row (preserve `focus=log` and `formulation_id=...` URL params).
-- [ ] Update Control Center rendering to group inventory summaries by `substance_id`:
+  Evidence: commit `78b8944`. plan[1-245]
+- [x] (2026-02-10 18:24Z) Update `/today` quick log pills and “Log Dose” links to focus and pre-select the new inline active input row (preserve `focus=log` and `formulation_id=...` URL params). Evidence: commit `78b8944`. plan[1-245]
+- [x] (2026-02-10 18:24Z) Update Control Center rendering to group inventory summaries by `substance_id`:
   - one card per substance (fix SS-31 duplication),
   - total-stock bar aggregated across all formulations,
   - render multiple “current vial” bars (one per active formulation/vial) within the same substance card.
-- [ ] Update demo seeding to create a second formulation + active vial for the demo substance so E2E can assert substance-level grouping and multiple current-vial bars deterministically.
-- [ ] Update `web/scripts/tbrowser/peptaide-e2e.mjs` to:
+  Evidence: commit `78b8944`. plan[1-245]
+- [x] (2026-02-10 18:24Z) Update demo seeding to create a second formulation + active vial for the demo substance so E2E can assert substance-level grouping and multiple current-vial bars deterministically. Evidence: commit `500cb8b`. plan[1-245]
+- [x] (2026-02-10 18:24Z) Update `web/scripts/tbrowser/peptaide-e2e.mjs` to:
   - stop asserting for “Log (grid)” and grid-specific aria labels,
   - exercise the new inline row logging flow (click save and press Enter save),
   - exercise copy-row behavior,
   - assert recommendation hint appears when selecting a formulation with a saved dosing recommendation,
   - assert “one card per substance” and “multiple current-vial bars for substances with multiple active formulations”.
-- [ ] Validation: `cd web && npm run typecheck && npm run lint && npm test`, then `node scripts/tbrowser/peptaide-e2e.mjs`.
-- [ ] Write outcomes/retro and capture surprises.
+  Evidence: commit `4f1e9b5`. plan[1-245]
+- [x] (2026-02-10 18:24Z) Validation: `cd web && npm run typecheck && npm run lint && npm test`, then `E2E_BASE_URL=http://127.0.0.1:3010 node scripts/tbrowser/peptaide-e2e.mjs` (PASS). Evidence: E2E artifacts dir `/tmp/peptaide-e2e-2026-02-10T18-21-04-959Z` and mockup compare report `/tmp/peptaide-e2e-2026-02-10T18-21-04-959Z/mockup-compare.html`. plan[1-245]
+- [x] (2026-02-10 18:24Z) Write outcomes/retro and capture surprises. plan[1-245]
 
 ## Surprises & Discoveries
 
@@ -57,6 +60,12 @@ New work (this change set):
 
 - Observation: `public.v_inventory_summary` is per formulation. Rendering one card per row will duplicate a substance when multiple formulations exist for the same `substance_id` (SS-31 case).
   Evidence: `supabase/migrations/20260210130000_098_inventory_summary_view.sql` groups by `(user_id, formulation_id)`.
+
+- Observation: Focus-on-`focus=log` must also re-trigger when only `formulation_id` changes (for example clicking “Quick Log” then “Custom” keeps `focus=log` but removes the formulation id).
+  Evidence: E2E initially failed until `web/src/app/(app)/today/today-log-table.tsx` focused the inline dose input on `[focus, formulationIdParam]`.
+
+- Observation: The conclusive browser harness must run against a Next.js instance that includes the current working tree. In environments where port `3002` is already occupied by a stale `next start`, run the harness against another port and set `E2E_BASE_URL`.
+  Evidence: `E2E_BASE_URL=http://127.0.0.1:3010 node web/scripts/tbrowser/peptaide-e2e.mjs` succeeded and produced `/tmp/peptaide-e2e-2026-02-10T18-21-04-959Z/mockup-compare.html`.
 
 ## Decision Log
 
@@ -72,6 +81,10 @@ New work (this change set):
   Rationale: The existing view already returns active-vial details per formulation; grouping in React keeps the DB migration surface minimal and still supports multiple current-vial bars.
   Date/Author: 2026-02-10 / Codex
 
+- Decision: Treat `formulation_id` changes as a focus trigger when `focus=log`, not just `focus` changes.
+  Rationale: `focus=log` remains constant across several in-page navigations (Quick Log chips, Custom, Log Dose). Without watching `formulation_id`, focus can be lost on navigation and the UX regresses.
+  Date/Author: 2026-02-10 / Codex
+
 ## Outcomes & Retrospective
 
 Baseline outcomes (already completed prior to this plan revision):
@@ -80,7 +93,17 @@ Baseline outcomes (already completed prior to this plan revision):
 - `/today` Control Center uses total stock (not just active vial).
 - Remote sign-in + E2E harness safety improved.
 
-(Will be updated after implementing the mockup log UX + substance-level Control Center.)
+Delivered in this change set:
+
+- `/today` now uses the Stitch mockup’s table-based log UX (inline input row, per-row copy affordance, and immediate render after save).
+- Event creation now supports explicit `time_hhmm` + `notes` inputs, and the notes are displayed in the log table.
+- Control Center is substance-grouped (one card per substance, no SS-31 duplicates), while still showing multiple current-vial bars when multiple in-stock formulations exist.
+- Conclusive browser verification was updated to cover the new `/today` flow end-to-end and passed locally.
+
+Evidence:
+
+- E2E PASS: `/tmp/peptaide-e2e-2026-02-10T18-21-04-959Z`
+- Visual compare report: `/tmp/peptaide-e2e-2026-02-10T18-21-04-959Z/mockup-compare.html`
 
 ## Context and Orientation
 
@@ -92,7 +115,7 @@ Mockups:
 Today page implementation:
 
 - `/today` server component: `web/src/app/(app)/today/page.tsx`
-- Current log entry UI (to be replaced): `web/src/app/(app)/today/today-log-grid.tsx` (`TodayLogGrid`)
+- Legacy log entry UI (kept for now but unused by `/today`): `web/src/app/(app)/today/today-log-grid.tsx` (`TodayLogGrid`)
 - Event creation server action: `web/src/app/(app)/today/actions.ts` (`createEventAction`)
 
 Inventory data:
@@ -204,3 +227,4 @@ New/updated interfaces:
 Plan revisions:
 
 - (2026-02-10) Revised the ExecPlan to cover the Stitch mockup logging UX and substance-level Control Center grouping (SS-31 de-duplication) and to update browser verification coverage accordingly.
+- (2026-02-10) Updated `Progress`, `Surprises & Discoveries`, and `Outcomes & Retrospective` after implementing the mockup-derived `/today` log table + substance-grouped Control Center, extending demo seeding, and passing the conclusive browser verification run.
