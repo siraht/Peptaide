@@ -23,7 +23,7 @@ export function SettingsForm(props: { profile: ProfileRow }) {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+    <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Profile defaults</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         These defaults are used for local-day analytics grouping and for new entries. They do not change historical
@@ -34,7 +34,7 @@ export function SettingsForm(props: { profile: ProfileRow }) {
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-700 dark:text-slate-300">Timezone (IANA name)</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             name="timezone"
             defaultValue={profile.timezone}
             placeholder="America/Los_Angeles"
@@ -47,7 +47,7 @@ export function SettingsForm(props: { profile: ProfileRow }) {
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-700 dark:text-slate-300">Default mass unit</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             name="default_mass_unit"
             defaultValue={profile.default_mass_unit}
           >
@@ -60,7 +60,7 @@ export function SettingsForm(props: { profile: ProfileRow }) {
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-700 dark:text-slate-300">Default volume unit</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             name="default_volume_unit"
             defaultValue={profile.default_volume_unit}
           >
@@ -73,7 +73,7 @@ export function SettingsForm(props: { profile: ProfileRow }) {
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-700 dark:text-slate-300">Default Monte Carlo N</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             name="default_simulation_n"
             defaultValue={profile.default_simulation_n}
             inputMode="numeric"
@@ -83,7 +83,7 @@ export function SettingsForm(props: { profile: ProfileRow }) {
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-700 dark:text-slate-300">Cycle gap default (days)</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             name="cycle_gap_default_days"
             defaultValue={profile.cycle_gap_default_days}
             inputMode="numeric"

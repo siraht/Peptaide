@@ -214,13 +214,13 @@ export default async function SettingsPage({
             </div>
             <div className="flex gap-2">
               <Link
-                className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-center"
+                className="flex-1 rounded border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 px-3 py-1.5 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-colors text-center"
                 href={`/substances/${selectedSubstance.id}`}
               >
                 View Detail
               </Link>
               <Link
-                className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-center"
+                className="flex-1 rounded border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 px-3 py-1.5 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-colors text-center"
                 href="/evidence-sources"
               >
                 Evidence
