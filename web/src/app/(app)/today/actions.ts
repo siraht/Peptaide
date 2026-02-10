@@ -32,6 +32,7 @@ import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
 import { getActiveVialForFormulation } from '@/lib/repos/vialsRepo'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
+import { safeTimeZone, utcIsoFromTodayLocalTime } from '@/lib/time/timeZone'
 
 type Compartment = Extract<Database['public']['Enums']['compartment_t'], 'systemic' | 'cns'>
 
@@ -283,6 +284,8 @@ export async function createEventAction(
   const formulationId = String(formData.get('formulation_id') ?? '').trim()
   const inputText = String(formData.get('input_text') ?? '').trim()
   const cycleDecisionRaw = String(formData.get('cycle_decision') ?? '').trim()
+  const timeHHMM = String(formData.get('time_hhmm') ?? '').trim()
+  const notesRaw = String(formData.get('notes') ?? '').trim()
 
   if (!formulationId) return { status: 'error', message: 'Missing formulation.' }
   if (!inputText) return { status: 'error', message: 'Missing dose input.' }
@@ -299,6 +302,7 @@ export async function createEventAction(
   if (!user) return { status: 'error', message: 'Not authenticated.' }
 
   const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
+  const timeZone = safeTimeZone(profile.timezone)
 
   const formulationEnriched = await getFormulationEnrichedById(supabase, {
     formulationId,
@@ -308,7 +312,17 @@ export async function createEventAction(
   }
 
   const compartments = compartmentsForSubstance(formulationEnriched.substance)
-  const eventTs = new Date().toISOString()
+  let eventTs: string
+  if (!timeHHMM) {
+    eventTs = new Date().toISOString()
+  } else {
+    try {
+      eventTs = utcIsoFromTodayLocalTime({ timeZone, timeHHMM })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { status: 'error', message: `Invalid time: ${msg}` }
+    }
+  }
 
   let parsed: ReturnType<typeof parseQuantity>
   try {
@@ -743,6 +757,7 @@ export async function createEventAction(
     mc_seed: mcN ? mcSeedNumber : null,
     model_snapshot: snapshot,
     cost_usd: costUsd,
+    notes: notesRaw ? notesRaw : null,
   })
 
   if (insertRes.error) {
