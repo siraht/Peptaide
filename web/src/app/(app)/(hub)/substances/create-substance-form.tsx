@@ -27,15 +27,15 @@ export function CreateSubstanceForm() {
   }, [focus])
 
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Add substance</h2>
+    <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add substance</h2>
 
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Canonical name</span>
+          <span className="text-slate-600 dark:text-slate-400">Canonical name</span>
           <input
             ref={canonicalRef}
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="canonical_name"
             placeholder="e.g. semax"
             required
@@ -43,9 +43,9 @@ export function CreateSubstanceForm() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Display name</span>
+          <span className="text-slate-600 dark:text-slate-400">Display name</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="display_name"
             placeholder="e.g. Semax"
             required
@@ -53,13 +53,13 @@ export function CreateSubstanceForm() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Family</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="family" placeholder="peptide" />
+          <span className="text-slate-600 dark:text-slate-400">Family</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="family" placeholder="peptide" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Target compartment</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="target_compartment_default">
+          <span className="text-slate-600 dark:text-slate-400">Target compartment</span>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="target_compartment_default">
             <option value="systemic">systemic</option>
             <option value="cns">cns</option>
             <option value="both">both</option>
@@ -67,22 +67,22 @@ export function CreateSubstanceForm() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <span className="text-slate-600 dark:text-slate-400">Notes</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <div className="sm:col-span-2">
-          <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+          <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20" type="submit">
             Create
           </button>
         </div>
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700">{state.message}</p>
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{state.message}</p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p>
       ) : null}
     </div>
   )

@@ -32,14 +32,14 @@ export function BaseBioavailabilitySpecForm(props: {
 
   return (
     <div
-      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4"
+      className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm"
       data-e2e="settings-base-ba"
     >
       <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Base bioavailability spec</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Sets the base bioavailability fraction distribution for a substance + route + compartment. You can
         create fraction distributions on the{' '}
-        <a className="underline hover:text-zinc-900" href="/distributions">
+        <a className="underline hover:text-primary" href="/distributions">
           Distributions
         </a>{' '}
         page.
@@ -53,9 +53,9 @@ export function BaseBioavailabilitySpecForm(props: {
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-700 dark:text-slate-300">Route</span>
+          <span className="text-slate-600 dark:text-slate-400">Route</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
             name="route_id"
             required
           >
@@ -68,9 +68,9 @@ export function BaseBioavailabilitySpecForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-700 dark:text-slate-300">Compartment</span>
+          <span className="text-slate-600 dark:text-slate-400">Compartment</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
             name="compartment"
             required
           >
@@ -80,9 +80,9 @@ export function BaseBioavailabilitySpecForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-slate-700 dark:text-slate-300">Base fraction distribution</span>
+          <span className="text-slate-600 dark:text-slate-400">Base fraction distribution</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
             name="base_fraction_dist_id"
             required
           >
@@ -95,14 +95,14 @@ export function BaseBioavailabilitySpecForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-slate-700 dark:text-slate-300">Notes (optional)</span>
-          <input className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100" name="notes" />
+          <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-slate-700 dark:text-slate-300">Evidence source (optional)</span>
+          <span className="text-slate-600 dark:text-slate-400">Evidence source (optional)</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
             name="evidence_source_id"
             defaultValue=""
           >

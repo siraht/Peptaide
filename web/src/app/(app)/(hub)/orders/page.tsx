@@ -85,10 +85,10 @@ export default async function OrdersPage() {
     })
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
       <div>
-        <h1 className="text-xl font-semibold">Orders</h1>
-        <p className="mt-1 text-sm text-zinc-700">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Orders</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Orders and order items, with basic vial generation. Shipping allocation and cost previews come later.
         </p>
       </div>
@@ -98,7 +98,7 @@ export default async function OrdersPage() {
       <CreateVendorForm />
 
       {vendorOptions.length === 0 ? (
-        <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
           Create a vendor before creating orders.
         </div>
       ) : (
@@ -106,7 +106,7 @@ export default async function OrdersPage() {
       )}
 
       {orderOptions.length === 0 || substanceOptions.length === 0 ? (
-        <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
           Create at least one order and substance before adding order items.
         </div>
       ) : (
@@ -114,36 +114,36 @@ export default async function OrdersPage() {
       )}
 
       {orderItemOptions.length === 0 ? (
-        <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
           To generate vials, create an order item that is linked to a formulation.
         </div>
       ) : (
         <GenerateVialsForm orderItems={orderItemOptions} />
       )}
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Vendors</h2>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Vendors</h2>
         {vendors.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No vendors yet.</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No vendors yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[700px] border-separate border-spacing-0 text-left text-sm">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Name</th>
-                  <th className="border-b px-2 py-2 font-medium">Notes</th>
-                  <th className="border-b px-2 py-2 font-medium">Actions</th>
+                <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Name</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {vendors.map((v) => (
                   <tr key={v.id}>
-                    <td className="border-b px-2 py-2 text-zinc-900">{v.name}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{v.notes ?? '-'}</td>
-                    <td className="border-b px-2 py-2">
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-900 dark:text-slate-100">{v.name}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{v.notes ?? '-'}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2">
                       <form action={deleteVendorAction}>
                         <input type="hidden" name="vendor_id" value={v.id} />
-                        <button className="text-sm text-red-700" type="submit">
+                        <button className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" type="submit">
                           Delete
                         </button>
                       </form>
@@ -156,39 +156,39 @@ export default async function OrdersPage() {
         )}
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Orders</h2>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Orders</h2>
         {orders.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No orders yet.</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No orders yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Vendor</th>
-                  <th className="border-b px-2 py-2 font-medium">Ordered at</th>
-                  <th className="border-b px-2 py-2 font-medium">Shipping</th>
-                  <th className="border-b px-2 py-2 font-medium">Total</th>
-                  <th className="border-b px-2 py-2 font-medium">Tracking</th>
-                  <th className="border-b px-2 py-2 font-medium">Notes</th>
-                  <th className="border-b px-2 py-2 font-medium">Actions</th>
+                <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Vendor</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Ordered at</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Shipping</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Total</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Tracking</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.map((o) => (
                   <tr key={o.id}>
-                    <td className="border-b px-2 py-2 text-zinc-900">
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-900 dark:text-slate-100">
                       {vendorById.get(o.vendor_id)?.name ?? '(vendor)'}
                     </td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{o.ordered_at}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{fmtMoney(o.shipping_cost_usd)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{fmtMoney(o.total_cost_usd)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{o.tracking_code ?? '-'}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{o.notes ?? '-'}</td>
-                    <td className="border-b px-2 py-2">
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{o.ordered_at ?? '-'}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{fmtMoney(o.shipping_cost_usd)}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{fmtMoney(o.total_cost_usd)}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{o.tracking_code ?? '-'}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{o.notes ?? '-'}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2">
                       <form action={deleteOrderAction}>
                         <input type="hidden" name="order_id" value={o.id} />
-                        <button className="text-sm text-red-700" type="submit">
+                        <button className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" type="submit">
                           Delete
                         </button>
                       </form>
@@ -201,27 +201,27 @@ export default async function OrdersPage() {
         )}
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Order items</h2>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Order items</h2>
         {visibleItems.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No order items yet.</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No order items yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[1500px] border-separate border-spacing-0 text-left text-sm">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Order</th>
-                  <th className="border-b px-2 py-2 font-medium">Substance</th>
-                  <th className="border-b px-2 py-2 font-medium">Formulation</th>
-                  <th className="border-b px-2 py-2 font-medium">Qty</th>
-                  <th className="border-b px-2 py-2 font-medium">Price total</th>
-                  <th className="border-b px-2 py-2 font-medium">Expected vials</th>
-                  <th className="border-b px-2 py-2 font-medium">Vials (P/A/C/D/T)</th>
-                  <th className="border-b px-2 py-2 font-medium">Vial cost sum</th>
-                  <th className="border-b px-2 py-2 font-medium">Spent</th>
-                  <th className="border-b px-2 py-2 font-medium">Remaining</th>
-                  <th className="border-b px-2 py-2 font-medium">Notes</th>
-                  <th className="border-b px-2 py-2 font-medium">Actions</th>
+                <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Order</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Substance</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Formulation</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Qty</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Price total</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Expected vials</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Vials (P/A/C/D/T)</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Vial cost sum</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Spent</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Remaining</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,37 +251,37 @@ export default async function OrdersPage() {
 
                   return (
                     <tr key={oi.id}>
-                      <td className="border-b px-2 py-2 text-zinc-900">{`${vendorName} / ${orderDay}`}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{substance?.display_name ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{formulation?.formulation.name ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-900 dark:text-slate-100">{`${vendorName} / ${orderDay}`}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{substance?.display_name ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{formulation?.formulation.name ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {oi.qty} {oi.unit_label}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{fmtMoney(oi.price_total_usd)}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{oi.expected_vials ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{fmtMoney(oi.price_total_usd)}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{oi.expected_vials ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         <span className="font-mono text-xs" title="planned/active/closed/discarded/total">
                           {planned}/{active}/{closed}/{discarded}/{total}
                         </span>
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         <div>{fmtMoney(vialCostSum)}</div>
                         {total > 0 ? (
-                          <div className="text-xs text-zinc-500">{`cost known ${vialCostKnown}/${total}`}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{`cost known ${vialCostKnown}/${total}`}</div>
                         ) : null}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         <div>{fmtMoney(spentSum)}</div>
                         {spentTotal > 0 ? (
-                          <div className="text-xs text-zinc-500">{`cost known ${spentKnown}/${spentTotal}`}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{`cost known ${spentKnown}/${spentTotal}`}</div>
                         ) : null}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{fmtMoney(remaining)}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{oi.notes ?? '-'}</td>
-                      <td className="border-b px-2 py-2">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{fmtMoney(remaining)}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{oi.notes ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2">
                         <form action={deleteOrderItemAction}>
                           <input type="hidden" name="order_item_id" value={oi.id} />
-                          <button className="text-sm text-red-700" type="submit">
+                          <button className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" type="submit">
                             Delete
                           </button>
                         </form>

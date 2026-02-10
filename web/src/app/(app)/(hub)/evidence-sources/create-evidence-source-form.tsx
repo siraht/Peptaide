@@ -20,16 +20,16 @@ export function CreateEvidenceSourceForm() {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4" data-e2e="evidence-create-card">
-      <h2 className="text-sm font-semibold text-zinc-900">Add evidence source</h2>
-      <p className="mt-1 text-sm text-zinc-700">
+    <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm" data-e2e="evidence-create-card">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add evidence source</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Optional citations/notes that can be attached to bioavailability specs and recommendations.
       </p>
 
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction} data-e2e="evidence-create-form">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Source type</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="source_type" defaultValue="paper">
+          <span className="text-slate-600 dark:text-slate-400">Source type</span>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="source_type" defaultValue="paper">
             <option value="paper">paper</option>
             <option value="label">label</option>
             <option value="clinical_guideline">clinical guideline</option>
@@ -42,9 +42,9 @@ export function CreateEvidenceSourceForm() {
         <div className="hidden sm:block" />
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Citation</span>
+          <span className="text-slate-600 dark:text-slate-400">Citation</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="citation"
             placeholder="DOI/PMID/ISBN/URL/free text"
             required
@@ -53,24 +53,24 @@ export function CreateEvidenceSourceForm() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" data-e2e="evidence-notes" />
+          <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" data-e2e="evidence-notes" />
         </label>
 
         <div className="sm:col-span-2">
-          <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+          <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20" type="submit">
             Save
           </button>
         </div>
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700" data-e2e="evidence-error">
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400" data-e2e="evidence-error">
           {state.message}
         </p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700" data-e2e="evidence-success">
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300" data-e2e="evidence-success">
           {state.message}
         </p>
       ) : null}

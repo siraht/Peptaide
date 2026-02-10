@@ -36,7 +36,7 @@ export function CycleRuleForm(props: {
 
   return (
     <section
-      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4"
+      className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm"
       data-e2e="settings-cycle-rule"
     >
       <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cycle rule</h2>
@@ -56,9 +56,9 @@ export function CycleRuleForm(props: {
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-700 dark:text-slate-300">Gap days threshold</span>
+          <span className="text-slate-600 dark:text-slate-400">Gap days threshold</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="gap_days_to_suggest_new_cycle"
             inputMode="numeric"
             defaultValue={String(effectiveGapDays)}
@@ -72,13 +72,13 @@ export function CycleRuleForm(props: {
             name="auto_start_first_cycle"
             defaultChecked={effectiveAutoStartFirstCycle}
           />
-          <span className="text-slate-700 dark:text-slate-300">Auto-start first cycle</span>
+          <span className="text-slate-600 dark:text-slate-400">Auto-start first cycle</span>
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-slate-700 dark:text-slate-300">Notes (optional)</span>
+          <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="notes"
             defaultValue={cycleRule?.notes ?? ''}
           />
@@ -96,7 +96,7 @@ export function CycleRuleForm(props: {
           <input type="hidden" name="substance_id" value={substanceId} />
           <input type="hidden" name="cycle_rule_id" value={cycleRule.id} />
           <button
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm text-red-700 dark:text-red-300"
+            className="h-10 rounded-md border border-border-light dark:border-border-dark bg-surface-light dark:bg-slate-900 px-4 text-sm text-red-600 dark:text-red-400 hover:border-red-300 dark:hover:border-red-900/40 transition-colors"
             type="submit"
             data-e2e="settings-cycle-rule-remove"
           >

@@ -26,7 +26,7 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
 
   return (
     <div
-      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4"
+      className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm"
       data-e2e="settings-recommendations"
     >
       <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Recommendations (user-entered)</h2>
@@ -42,9 +42,9 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         <input type="hidden" name="substance_id" value={substanceId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-700 dark:text-slate-300">Category</span>
+          <span className="text-slate-600 dark:text-slate-400">Category</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
             name="category"
             defaultValue="cycle_length_days"
             required
@@ -57,9 +57,9 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-700 dark:text-slate-300">Route (optional)</span>
+          <span className="text-slate-600 dark:text-slate-400">Route (optional)</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
             name="route_id"
             defaultValue=""
           >
@@ -73,27 +73,27 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-700 dark:text-slate-300">Min (optional)</span>
+          <span className="text-slate-600 dark:text-slate-400">Min (optional)</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="min_value"
             inputMode="decimal"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-700 dark:text-slate-300">Max (optional)</span>
+          <span className="text-slate-600 dark:text-slate-400">Max (optional)</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="max_value"
             inputMode="decimal"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-slate-700 dark:text-slate-300">Unit</span>
+          <span className="text-slate-600 dark:text-slate-400">Unit</span>
           <input
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="unit"
             placeholder='e.g. "days", "mg", "mcg", "times/week"'
             required
@@ -101,14 +101,14 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-slate-700 dark:text-slate-300">Notes (optional)</span>
-          <input className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100" name="notes" />
+          <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-slate-700 dark:text-slate-300">Evidence source (optional)</span>
+          <span className="text-slate-600 dark:text-slate-400">Evidence source (optional)</span>
           <select
-            className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
             name="evidence_source_id"
             defaultValue=""
           >

@@ -23,9 +23,9 @@ export function BulkAddSubstancesForm() {
   }, [router, state])
 
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Bulk add</h2>
-      <p className="mt-1 text-sm text-zinc-700">
+    <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Bulk add</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Paste one substance per line. Formats accepted:
         <span className="font-mono"> canonical</span>,
         <span className="font-mono"> canonical,display</span>, or
@@ -38,41 +38,41 @@ export function BulkAddSubstancesForm() {
       <form className="mt-3 space-y-3" action={formAction}>
         <textarea
           ref={textareaRef}
-          className="min-h-[140px] w-full rounded-md border p-3 text-sm"
+          className="min-h-[140px] w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary p-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
           name="lines"
           placeholder={'semax,Semax,peptide,systemic\nselank,Selank,peptide,cns'}
         />
 
-        <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+        <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20" type="submit">
           Add substances
         </button>
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700">{state.message}</p>
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{state.message}</p>
       ) : null}
       {state.status === 'success' ? (
         <div className="mt-3 space-y-2">
           <p
             className={`text-sm ${
               state.createdCount === 0
-                ? 'text-red-700'
+                ? 'text-red-600 dark:text-red-400'
                 : state.errors.length > 0
-                  ? 'text-amber-700'
-                  : 'text-emerald-700'
+                  ? 'text-amber-700 dark:text-amber-300'
+                  : 'text-emerald-700 dark:text-emerald-300'
             }`}
           >
             {state.message}
           </p>
           {state.errors.length > 0 ? (
-            <ul className="list-disc pl-5 text-sm text-red-700">
+            <ul className="list-disc pl-5 text-sm text-red-600 dark:text-red-400">
               {state.errors.slice(0, 10).map((e, idx) => (
                 <li key={idx}>{e}</li>
               ))}
             </ul>
           ) : null}
           {state.errors.length > 10 ? (
-            <p className="text-sm text-red-700">{state.errors.length - 10} more errors not shown.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{state.errors.length - 10} more errors not shown.</p>
           ) : null}
         </div>
       ) : null}

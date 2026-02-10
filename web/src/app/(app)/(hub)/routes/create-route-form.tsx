@@ -19,14 +19,14 @@ export function CreateRouteForm() {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Add route</h2>
+    <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add route</h2>
 
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Name</span>
+          <span className="text-slate-600 dark:text-slate-400">Name</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="name"
             placeholder="e.g. subcutaneous"
             required
@@ -34,8 +34,8 @@ export function CreateRouteForm() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Default input kind</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="default_input_kind">
+          <span className="text-slate-600 dark:text-slate-400">Default input kind</span>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="default_input_kind">
             <option value="mass">mass</option>
             <option value="volume">volume</option>
             <option value="device_units">device_units</option>
@@ -44,32 +44,32 @@ export function CreateRouteForm() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Default input unit</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="default_input_unit" placeholder="mg" required />
+          <span className="text-slate-600 dark:text-slate-400">Default input unit</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="default_input_unit" placeholder="mg" required />
         </label>
 
         <label className="flex items-center gap-2 text-sm">
           <input className="h-4 w-4" type="checkbox" name="supports_device_calibration" />
-          <span className="text-zinc-700">Supports device calibration</span>
+          <span className="text-slate-600 dark:text-slate-400">Supports device calibration</span>
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <span className="text-slate-600 dark:text-slate-400">Notes</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <div className="sm:col-span-2">
-          <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+          <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20" type="submit">
             Create
           </button>
         </div>
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700">{state.message}</p>
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{state.message}</p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700">{state.message}</p>
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p>
       ) : null}
     </div>
   )

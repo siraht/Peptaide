@@ -57,15 +57,15 @@ export default async function DeviceDetailPage({
   const distById = new Map(dists.map((d) => [d.id, d]))
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold">{device.name}</h1>
-          <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{device.device_kind}</span>
-          <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{device.default_unit}</span>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{device.name}</h1>
+          <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-200">{device.device_kind}</span>
+          <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-200">{device.default_unit}</span>
         </div>
-        <p className="mt-1 text-sm text-zinc-700">
-          <Link className="underline hover:text-zinc-900" href="/devices">
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <Link className="underline hover:text-primary" href="/devices">
             Back to list
           </Link>
         </p>
@@ -73,21 +73,21 @@ export default async function DeviceDetailPage({
 
       <CreateDeviceCalibrationForm deviceId={deviceId} routes={routes} volumeDistributions={volumeDists} />
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Calibrations</h2>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Calibrations</h2>
         {calibrations.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No calibrations yet.</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No calibrations yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[1000px] border-separate border-spacing-0 text-left text-sm">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Route</th>
-                  <th className="border-b px-2 py-2 font-medium">Unit label</th>
-                  <th className="border-b px-2 py-2 font-medium">Distribution</th>
-                  <th className="border-b px-2 py-2 font-medium">Params</th>
-                  <th className="border-b px-2 py-2 font-medium">Notes</th>
-                  <th className="border-b px-2 py-2 font-medium">Actions</th>
+                <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Route</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Unit label</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Distribution</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Params</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,13 +98,13 @@ export default async function DeviceDetailPage({
                     : null
                   return (
                     <tr key={c.id}>
-                      <td className="border-b px-2 py-2 text-zinc-900">{route?.name ?? c.route_id}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{c.unit_label}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-900 dark:text-slate-100">{route?.name ?? c.route_id}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{c.unit_label}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {dist ? (
                           <>
                             {dist.name}{' '}
-                            <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-700">
+                            <span className="ml-2 rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs text-slate-700 dark:text-slate-200">
                               {dist.dist_type}
                             </span>
                           </>
@@ -112,13 +112,13 @@ export default async function DeviceDetailPage({
                           '-'
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{dist ? summarizeDist(dist) : '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{c.notes ?? '-'}</td>
-                      <td className="border-b px-2 py-2">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{dist ? summarizeDist(dist) : '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{c.notes ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2">
                         <form action={deleteDeviceCalibrationAction}>
                           <input type="hidden" name="device_id" value={deviceId} />
                           <input type="hidden" name="calibration_id" value={c.id} />
-                          <button className="text-sm text-red-700" type="submit">
+                          <button className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" type="submit">
                             Delete
                           </button>
                         </form>

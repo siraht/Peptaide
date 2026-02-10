@@ -27,11 +27,11 @@ export function CreateFormulationComponentForm(props: {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4" data-e2e="formulation-component-card">
-      <h2 className="text-sm font-semibold text-zinc-900">Add formulation component</h2>
-      <p className="mt-1 text-sm text-zinc-700">
+    <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm" data-e2e="formulation-component-card">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add formulation component</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Components can optionally reference a multiplier distribution. This MVP uses the component&apos;s
-        <code className="rounded bg-zinc-100 px-1">modifier_dist_id</code> as a fallback modifier that applies
+        <code className="rounded bg-slate-100 dark:bg-slate-800 px-1">modifier_dist_id</code> as a fallback modifier that applies
         to both systemic and CNS when no per-compartment component modifier specs exist.
       </p>
 
@@ -39,9 +39,9 @@ export function CreateFormulationComponentForm(props: {
         <input type="hidden" name="formulation_id" value={formulationId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Component name</span>
+          <span className="text-slate-600 dark:text-slate-400">Component name</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="component_name"
             required
             data-e2e="formulation-component-name"
@@ -49,13 +49,13 @@ export function CreateFormulationComponentForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Role (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="role" placeholder="enhancer" />
+          <span className="text-slate-600 dark:text-slate-400">Role (optional)</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="role" placeholder="enhancer" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Modifier distribution (optional)</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="modifier_dist_id">
+          <span className="text-slate-600 dark:text-slate-400">Modifier distribution (optional)</span>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="modifier_dist_id">
             <option value="">(none)</option>
             {multiplierDistributions.map((d) => (
               <option key={d.id} value={d.id}>
@@ -66,24 +66,24 @@ export function CreateFormulationComponentForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <div className="sm:col-span-2">
-          <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+          <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20" type="submit">
             Create component
           </button>
         </div>
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700" data-e2e="formulation-component-error">
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400" data-e2e="formulation-component-error">
           {state.message}
         </p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700" data-e2e="formulation-component-success">
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300" data-e2e="formulation-component-success">
           {state.message}
         </p>
       ) : null}

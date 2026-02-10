@@ -65,24 +65,24 @@ export default async function FormulationDetailPage({
   const componentById = new Map(components.map((c) => [c.id, c] as const))
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold">{formulationEnriched.formulation.name}</h1>
-          <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{formulationEnriched.formulation.name}</h1>
+          <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-200">
             {formulationEnriched.substance?.display_name ?? 'Unknown substance'}
           </span>
-          <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+          <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-200">
             {formulationEnriched.route?.name ?? 'Unknown route'}
           </span>
           {formulationEnriched.device ? (
-            <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+            <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-200">
               {formulationEnriched.device.name}
             </span>
           ) : null}
         </div>
-        <p className="mt-1 text-sm text-zinc-700">
-          <Link className="underline hover:text-zinc-900" href="/formulations">
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <Link className="underline hover:text-primary" href="/formulations">
             Back to list
           </Link>
         </p>
@@ -93,21 +93,21 @@ export default async function FormulationDetailPage({
         multiplierDistributions={multiplierDists}
       />
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Components</h2>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Components</h2>
         {components.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No components yet.</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No components yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Name</th>
-                  <th className="border-b px-2 py-2 font-medium">Role</th>
-                  <th className="border-b px-2 py-2 font-medium">Modifier</th>
-                  <th className="border-b px-2 py-2 font-medium">Params</th>
-                  <th className="border-b px-2 py-2 font-medium">Notes</th>
-                  <th className="border-b px-2 py-2 font-medium">Actions</th>
+                <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Name</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Role</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Modifier</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Params</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -115,13 +115,13 @@ export default async function FormulationDetailPage({
                   const dist = c.modifier_dist_id ? distById.get(c.modifier_dist_id) ?? null : null
                   return (
                     <tr key={c.id}>
-                      <td className="border-b px-2 py-2 text-zinc-900">{c.component_name}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{c.role ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-900 dark:text-slate-100">{c.component_name}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{c.role ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {dist ? (
                           <>
                             {dist.name}{' '}
-                            <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-700">
+                            <span className="ml-2 rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs text-slate-700 dark:text-slate-200">
                               {dist.dist_type}
                             </span>
                           </>
@@ -129,13 +129,13 @@ export default async function FormulationDetailPage({
                           '-'
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{dist ? summarizeDist(dist) : '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{c.notes ?? '-'}</td>
-                      <td className="border-b px-2 py-2">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{dist ? summarizeDist(dist) : '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{c.notes ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2">
                         <form action={deleteFormulationComponentAction}>
                           <input type="hidden" name="formulation_id" value={formulationId} />
                           <input type="hidden" name="component_id" value={c.id} />
-                          <button className="text-sm text-red-700" type="submit">
+                          <button className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" type="submit">
                             Delete
                           </button>
                         </form>
@@ -155,21 +155,21 @@ export default async function FormulationDetailPage({
         multiplierDistributions={multiplierDists}
       />
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Component modifier specs (saved)</h2>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Component modifier specs (saved)</h2>
         {componentSpecs.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No per-compartment component modifier specs yet.</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No per-compartment component modifier specs yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[950px] border-separate border-spacing-0 text-left text-sm">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Component</th>
-                  <th className="border-b px-2 py-2 font-medium">Compartment</th>
-                  <th className="border-b px-2 py-2 font-medium">Multiplier</th>
-                  <th className="border-b px-2 py-2 font-medium">Params</th>
-                  <th className="border-b px-2 py-2 font-medium">Notes</th>
-                  <th className="border-b px-2 py-2 font-medium">Actions</th>
+                <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Component</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Compartment</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Multiplier</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Params</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Notes</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -178,13 +178,13 @@ export default async function FormulationDetailPage({
                   const dist = distById.get(s.multiplier_dist_id) ?? null
                   return (
                     <tr key={s.id}>
-                      <td className="border-b px-2 py-2 text-zinc-900">{c?.component_name ?? '(component)'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{s.compartment}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-900 dark:text-slate-100">{c?.component_name ?? '(component)'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{s.compartment}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {dist ? (
                           <>
                             {dist.name}{' '}
-                            <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-700">
+                            <span className="ml-2 rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs text-slate-700 dark:text-slate-200">
                               {dist.dist_type}
                             </span>
                           </>
@@ -192,13 +192,13 @@ export default async function FormulationDetailPage({
                           '(missing dist)'
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{dist ? summarizeDist(dist) : '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{s.notes ?? '-'}</td>
-                      <td className="border-b px-2 py-2">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{dist ? summarizeDist(dist) : '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">{s.notes ?? '-'}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2">
                         <form action={deleteComponentModifierSpecAction}>
                           <input type="hidden" name="formulation_id" value={formulationId} />
                           <input type="hidden" name="component_modifier_spec_id" value={s.id} />
-                          <button className="text-sm text-red-700" type="submit">
+                          <button className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" type="submit">
                             Delete
                           </button>
                         </form>

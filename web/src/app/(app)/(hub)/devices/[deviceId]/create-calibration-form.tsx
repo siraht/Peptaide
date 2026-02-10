@@ -29,20 +29,20 @@ export function CreateDeviceCalibrationForm(props: {
   }, [router, state.status])
 
   return (
-    <div className="rounded-lg border bg-white p-4" data-e2e="device-calibration-card">
-      <h2 className="text-sm font-semibold text-zinc-900">Add calibration</h2>
-      <p className="mt-1 text-sm text-zinc-700">
-        Calibrations convert device units (like <code className="rounded bg-zinc-100 px-1">spray</code> or{' '}
-        <code className="rounded bg-zinc-100 px-1">click</code>) into a volume in mL. The unit label should match
-        the parsed device unit token (lowercase, singular; for example <code className="rounded bg-zinc-100 px-1">spray</code>).
+    <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm" data-e2e="device-calibration-card">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Add calibration</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Calibrations convert device units (like <code className="rounded bg-slate-100 dark:bg-slate-800 px-1">spray</code> or{' '}
+        <code className="rounded bg-slate-100 dark:bg-slate-800 px-1">click</code>) into a volume in mL. The unit label should match
+        the parsed device unit token (lowercase, singular; for example <code className="rounded bg-slate-100 dark:bg-slate-800 px-1">spray</code>).
       </p>
 
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction} data-e2e="device-calibration-form">
         <input type="hidden" name="device_id" value={deviceId} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Route</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="route_id" required>
+          <span className="text-slate-600 dark:text-slate-400">Route</span>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="route_id" required>
             {routes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -52,9 +52,9 @@ export function CreateDeviceCalibrationForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-700">Unit label</span>
+          <span className="text-slate-600 dark:text-slate-400">Unit label</span>
           <input
-            className="h-10 rounded-md border px-3 text-sm"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="unit_label"
             placeholder="spray"
             required
@@ -63,8 +63,8 @@ export function CreateDeviceCalibrationForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Volume distribution (mL per unit)</span>
-          <select className="h-10 rounded-md border px-3 text-sm" name="volume_ml_per_unit_dist_id" required>
+          <span className="text-slate-600 dark:text-slate-400">Volume distribution (mL per unit)</span>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="volume_ml_per_unit_dist_id" required>
             {volumeDistributions.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name} ({d.dist_type})
@@ -74,24 +74,24 @@ export function CreateDeviceCalibrationForm(props: {
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-zinc-700">Notes (optional)</span>
-          <input className="h-10 rounded-md border px-3 text-sm" name="notes" />
+          <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <div className="sm:col-span-2">
-          <button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white" type="submit">
+          <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20" type="submit">
             Create calibration
           </button>
         </div>
       </form>
 
       {state.status === 'error' ? (
-        <p className="mt-3 text-sm text-red-700" data-e2e="device-calibration-error">
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400" data-e2e="device-calibration-error">
           {state.message}
         </p>
       ) : null}
       {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700" data-e2e="device-calibration-success">
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300" data-e2e="device-calibration-success">
           {state.message}
         </p>
       ) : null}
