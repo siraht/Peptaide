@@ -12,13 +12,25 @@ import { listSpendRollups } from '@/lib/repos/spendRepo'
 import { listDosingRecommendationsForSubstances } from '@/lib/repos/substanceRecommendationsRepo'
 import { createClient } from '@/lib/supabase/server'
 
-import { deleteEventAction, restoreEventAction, seedDemoDataAction } from './actions'
-import { TodayLogGrid } from './today-log-grid'
+import { seedDemoDataAction } from './actions'
+import { TodayLogTable } from './today-log-table'
 
 function toFiniteNumber(x: number | string | null | undefined): number | null {
   if (x == null) return null
   const n = typeof x === 'number' ? x : Number(x)
   return Number.isFinite(n) ? n : null
+}
+
+function sumFinite(xs: Array<number | string | null | undefined>): number | null {
+  let sum = 0
+  let any = false
+  for (const x of xs) {
+    const n = toFiniteNumber(x)
+    if (n == null) continue
+    sum += n
+    any = true
+  }
+  return any ? sum : null
 }
 
 function formatNumber(x: number | string | null | undefined, digits = 3): string {
@@ -78,18 +90,6 @@ function dayLocalDaysAgo(daysAgo: number, timeZone: string): string {
   const d = new Date(Date.UTC(todayLocal.year, todayLocal.month - 1, todayLocal.day))
   d.setUTCDate(d.getUTCDate() - daysAgo)
   return ymdToIso({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() })
-}
-
-function formatLocalTime(iso: string | null | undefined, timeZone: string): string {
-  if (!iso) return '-'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d)
 }
 
 type TargetCompartment = 'systemic' | 'cns' | 'both'
@@ -225,25 +225,57 @@ export default async function TodayPage({
     return missingBaseSystemic || missingBaseCns || missingDeviceCal
   })
 
-  const invByVialId = new Map<string, (typeof inventory)[number]>()
+  const vialLabelByVialId: Record<string, string> = {}
   for (const v of inventory) {
-    if (v.vial_id) invByVialId.set(v.vial_id, v)
+    if (!v.vial_id) continue
+    if (!v.lot) continue
+    vialLabelByVialId[v.vial_id] = v.lot
   }
 
-  const stockedInventory = (() => {
+  const formulationMetaById: Record<string, { formulationName: string; substanceName: string; routeName: string }> = {}
+  for (const f of formulations) {
+    formulationMetaById[f.formulation.id] = {
+      formulationName: f.formulation.name,
+      substanceName: f.substance?.display_name ?? 'Unknown',
+      routeName: f.route?.name ?? 'Unknown',
+    }
+  }
+
+  const stockedSubstances = (() => {
     const rows = inventorySummary.filter((v) => v.formulation_id && v.substance_id)
 
-    const out = rows.filter((v) => {
+    const stockedRows = rows.filter((v) => {
       const remaining = toFiniteNumber(v.total_remaining_mass_mg)
       const content = toFiniteNumber(v.total_content_mass_mg)
       if (remaining == null || content == null) return true
       return remaining > 0 && content > 0
     })
 
+    const grouped = new Map<string, { substanceId: string; substanceName: string; rows: typeof stockedRows }>()
+    for (const r of stockedRows) {
+      const substanceId = r.substance_id
+      if (!substanceId) continue
+      const next = grouped.get(substanceId) ?? {
+        substanceId,
+        substanceName: r.substance_name ?? 'Substance',
+        rows: [],
+      }
+      next.rows.push(r)
+      grouped.set(substanceId, next)
+    }
+
+    function runwayEstimateForRows(xs: typeof stockedRows): number | null {
+      const remaining = sumFinite(xs.map((r) => r.total_remaining_mass_mg))
+      const avgDaily = sumFinite(xs.map((r) => r.avg_daily_administered_mg_14d))
+      if (remaining == null || avgDaily == null || avgDaily <= 0) return null
+      return remaining / avgDaily
+    }
+
+    const out = Array.from(grouped.values())
     // Prefer showing "lowest runway first" to make restocking obvious.
     out.sort((a, b) => {
-      const ra = toFiniteNumber(a.runway_days_estimate_total_mg)
-      const rb = toFiniteNumber(b.runway_days_estimate_total_mg)
+      const ra = runwayEstimateForRows(a.rows)
+      const rb = runwayEstimateForRows(b.rows)
       if (ra == null && rb == null) return 0
       if (ra == null) return 1
       if (rb == null) return -1
@@ -354,11 +386,16 @@ export default async function TodayPage({
               </form>
             </div>
           ) : (
-            <TodayLogGrid
-              key={formulationId ?? 'default'}
+            <TodayLogTable
+              timeZone={timeZone}
               formulations={formulationOptions}
-              defaultFormulationId={formulationId}
+              formulationMetaById={formulationMetaById}
               doseRecommendationsByFormulationId={doseRecommendationsByFormulationId}
+              events={events}
+              vialLabelByVialId={vialLabelByVialId}
+              showDeleted={showDeleted}
+              showDeletedHref={showDeletedHref}
+              hideDeletedHref={hideDeletedHref}
             />
           )}
 
@@ -472,90 +509,6 @@ export default async function TodayPage({
                               <span className={okBadge}>present</span>
                             ) : (
                               <span className="rounded bg-gray-200/60 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-700 dark:text-gray-300">none</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-surface-dark p-4">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {showDeleted ? 'Deleted events (today)' : 'Today log'}
-              </h2>
-              <Link className="text-sm text-gray-600 dark:text-gray-400 underline hover:text-primary" href={showDeleted ? hideDeletedHref : showDeletedHref}>
-                {showDeleted ? 'Hide deleted' : 'Show deleted'}
-              </Link>
-            </div>
-
-            {events.length === 0 ? (
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                {showDeleted ? 'No deleted events today.' : 'No events logged today.'}
-              </p>
-            ) : (
-              <div className="mt-3 overflow-x-auto">
-                <table className="min-w-[900px] w-full text-left border-collapse">
-                  <thead className="sticky top-0 bg-white/70 dark:bg-surface-dark z-10">
-                    <tr className="text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-800">
-                      <th className="py-3 pl-2 w-28">Time</th>
-                      <th className="py-3">Compound / Vial</th>
-                      <th className="py-3 text-right">Input</th>
-                      <th className="py-3 pl-4">Route</th>
-                      <th className="py-3">Notes</th>
-                      <th className="py-3 w-20 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-800">
-                    {events.map((e) => {
-                      const inv = e.vial_id ? invByVialId.get(e.vial_id) ?? null : null
-                      const vialLabel = inv?.lot ?? (e.vial_id ? e.vial_id.slice(0, 8) : null)
-                      const compound = e.substance_name ?? e.formulation_name ?? 'Unknown'
-                      const formulationName = e.formulation_name ?? null
-
-                      return (
-                        <tr key={e.event_id ?? `${e.ts}-${e.input_text}`} className="group hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                          <td className="py-3 pl-2 font-mono text-gray-600 dark:text-gray-400">
-                            {formatLocalTime(e.ts, timeZone)}
-                          </td>
-                          <td className="py-3">
-                            <div className="font-medium text-gray-900 dark:text-gray-100">{compound}</div>
-                            <div className="text-xs text-gray-500">
-                              {formulationName ? formulationName : '—'}
-                              {vialLabel ? ` • ${vialLabel}` : ''}
-                            </div>
-                          </td>
-                          <td className="py-3 text-right font-mono text-gray-900 dark:text-gray-100">
-                            {e.input_text ?? '-'}
-                          </td>
-                          <td className="py-3 pl-4">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                              {e.route_name ?? '-'}
-                            </span>
-                          </td>
-                          <td className="py-3 text-gray-500 truncate max-w-[260px]">{e.notes ?? '-'}</td>
-                          <td className="py-3 text-center">
-                            {e.event_id ? (
-                              <form action={showDeleted ? restoreEventAction : deleteEventAction}>
-                                <input type="hidden" name="event_id" value={e.event_id} />
-                                {showDeleted ? (
-                                  <button className="text-emerald-400 hover:text-emerald-300 transition-colors p-1" type="submit">
-                                    <span className="sr-only">Restore</span>
-                                    <span className="material-icons text-sm">restore</span>
-                                  </button>
-                                ) : (
-                                  <button className="text-gray-400 hover:text-red-400 transition-colors p-1" type="submit">
-                                    <span className="sr-only">Delete</span>
-                                    <span className="material-icons text-sm">delete</span>
-                                  </button>
-                                )}
-                              </form>
-                            ) : (
-                              <span className="text-gray-400">-</span>
                             )}
                           </td>
                         </tr>
@@ -682,40 +635,37 @@ export default async function TodayPage({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
-          {stockedInventory.length === 0 ? (
+          {stockedSubstances.length === 0 ? (
             <div className="rounded-xl p-4 border border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark text-sm text-gray-600 dark:text-gray-400">
               No stock yet. Generate planned vials in <Link className="underline hover:text-white" href="/orders">Orders</Link> or add vials in{' '}
               <Link className="underline hover:text-white" href="/inventory">Inventory</Link>.
             </div>
           ) : (
-            stockedInventory.slice(0, 12).map((v) => {
-              const remainingTotal = toFiniteNumber(v.total_remaining_mass_mg)
-              const contentTotal = toFiniteNumber(v.total_content_mass_mg)
+            stockedSubstances.slice(0, 12).map((s) => {
+              const rows = s.rows
+
+              const remainingTotal = sumFinite(rows.map((r) => r.total_remaining_mass_mg))
+              const contentTotal = sumFinite(rows.map((r) => r.total_content_mass_mg))
               const pctTotal =
                 remainingTotal != null && contentTotal != null && contentTotal > 0
                   ? Math.max(0, Math.min(1, remainingTotal / contentTotal))
                   : null
 
-              const remainingActive = toFiniteNumber(v.active_remaining_mass_mg)
-              const contentActive = toFiniteNumber(v.active_content_mass_mg)
-              const pctActive =
-                remainingActive != null && contentActive != null && contentActive > 0
-                  ? Math.max(0, Math.min(1, remainingActive / contentActive))
-                  : null
-
-              const runway = toFiniteNumber(v.runway_days_estimate_total_mg)
+              const avgDaily = sumFinite(rows.map((r) => r.avg_daily_administered_mg_14d))
+              const runway =
+                remainingTotal != null && avgDaily != null && avgDaily > 0 ? remainingTotal / avgDaily : null
               const lowStock = runway != null && runway < 3
 
-              const costUsdKnown = toFiniteNumber(v.total_cost_usd_known)
-              const vialsTotal = toFiniteNumber(v.vial_count_total)
-              const vialsCostKnown = toFiniteNumber(v.vial_count_cost_known)
+              const costUsdKnown = sumFinite(rows.map((r) => r.total_cost_usd_known))
+              const vialsTotal = sumFinite(rows.map((r) => r.vial_count_total))
+              const vialsCostKnown = sumFinite(rows.map((r) => r.vial_count_cost_known))
               const costPerMg =
                 costUsdKnown != null && contentTotal != null && contentTotal > 0
                   ? costUsdKnown / contentTotal
                   : null
               const costAllKnown = vialsTotal != null && vialsCostKnown != null && vialsTotal > 0 && vialsCostKnown === vialsTotal
 
-              const cycle = v.substance_id ? activeCycleBySubstanceId.get(v.substance_id) ?? null : null
+              const cycle = activeCycleBySubstanceId.get(s.substanceId) ?? null
               // Keep render pure: derive the day index from the view's `cycle_length_days` (which uses `now()`
               // server-side for active cycles) instead of calling `Date.now()` in React render.
               const cycleLengthDays = toFiniteNumber(cycle?.cycle_length_days)
@@ -728,15 +678,45 @@ export default async function TodayPage({
                     ? `Day ${dayOfCycle}`
                     : `Day ${dayOfCycle} of ${Math.round(cycleDaysMax)}`
 
+              const activeVials = rows
+                .filter((r) => Boolean(r.active_vial_id))
+                .map((r) => {
+                  const remainingActive = toFiniteNumber(r.active_remaining_mass_mg)
+                  const contentActive = toFiniteNumber(r.active_content_mass_mg)
+                  const pctActive =
+                    remainingActive != null && contentActive != null && contentActive > 0
+                      ? Math.max(0, Math.min(1, remainingActive / contentActive))
+                      : null
+
+                  return {
+                    activeVialId: r.active_vial_id ?? null,
+                    formulationId: r.formulation_id ?? '',
+                    formulationName: r.formulation_name ?? null,
+                    lot: r.active_lot ?? null,
+                    remainingActive,
+                    contentActive,
+                    pctActive,
+                  }
+                })
+                .filter((r) => Boolean(r.formulationId))
+                .sort((a, b) => String(a.formulationName ?? '').localeCompare(String(b.formulationName ?? '')))
+
+              const primaryFormulationId = activeVials[0]?.formulationId ?? rows[0]?.formulation_id ?? null
+              const activeVialId = activeVials[0]?.activeVialId ?? null
+
+              const lots = activeVials.map((v) => v.lot).filter((l): l is string => Boolean(l))
+              const lotBadges = lots.slice(0, 3)
+              const extraLots = Math.max(0, lots.length - lotBadges.length)
+
               return (
                 <div
-                  key={v.formulation_id ?? `${v.substance_id}-${v.formulation_name}`}
+                  key={s.substanceId}
                   className={`bg-white dark:bg-surface-dark rounded-xl p-4 shadow-sm border transition-colors ${
                     lowStock ? 'border-orange-200 dark:border-orange-900/30' : 'border-gray-200 dark:border-gray-700/50 hover:border-primary/50'
                   }`}
                   data-e2e="today-inventory-card"
-                  data-vial-id={v.active_vial_id ?? ''}
-                  data-formulation-id={v.formulation_id ?? ''}
+                  data-substance-id={s.substanceId}
+                  data-vial-id={activeVialId ?? ''}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex gap-3 min-w-0">
@@ -747,7 +727,7 @@ export default async function TodayPage({
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-bold text-gray-900 dark:text-gray-100 leading-tight truncate">
-                          {v.substance_name ?? 'Substance'}
+                          {s.substanceName}
                         </h3>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {cycleLabel ? (
@@ -755,9 +735,14 @@ export default async function TodayPage({
                               {cycleLabel}
                             </span>
                           ) : null}
-                          {v.active_lot ? (
+                          {lotBadges.map((lot) => (
+                            <span key={lot} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                              {lot}
+                            </span>
+                          ))}
+                          {extraLots > 0 ? (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                              {v.active_lot}
+                              +{extraLots}
                             </span>
                           ) : null}
                           {costPerMg == null ? (
@@ -799,29 +784,49 @@ export default async function TodayPage({
                       />
                     </div>
 
-                    {v.active_vial_id && pctActive != null ? (
-                      <div className="mt-2">
-                        <div className="flex justify-between text-[10px] mb-1 font-medium text-gray-500 dark:text-gray-400">
-                          <span>
-                            Current vial:{' '}
-                            {remainingActive == null ? '-' : `${formatNumber(remainingActive, 2)}mg`} /{' '}
-                            {contentActive == null ? '-' : `${formatNumber(contentActive, 2)}mg`}
-                          </span>
-                          <span>{`${Math.round(pctActive * 100)}%`}</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-gray-400 dark:bg-gray-500" style={{ width: `${Math.round(pctActive * 100)}%` }} />
-                        </div>
+                    {activeVials.length > 0 ? (
+                      <div className="mt-2 space-y-2">
+                        {activeVials.map((av) => (
+                          <div
+                            key={av.formulationId}
+                            data-e2e="today-inventory-current-vial"
+                            data-formulation-id={av.formulationId}
+                          >
+                            <div className="flex justify-between text-[10px] mb-1 font-medium text-gray-500 dark:text-gray-400 gap-2">
+                              <span className="truncate">
+                                Current vial{av.formulationName ? ` (${av.formulationName})` : ''}{av.lot ? ` • ${av.lot}` : ''}:{' '}
+                                {av.remainingActive == null ? '-' : `${formatNumber(av.remainingActive, 2)}mg`} /{' '}
+                                {av.contentActive == null ? '-' : `${formatNumber(av.contentActive, 2)}mg`}
+                              </span>
+                              <span className="shrink-0 flex items-center gap-2">
+                                <span>{av.pctActive == null ? '-' : `${Math.round(av.pctActive * 100)}%`}</span>
+                                <Link
+                                  className="px-2 py-0.5 text-[10px] font-semibold text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-white rounded transition-colors bg-gray-50 dark:bg-gray-800"
+                                  href={`/today?focus=log&formulation_id=${encodeURIComponent(av.formulationId)}`}
+                                  data-e2e="today-inventory-log-dose"
+                                >
+                                  Log Dose
+                                </Link>
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gray-400 dark:bg-gray-500"
+                                style={{ width: av.pctActive == null ? '0%' : `${Math.round(av.pctActive * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : null}
                   </div>
 
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">
                     <div className="flex-1"></div>
-                    {v.formulation_id ? (
+                    {activeVials.length === 0 && primaryFormulationId ? (
                       <Link
                         className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-white rounded transition-colors bg-gray-50 dark:bg-gray-800"
-                        href={`/today?focus=log&formulation_id=${encodeURIComponent(v.formulation_id)}`}
+                        href={`/today?focus=log&formulation_id=${encodeURIComponent(primaryFormulationId)}`}
                         data-e2e="today-inventory-log-dose"
                       >
                         Log Dose
