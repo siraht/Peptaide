@@ -1812,8 +1812,7 @@ async function assertSettingsStitchVisualContract() {
     const css = getComputedStyle(document.documentElement)
     const bodyCss = getComputedStyle(document.body)
 
-    const root = document.querySelector('[data-e2e="settings-root"]')
-    const nav = root ? root.querySelector('nav') : null
+    const nav = document.querySelector('[data-e2e="hub-sidebar"]')
     const aside = document.querySelector('[data-e2e="settings-substance-editor"]')
     const primaryBtn = document.querySelector('[data-e2e="settings-base-ba-form"] button[type="submit"]')
 
