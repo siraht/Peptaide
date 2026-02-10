@@ -203,7 +203,7 @@ export function DataPortabilitySection() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4">
+    <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Data</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Export or import a ZIP of CSV files. Imports run under your signed-in session (RLS enforced).
@@ -231,7 +231,7 @@ export function DataPortabilitySection() {
             <span className="text-slate-700 dark:text-slate-300">Events CSV file</span>
             <input
               data-e2e="simple-events-file"
-              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => setEventsFile(e.target.files?.[0] ?? null)}
@@ -261,7 +261,7 @@ export function DataPortabilitySection() {
           <div className="flex gap-2 sm:col-span-2">
             <button
               data-e2e="simple-events-dry-run"
-              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 disabled:opacity-50"
+              className="h-10 rounded-md border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-colors disabled:opacity-50"
               type="button"
               disabled={eventsBusy != null}
               onClick={() => runSimpleEventsImport('dry-run')}
@@ -280,7 +280,7 @@ export function DataPortabilitySection() {
           </div>
 
           {eventsResult ? (
-            <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-sm text-slate-900 dark:text-slate-100 sm:col-span-2">
+            <div className="rounded-md border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-3 text-sm text-slate-900 dark:text-slate-100 sm:col-span-2">
               <div className="text-xs text-slate-600 dark:text-slate-400" data-e2e="simple-events-summary">
                 {`mode=${eventsResult.mode} rows=${eventsResult.summary.input_rows} imported_events=${eventsResult.summary.imported_events} substances=${eventsResult.summary.created_substances} routes=${eventsResult.summary.created_routes} formulations=${eventsResult.summary.created_formulations} cycles=${eventsResult.summary.created_cycles}`}
               </div>
@@ -320,7 +320,7 @@ export function DataPortabilitySection() {
             <span className="text-slate-700 dark:text-slate-300">Export ZIP file</span>
             <input
               data-e2e="bundle-zip-file"
-              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
               type="file"
               accept=".zip"
               onChange={(e) => setBundleFile(e.target.files?.[0] ?? null)}
@@ -340,7 +340,7 @@ export function DataPortabilitySection() {
           <div className="flex gap-2 sm:col-span-2">
             <button
               data-e2e="bundle-dry-run"
-              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 disabled:opacity-50"
+              className="h-10 rounded-md border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 px-4 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-colors disabled:opacity-50"
               type="button"
               disabled={busy != null}
               onClick={() => runImport('dry-run')}
@@ -359,7 +359,7 @@ export function DataPortabilitySection() {
           </div>
 
           {result ? (
-            <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-sm text-slate-900 dark:text-slate-100 sm:col-span-2">
+            <div className="rounded-md border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-3 text-sm text-slate-900 dark:text-slate-100 sm:col-span-2">
               <div className="text-xs text-slate-600 dark:text-slate-400">
                 {result.format ? `format=${result.format}` : 'format=?'}
                 {result.exported_at ? ` exported_at=${result.exported_at}` : ''}
@@ -370,19 +370,19 @@ export function DataPortabilitySection() {
                 <table className="min-w-[700px] border-separate border-spacing-0 text-left text-xs">
                   <thead>
                     <tr className="text-slate-600 dark:text-slate-400">
-                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Table</th>
-                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Rows</th>
-                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Inserted</th>
-                      <th className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-medium">Errors</th>
+                      <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Table</th>
+                      <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Rows</th>
+                      <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Inserted</th>
+                      <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Errors</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.tables.map((t) => (
                       <tr key={t.table}>
-                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2 font-mono">{t.table}</td>
-                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2">{t.rowCount}</td>
-                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2">{t.insertedCount ?? '-'}</td>
-                        <td className="border-b border-slate-200 dark:border-slate-700 px-2 py-2">{t.errors.length > 0 ? t.errors[0] : '-'}</td>
+                        <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono">{t.table}</td>
+                        <td className="border-b border-border-light dark:border-border-dark px-2 py-2">{t.rowCount}</td>
+                        <td className="border-b border-border-light dark:border-border-dark px-2 py-2">{t.insertedCount ?? '-'}</td>
+                        <td className="border-b border-border-light dark:border-border-dark px-2 py-2">{t.errors.length > 0 ? t.errors[0] : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -404,7 +404,7 @@ export function DataPortabilitySection() {
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-700 dark:text-slate-300">Confirm</span>
             <input
-              className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
+              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
               placeholder="DELETE"
