@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
 
+import { validateSameOrigin } from '@/lib/http/sameOrigin'
 import { getSupabaseServerEnv } from '@/lib/supabase/env'
 
 export const runtime = 'nodejs'
@@ -96,8 +97,14 @@ export async function POST(request: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: false, error: 'Email is required.' }, { status: 400 })
   }
 
-  const shouldExposeOtp =
-    process.env.NODE_ENV !== 'production' && String(process.env.PEPTAIDE_DEV_EXPOSE_OTP || '').trim() === '1'
+  const originError = validateSameOrigin(request)
+  if (originError) {
+    return NextResponse.json({ ok: false, error: originError }, { status: 403 })
+  }
+
+  // Dangerous: exposes OTP codes in the response (for private dev environments only).
+  // Keep gated behind an explicit env var and same-origin enforcement.
+  const shouldExposeOtp = String(process.env.PEPTAIDE_DEV_EXPOSE_OTP || '').trim() === '1'
   const mailpitBaseUrl = String(process.env.PEPTAIDE_MAILPIT_URL || 'http://127.0.0.1:54324').trim()
   const sinceMs = Date.now()
 

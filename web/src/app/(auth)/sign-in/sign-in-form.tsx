@@ -6,7 +6,6 @@ type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'error'
 
 export function SignInForm() {
   const [email, setEmail] = useState('')
-  const [code, setCode] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const [devCode, setDevCode] = useState<string | null>(null)
@@ -17,6 +16,19 @@ export function SignInForm() {
       return String(el?.value || '').trim()
     } catch {
       return ''
+    }
+  }
+
+  function setCodeInputValue(value: string) {
+    try {
+      const el = document.querySelector('input[name="code"]') as HTMLInputElement | null
+      if (!el) return
+      el.value = value
+      // Ensure form validation and any listeners (if added later) see the update.
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+      el.focus()
+    } catch {
+      // ignore
     }
   }
 
@@ -114,7 +126,6 @@ export function SignInForm() {
     setMessage(null)
 
     const token = String(new FormData(e.currentTarget).get('code') || '').trim()
-    setCode(token)
     const emailEffective = email.trim() || emailFromDom()
     setEmail(emailEffective)
 
@@ -186,7 +197,6 @@ export function SignInForm() {
             className="h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             inputMode="numeric"
             name="code"
-            onChange={(e) => setCode(e.target.value)}
             placeholder="6-digit code"
             type="text"
           />
@@ -208,7 +218,7 @@ export function SignInForm() {
             <button
               className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
               type="button"
-              onClick={() => setCode(devCode)}
+              onClick={() => setCodeInputValue(devCode)}
             >
               Use code
             </button>
