@@ -1,777 +1,202 @@
-## Peptide + medication tracker (MVP w/ Monte Carlo) — “simple but extensible” plan (Feb 2026)
+# Settings Hub Layout + Inventory Total Stock Rollups
 
-**Scope disclaimer:** this is a **recording + analytics** system. It can store “recommendations” you enter, but it must never present itself as medical guidance or optimization.
+This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
----
+This repository's ExecPlan format authority is `.agent/PLANSwHD.md` from the repository root. This plan must be maintained in accordance with it.
 
-## 0) Design goals (non‑negotiable)
+## Purpose / Big Picture
 
-1. **Fast logging for 5–10+ items/day** (desktop keyboard-first, mobile tap-light).
-2. **Extensible by construction** (new routes, new devices, new analytics, new model types without schema pain).
-3. **Uncertainty-native from day 1**: Monte Carlo **percentiles** are first-class outputs, not a later rewrite.
-4. **Data portability**: full export/import; no lock-in.
-5. **Correctness over cleverness**: canonical units, deterministic recomputation, and clear semantics for “fraction vs multiplier”.
+Peptaide’s `/settings` page already matches the new Stitch mockup style, but most pages linked from the settings sidebar (`/routes`, `/formulations`, `/devices`, `/inventory`, `/orders`, `/cycles`, `/distributions`, `/evidence-sources`, and the legacy `/substances` pages) still render as older, minimally styled pages and they do not preserve the left sidebar “hub” navigation when you click into them.
 
----
+After this change:
 
-## 1) Recommended stack (2026-current, minimal backend code)
+1. All pages reachable from the settings sidebar render inside a shared “Settings Hub” layout that keeps the left sidebar visible while navigating between those pages, and those pages use the same theme tokens as the Stitch mockups (colors, surfaces, borders, typography).
+2. The `/today` “Control Center” inventory cards show total in-stock inventory (across all vials you have on hand), not just the currently active vial. Optionally, the UI can show both “Current vial” and “Total stock”, but “Total stock” must exist.
 
-If your priority is **minimal custom backend** + **relational integrity** + **fast CRUD + analytics**, the cleanest stack remains:
+You can see it working by starting the app, navigating to `/settings`, clicking into each linked page, and observing that the sidebar persists and the page styling matches the theme. Then navigate to `/today` and confirm the inventory bars reflect all vials (planned + active + closed leftover, excluding discarded), not only the active vial.
 
-### Core
+## Progress
 
-* **Next.js 16.x** (App Router) + **TypeScript** ([Next.js 16], [Next.js upgrade v16])
-  * Use **Server Actions** for mutations (keeps “backend” co-located with UI).
-  * Keep heavy compute (Monte Carlo) on the server by default.
-* **Supabase** (managed **PostgreSQL**, **Auth**, **RLS**) ([Supabase SSR migration])
-  * **RLS** enforces “only I can see my data” at the database layer.
-  * Use **@supabase/ssr** (Auth Helpers are deprecated / maintenance mode) ([Supabase Auth Helpers deprecated]).
+- [x] (2026-02-10 02:17Z) Read `.agent/PLANSwHD.md` and inspected current `/settings` sidebar links and the pages they point to. plan[1-999]
+- [ ] (2026-02-10 02:20Z) Create a shared Settings Hub route-group layout that renders the left sidebar for all settings-linked pages, and move the relevant routes under it without changing URLs. plan[120-260]
+- [ ] (2026-02-10 02:20Z) Refactor `/settings` page to use the shared sidebar (no duplicate sidebar markup) and keep existing `data-e2e` hooks stable. plan[261-360]
+- [ ] (2026-02-10 02:20Z) Restyle each settings-linked page and its forms/tables to use the Stitch theme tokens (`bg-background-*`, `bg-surface-*`, `border-border-*`, slate/gray text) so they do not look like legacy inserts. plan[361-520]
+- [ ] (2026-02-10 02:20Z) Add a DB-level inventory summary view that aggregates total stock per formulation (and joins active vial details) so `/today` can render total stock + runway. plan[521-650]
+- [ ] (2026-02-10 02:20Z) Update `/today` Control Center to use the new inventory summary (total stock) instead of per-active-vial remaining/content, preserving existing behaviors and `data-e2e` hooks. plan[651-740]
+- [ ] (2026-02-10 02:20Z) Validation: run typecheck/lint (if present) and run the “conclusive” browser verification (`node web/scripts/tbrowser/peptaide-e2e.mjs`) to ensure no regressions on the new UI shell. plan[741-820]
+- [ ] (2026-02-10 02:20Z) Write outcomes/retro and capture any surprises (for example, CSS/scroll container issues, sticky header offsets). plan[821-900]
 
-### UI / interaction (critical for your “lots of daily entries” requirement)
+## Surprises & Discoveries
 
-* **shadcn/ui** + **Tailwind CSS**
-* **TanStack Table** + **TanStack Virtual** for spreadsheet-like “Today Log” + bulk editors (keyboard nav, large lists).
-* **cmdk** (command palette) for “add/select formulation fast” on desktop.
-* Charts: **Recharts** is fine for v1; if you later want uncertainty bands + richer time-series interactions, consider ECharts.
+- Observation: The Stitch-style `/settings` page renders its own left sidebar and links directly to legacy pages like `/routes` and `/inventory`. Those pages live under `web/src/app/(app)/<route>` and use older zinc/white styling. They are outside of the settings page’s internal sidebar layout, so navigating to them naturally “drops” the sidebar.  
+  Evidence: `web/src/app/(app)/settings/page.tsx` links to `/routes`, `/formulations`, `/devices`, `/inventory`, `/orders`, `/cycles`, `/distributions`, `/evidence-sources`.
 
-### Data access & migrations
+- Observation: `/today` “Control Center” cards are derived from `listInventoryStatus()` which reads `public.v_inventory_status`, and the page filters to `status === 'active'`. The progress bar and runway therefore represent only the active vial, not total on-hand stock from all vials.  
+  Evidence: `web/src/app/(app)/today/page.tsx` uses `const activeInventory = inventory.filter((v) => v.status === 'active' ...)`.
 
-* Prefer **SQL migrations** (Supabase CLI) as the source of truth.
-* Optional ORM:
-  * **Prisma ORM 7.x** if it makes you faster (typed queries, migrations still okay) ([Prisma ORM 7 announcement]).
-  * Skip Prisma if you’re happy with SQL + Supabase-generated types.
+## Decision Log
 
-### Secondary option (if “local-first” beats convenience)
+- Decision: Implement the persistent left sidebar using a Next.js route group layout (a directory name wrapped in parentheses) so URLs do not change and the sidebar is shared across multiple pages.  
+  Rationale: This fixes the “sidebar disappears when clicking settings links” problem without redesigning `/today` or changing top-level routing. It also centralizes the sidebar markup so future nav changes are one edit.  
+  Date/Author: 2026-02-10 / Codex
 
-* **PocketBase + SQLite** remains operationally tiny, but you’ll miss **Postgres** superpowers for analytics + constraints (and you’ll end up re-implementing things). Keep it as a later migration path, not the default.
+- Decision: Compute “total stock” in the database as a security-invoker view (similar to `v_inventory_status`) and consume it via a small repo wrapper.  
+  Rationale: The rollup needs consistent unit conversion/clamping behavior and should be cheap to query. Doing it in SQL avoids duplicating unit conversion logic in React and keeps RLS behavior consistent.  
+  Date/Author: 2026-02-10 / Codex
 
----
+## Outcomes & Retrospective
 
-## 2) “Complete” MVP definition (updated for your feedback)
+(To be filled in as milestones complete.)
 
-“Complete” means:
+## Context and Orientation
 
-1. Model **substances / routes / formulations / devices / vials / orders**.
-2. Log **multiple administrations quickly** (multi-row “Today Log”).
-3. Compute:
-   * **Administered** dose (canonical **mg**, **mL**)
-   * **Effective** dose distributions (systemic + CNS) with **Monte Carlo percentiles**
-4. **Automatic cycle tracking** with “gap-based new cycle suggestion” and **break tracking**.
-5. Store manual **recommendations** (dose range, cycle length, break length) and compare your actuals vs those.
-6. Analytics: normalized totals + **spend burn-rate** (USD/day/week/month) + inventory runway.
-7. Bulk creation flows (setup + orders → vials) + import/export.
-8. **RLS** everywhere.
+This repo is a Next.js app with the App Router in `web/src/app/`.
 
-Non-goals (still): protocol optimization, “AI decides your dose”, diagnosis, adherence nudging beyond simple reminders/alerts you explicitly configure.
+- The authenticated application pages live under `web/src/app/(app)/...` and are wrapped by `web/src/app/(app)/layout.tsx` (header, command palette, etc).
+- The Stitch-style settings page is `web/src/app/(app)/settings/page.tsx`. It currently renders its own left sidebar and links out to other pages.
+- Theme tokens used by the Stitch mockups are defined in `web/src/app/globals.css` via `@theme inline` CSS variables:
+  - `--color-primary`, `--color-background-light`, `--color-surface-dark`, etc.
+  - Tailwind class names like `bg-background-light` and `border-border-light` reference those tokens.
+- Inventory status data comes from Supabase Postgres views:
+  - `public.v_inventory_status` is defined in `supabase/migrations/*inventory_status*.sql` and returns per-vial info (including remaining mass for that vial).
+  - `web/src/lib/repos/inventoryStatusRepo.ts` reads that view.
+  - `/today` reads the view then filters to active vials to render the right-side Control Center cards.
 
----
+Important design constraint: URLs should not change (existing links and tests assume `/routes`, `/inventory`, etc). We should use route groups and layouts to change structure without changing the path.
 
-## 3) Core conceptual corrections (fresh-eyes sanity pass)
+## Plan of Work
 
-### 3.1 Avoid a probability-theory footgun: “bioavailability” must be a **fraction**, enhancers are **multipliers**
+Milestone 1: Shared Settings Hub layout (persistent sidebar)
 
-The original plan allowed “fraction vs multiplier” but didn’t specify composition rules. Without rules you’ll routinely generate impossible values (>1 as a fraction).
+1. Create a new route group under `web/src/app/(app)/` (for example `web/src/app/(app)/(hub)/`) with a `layout.tsx` that:
+   - renders the Stitch-style left sidebar (extracted to a shared component),
+   - renders a scrollable main content area for the page body,
+   - highlights the active nav item based on the current pathname and (for `/settings`) the `tab` search param.
+2. Move the settings-linked routes into that route group so they all share the sidebar layout without changing URLs:
+   - `settings/`
+   - `routes/`
+   - `formulations/`
+   - `devices/`
+   - `inventory/`
+   - `orders/`
+   - `cycles/`
+   - `distributions/`
+   - `evidence-sources/`
+   - `substances/` (and their detail pages), because existing settings code imports forms from there by relative path and other pages deep-link to them.
+3. Keep the existing `data-e2e="settings-root"` and other E2E selectors stable so `web/scripts/tbrowser/peptaide-e2e.mjs` continues to work.
 
-**Fix (semantics):**
+Milestone 2: Theme/style unification for settings-linked pages
 
-* Define **Base Bioavailability** as a **fraction** in \[0, 1\]:
-  **BA_base(substance, route, compartment)** = fraction of administered mass reaching that compartment.
-* Define **Modifiers** (formulation, components, devices) as **multipliers** ≥ 0:
-  **M_i(formulation/component/device)** multiplies BA_base.
-* Compose:
-  * **BA_total = clamp( BA_base × Π M_i , 0, 1 )**
-* Effective dose:
-  * **dose_eff = dose_admin_mg × BA_total**
+1. For each settings-linked page (and its forms), update Tailwind classes to use the theme tokens and Stitch patterns:
+   - replace `bg-white` with `bg-surface-light dark:bg-surface-dark`
+   - replace `text-zinc-*` with slate/gray tokens used elsewhere (`text-slate-...`, `text-gray-...`)
+   - replace raw borders with `border-border-light dark:border-border-dark`
+   - ensure consistent spacing (`p-4` cards, `p-6` page padding, sticky headers where needed)
+2. Keep all button texts and form names/inputs the same unless there is a strong reason, to avoid breaking automated tests that find elements by role/name.
 
-This is simple, physically consistent, and Monte Carlo-friendly.
+Milestone 3: Total stock inventory rollups
 
-### 3.2 “Append-only event log” vs edits
+1. Add a new Postgres view `public.v_inventory_summary` (name can be adjusted, but must be stable) in a new migration under `supabase/migrations/` that:
+   - aggregates per formulation (user_id, formulation_id) over all non-deleted vials with `status in ('planned','active','closed')` (exclude `discarded`)
+   - uses the same unit conversion approach as `v_inventory_status` so totals are in mg
+   - sums `content_mass_mg` and sums per-vial `used_mass_mg` from `administration_events`
+   - computes `total_remaining_mass_mg = greatest(0, total_content_mass_mg - total_used_mass_mg)`
+   - computes a `runway_days_estimate_total_mg` using the same 14-day avg usage logic already used in `v_inventory_status`
+   - joins the active vial (if any) for that formulation so the UI can still show the current vial label and optionally a “current vial” bar.
+2. Create a repo wrapper `web/src/lib/repos/inventorySummaryRepo.ts` (or similar) that selects from this view.
+3. Update `web/src/app/(app)/today/page.tsx` to use this summary view for the Control Center:
+   - render the progress bar based on `total_remaining_mass_mg / total_content_mass_mg`
+   - render runway based on `runway_days_estimate_total_mg`
+   - keep “Log Dose” links pointing at the formulation.
 
-You want corrections without losing history. The MVP should use **soft deletes** + optional **revision records**, not true immutability.
+Milestone 4: Validation
 
-**Fix (MVP):** `administration_events` is mutable but audited:
-* `deleted_at` (soft delete)
-* `updated_at`
-* optional `event_revisions` table storing old values (only when changes occur)
+1. Run the repo’s existing end-to-end browser verification:
 
-### 3.3 Redundancy risk: storing substance_id + route_id inside events
+     cd /data/projects/peptaide
+     node web/scripts/tbrowser/peptaide-e2e.mjs
 
-If `administration_events` stores both `formulation_id` and `substance_id/route_id`, they can drift.
+2. Manually sanity check:
+   - `/settings` sidebar persists when clicking into every nav link
+   - `/routes`, `/devices`, `/inventory`, etc all match the Stitch theme and do not look like legacy inserts
+   - `/today` Control Center totals match the sum of all vials (for a formulation) minus logged usage
 
-**Fix:** event stores `formulation_id` (required) and derives substance/route via join. If you later need speed, create views/materialized views—don’t duplicate truth.
-
----
-
-## 4) Data model (MVP schema, designed for easy feature growth)
-
-### 4.1 Conventions (applies to all user-owned tables)
-
-* `id uuid primary key default gen_random_uuid()`
-* `user_id uuid not null` (RLS gate)
-* `created_at timestamptz default now()`
-* `updated_at timestamptz default now()`
-* `deleted_at timestamptz null` (soft delete where appropriate)
-* Unique constraints include `user_id` so multi-user hosting is safe.
-
----
-
-### 4.2 Identity
-
-**profiles**
-* `user_id` (PK/FK → auth.users)
-* `timezone` (IANA string)
-* `default_mass_unit` (text; e.g. mg, mcg; this is for true mass units only. IU is supported as an input kind but is intentionally not treated as convertible mass without a substance-specific rule)
-* `default_volume_unit` (text; e.g. mL)
-* `default_simulation_n` (int; default 2048)
-* `cycle_gap_default_days` (int; default 7)
-
----
-
-### 4.3 Reference data (fast to add in bulk)
-
-**substances**
-* `canonical_name` (text; normalized key, unique per user)
-* `display_name` (text)
-* `family` (text; peptide, small_molecule, biologic, etc.)
-* `target_compartment_default` (enum: systemic, cns, both)
-* `notes`
-
-**substance_aliases** (for search/typing speed)
-* `substance_id` (FK)
-* `alias` (text)
-
-**routes**
-* `name` (text; subcutaneous, intranasal, oral, etc.)
-* `default_input_kind` (enum: mass, volume, device_units, IU)
-* `default_input_unit` (text; mg, mL, spray, actuation, IU, etc.)
-* `supports_device_calibration` (bool)
-* `notes`
-
-**devices** (route-level abstractions: syringe, nasal spray, pen, etc.)
-* `name` (text)
-* `device_kind` (enum: syringe, spray, dropper, pen, other)
-* `default_unit` (text; actuation, spray, click, IU, mL)
-* `notes`
-
-**device_calibrations** (optional in MVP but extremely useful)
-* `device_id` (FK)
-* `route_id` (FK)
-* `unit_label` (text; “spray”, “actuation”, “click”)
-* `volume_ml_per_unit_dist_id` (FK → distributions; nullable)
-* `notes`
-
-**formulations**
-* `substance_id` (FK)
-* `route_id` (FK)
-* `device_id` (FK nullable)
-* `name` (text; your variant label, e.g. “IN + enhancer A”)
-* `is_default_for_route` (bool)
-* `notes`
-
-**formulation_components**
-* `formulation_id` (FK)
-* `component_name` (text; free-text; you can later make this a FK)
-* `role` (text; enhancer/buffer/preservative)
-* `modifier_dist_id` (FK → distributions; multiplier; nullable)
-* `notes`
-
----
-
-### 4.4 Orders → order items → vials (inventory + cost)
-
-**vendors**
-* `name` (text)
-* `notes`
-
-**orders**
-* `vendor_id` (FK)
-* `ordered_at` (timestamptz)
-* `shipping_cost_usd` (numeric)
-* `total_cost_usd` (numeric)
-* `tracking_code` (text nullable)
-* `notes`
-
-**order_items**
-* `order_id` (FK)
-* `substance_id` (FK)
-* `formulation_id` (FK nullable) — link if known at purchase time (if set, must match `substance_id`)
-* `qty` (int) — “how many units purchased”
-* `unit_label` (text; “vial”, “kit”, etc.)
-* `price_total_usd` (numeric) — total for this line item (less ambiguous than price_per_unit)
-* `expected_vials` (int nullable) — for “generate vials” UX
-* `notes`
-
-**vials**
-* `substance_id` (FK; must match the linked formulation’s `substance_id`)
-* `formulation_id` (FK)
-* `order_item_id` (FK nullable)
-* `lot` (text nullable)
-* `received_at` (timestamptz nullable)
-* `opened_at` (timestamptz nullable)
-* `closed_at` (timestamptz nullable)
-* `status` (enum: planned, active, closed, discarded)
-* **Contents & concentration**
-  * `content_mass_value` (numeric)
-  * `content_mass_unit` (text; mg/mcg/IU/etc)
-  * `total_volume_value` (numeric nullable)
-  * `total_volume_unit` (text nullable; mL etc)
-  * `concentration_mg_per_ml` (numeric nullable; stored for speed, computed if mass+volume known and mass is convertible to mg; leave null for IU-only vials)
-* **Calibration overrides** (per-vial if needed)
-  * `volume_ml_per_unit_override_dist_id` (FK → distributions; nullable)
-* **Cost**
-  * `cost_usd` (numeric nullable) — computed default from order_item allocation but overrideable
-* `notes`
-
-**Hard constraint (DB):** only one active vial per formulation per user:
-* partial unique index on `(user_id, formulation_id)` where `status='active'` and `deleted_at is null`
-
----
-
-### 4.5 Canonical event log (optimized for fast entry + recomputation)
-
-**administration_events**
-* `ts` (timestamptz) — source of truth timestamp
-* `formulation_id` (FK) — required (quick-add can create formulation inline)
-* `vial_id` (FK nullable; resolved to active vial if present)
-* `cycle_instance_id` (FK nullable; normally auto-set)
-* **User input (preserved)**
-  * `input_text` (text) — e.g. `"0.3mL"`, `"2 sprays"`, `"250mcg"`
-  * `input_value` (numeric nullable)
-  * `input_unit` (text nullable)
-  * `input_kind` (enum: mass, volume, device_units, IU, other)
-* **Canonical computed**
-  * `dose_volume_ml` (numeric nullable)
-  * `dose_mass_mg` (numeric nullable)
-* **Monte Carlo outputs (persisted summaries; recomputable)**
-  * `eff_systemic_p05_mg`, `eff_systemic_p50_mg`, `eff_systemic_p95_mg` (numeric nullable)
-  * `eff_cns_p05_mg`, `eff_cns_p50_mg`, `eff_cns_p95_mg` (numeric nullable)
-  * `mc_n` (int nullable)
-  * `mc_seed` (bigint nullable) — deterministic recomputation
-  * `model_snapshot` (jsonb nullable) — selected distribution IDs + resolved params at log time
-* **Cost attribution (optional but powerful)**
-  * `cost_usd` (numeric nullable) — derived from vial cost × fraction used (prefer mg fraction; fall back to volume fraction if needed)
-* `tags` (text[])
-* `notes`
-* `deleted_at` (timestamptz nullable)
-
-Why store percentiles? Because it makes dashboards fast, and you still retain recomputation via `model_snapshot + mc_seed`.
-
----
-
-### 4.6 Cycles + breaks (automated, with manual override)
-
-**cycle_rules** (per substance; user-editable; defaults from profile)
-* `substance_id` (FK)
-* `gap_days_to_suggest_new_cycle` (int; default 7)
-* `auto_start_first_cycle` (bool; default true)
-* `notes`
-
-**cycle_instances**
-* `substance_id` (FK) — derived from formulation at create time for convenience
-* `cycle_number` (int)
-* `start_ts` (timestamptz)
-* `end_ts` (timestamptz nullable)
-* `status` (enum: active, completed, abandoned)
-* `goal` (text nullable)
-* `notes`
-
-**Breaks are computed** as the interval between `end_ts` of cycle N and `start_ts` of cycle N+1.
-If you later want explicit “I’m on break now” tracking, add `break_instances`—but MVP can compute breaks deterministically.
-
----
-
-### 4.7 Recommendations (manual now; AI later)
-
-These tables exist so an LLM agent can fill them later, but the MVP works with manual entry.
-
-**substance_recommendations**
-* `substance_id` (FK)
-* `category` (enum: cycle_length_days, break_length_days, dosing, frequency)
-* `route_id` (FK nullable) — for route-specific recommendations
-* `min_value` (numeric nullable)
-* `max_value` (numeric nullable)
-* `unit` (text; days, mg, mcg, IU, times_per_week, etc.)
-* `notes`
-* `evidence_source_id` (FK nullable)
-
-**evidence_sources**
-* `source_type` (enum: paper, label, clinical_guideline, vendor, anecdote, personal_note)
-* `citation` (text; DOI/PMID/ISBN/URL/free-text)
-* `notes`
-
----
-
-### 4.8 Uncertainty engine primitives (shared by bioavailability + calibration)
-
-Instead of hardcoding p1/p2/p3 everywhere, model uncertainty explicitly.
-
-**distributions**
-* `name` (text)
-* `value_type` (enum: fraction, multiplier, volume_ml_per_unit, other)
-* `dist_type` (enum: point, uniform, triangular, lognormal, beta_pert)
-* `p1`, `p2`, `p3` (numeric nullable)
-* `min_value` (numeric nullable)
-* `max_value` (numeric nullable)
-* `units` (text; for display)
-* `quality_score` (int 0–5)
-* `evidence_summary` (text)
-* `created_at`, `updated_at`
-
-**bioavailability_specs** (selectable “base fraction” per substance/route/compartment)
-* `substance_id` (FK)
-* `route_id` (FK)
-* `compartment` (enum: systemic, cns)
-* `base_fraction_dist_id` (FK → distributions) — **value_type=fraction**
-* `notes`
-* `evidence_source_id` (FK nullable)
-
-**formulation_modifier_specs**
-* `formulation_id` (FK)
-* `compartment` (enum: systemic, cns, both)
-* `multiplier_dist_id` (FK → distributions) — **value_type=multiplier**
-* `notes`
-
-**component_modifier_specs**
-* `formulation_component_id` (FK)
-* `compartment` (enum: systemic, cns, both)
-* `multiplier_dist_id` (FK → distributions)
-* `notes`
-
-This structure matches how you actually think: base BA + modifiers. It’s also trivial to extend (add “absorption lag” later, add “half-life” later, etc.).
-
----
-
-## 5) Monte Carlo (MVP, not “later”)
-
-### 5.1 What we simulate
-
-For each event, for each compartment:
-
-1. Sample **BA_base ~ Dist(fraction)** in \[0,1]
-2. Sample each **modifier M_i ~ Dist(multiplier)** in \[0,∞)
-3. Compute **BA_total = clamp(BA_base × Π M_i, 0, 1)**
-4. Compute **dose_eff = dose_admin_mg × BA_total**
-
-Outputs stored:
-* **p05/p50/p95** (and optionally mean/std later)
-* `mc_seed`, `mc_n`
-* `model_snapshot` that records which distributions were used and their resolved params
-
-### 5.2 Distribution choices (simple + correct)
-
-* Fractions in \[0,1\]: prefer **beta-PERT** (parameterized by min/mode/max; use a fixed lambda=4).
-* Multipliers ≥ 0: prefer **lognormal** (parameterized by median + log_sigma; or triangular if you only know rough bounds).
-* Uniform/range is allowed but should be visually flagged as low-quality evidence.
-
-### 5.3 Determinism (so you can reproduce results)
-
-* `mc_seed = hash(user_id, event_id, canonical_model_snapshot)` (where `canonical_model_snapshot` includes the chosen distribution IDs and resolved numeric params)
-* Changing a model triggers optional “recompute affected events” action.
-
-### 5.4 When to run MC
-
-* On event save:
-  * compute canonical dose (mg/mL)
-  * run MC with `default_simulation_n` (e.g., 2048) when `dose_admin_mg` is available and required distributions exist; otherwise persist null percentiles and show non-blocking coverage warnings
-  * persist percentiles
-* On dashboards:
-  * aggregate using p50 for “central” and p05/p95 for bands
-  * optionally run “day-level MC” later; MVP can do percentile aggregation conservatively:
-    * day_p05 = sum(event_p05), day_p50 = sum(event_p50), day_p95 = sum(event_p95)
-    * (heuristic band only: monotone but not statistically correct quantiles; add day-level MC and/or correlated sampling later)
-
----
-
-## 6) Unit input parsing (so “0.3mL”, “20cc”, “250 mcg”, “2 sprays” just works)
-
-### 6.1 Rules
-
-* Always store the raw `input_text`.
-* Parse to `(value, unit)` if possible; otherwise keep raw and block save with a clear error.
-
-### 6.2 Canonicalization targets
-
-* Mass → **mg**
-* Volume → **mL**
-* Device units (“spray”, “actuation”, “click”) → **unit_count**, then convert to volume via calibration dist.
-
-### 6.3 Supported synonyms (MVP)
-
-* Volume: `ml`, `mL`, `cc` (1 cc = 1 mL), `uL`/`µL`/`μL` (→ mL)
-* Mass: `mg`, `mcg`/`µg`/`μg`/`ug` (→ mg), `g` (→ mg)
-* IU: `IU` / `[iU]` (store as IU; conversion to mg is substance-specific so do **not** auto-convert)
-* Device units: `spray`, `actuation`, `pump`, `click` (user-configurable labels)
-
-### 6.4 Implementation approach
-
-* Use a small parser + lookup table (regex + normalization) for MVP.
-* If you want more expressive unit strings later (UCUM-style), integrate a UCUM parser (e.g. ucum.js) to canonicalize unit expressions to base units, then map to mg/mL where appropriate ([UCUM], [ucum.js]).
-
----
-
-## 7) User flows (updated to match your feedback)
-
-### Global interaction primitives (do these early)
-
-* **Command palette** (⌘K / Ctrl+K): “Log”, “New substance”, “New formulation”, “Open today log”, “Jump to substance analytics”.
-* **Spreadsheet grids** (bulk edit): arrow keys, Enter to advance, Shift+Enter reverse, paste multi-cell, undo.
-* **Mobile quick add**: bottom-sheet, big tap targets, one-hand reachable primary actions.
-
----
-
-### Flow A — First-time setup (bulk-first, not clicky)
-
-Entry: first login → “Setup Wizard”
-
-**Step A1: Preferences**
-* Set timezone, default units, default MC N, default cycle gap days.
-
-**Step A2: Bulk add substances**
-Actions (all must exist):
-* Add single substance
-* Bulk add in grid (paste from CSV/clipboard)
-* Add aliases (optional)
-* Retire/restore
-
-**Step A3: Bulk add routes (seeded defaults + editable)**
-Actions:
-* Select from seeded list (subq, intranasal, oral, IM, IV, buccal, transdermal, etc.)
-* Add custom route
-* Set default input kind/unit per route
-
-**Step A4: Bulk add formulations**
-Actions:
-* Grid entry with columns: substance, route, name, device, is_default
-* Inline “+ create substance/route/device” without leaving the grid
-
-**Step A5: Bulk add vials (or generate from orders)**
-Actions:
-* Create vials in a grid (formulation, mass, volume, received_at, cost)
-* Set “active” vial per formulation with one keystroke
-
-**Step A6: Add base BA + modifiers (manual now)**
-Actions:
-* For each substance+route+compartment, enter base BA distribution
-* For each formulation/component, enter modifier distribution
-* Link evidence sources (optional but supported)
-
-**Definition of done:** you can open “Today Log” and enter multiple lines rapidly with computed effective-dose percentiles.
-
----
-
-### Flow B — Logging (primary flow; optimized for 5–10+ per day)
-
-Entry: “Today Log” (default landing page after setup)
-
-**UI shape:** a table where each row is one event. Minimal columns visible; advanced fields in a drawer.
-
-Required actions (row-level):
-1. Timestamp defaults to “now”, but the table is day-scoped; only time-of-day is typically edited.
-2. Choose **formulation** via:
-   * typing (autocomplete)
-   * command palette insert
-3. Input dose using `input_text` (e.g. `0.3mL`, `2 sprays`, `250mcg`)
-4. Hit Enter:
-   * app resolves vial (active vial default)
-   * computes canonical dose (mg/mL)
-   * runs MC → stores percentiles
-   * auto-assigns cycle (with new-cycle suggestion if needed)
-   * immediately adds a new blank row, focused in the formulation cell
-
-**Quick actions (post-row-save):**
-* “Add another” (default; keeps you in the grid)
-* “Duplicate row” (rarely useful as the default, but still available)
-* “Open details” (tags, notes, vial override, evidence snapshot)
-
-**Cycle automation (inline while logging):**
-* On save, find last event for the same substance:
-  * if none and `auto_start_first_cycle=true` → create cycle #1 and assign
-  * else compute gap days; if gap ≥ rule threshold:
-    * prompt: “New cycle?” with default = yes
-    * if yes: create new cycle, assign event
-    * if no: assign to existing active/most recent cycle
-
-**Multi-substance days:**
-* The table supports 5–10+ rows quickly with minimal modal interruptions.
-* Mobile version uses the same concept, but as stacked “cards” with one tap to add a new card.
-
----
-
-### Flow C — Vials (including generation from orders)
-
-Entry: Inventory
-
-Actions:
-* Create vial (single)
-* Bulk create vials (grid)
-* Generate vials from an order item:
-  * choose order item → “Generate N vials” → creates planned vials linked to `order_item_id`
-  * optionally prompt for shared defaults (mass/volume/cost) to apply across generated vials
-* Set active vial (one click / hotkey)
-* Close/discard vial (prompt if events still expected)
-
-System behaviors:
-* Concentration auto-computed if mass+volume known.
-* Cost auto-computed if order item has `price_total_usd` and `expected_vials` (allocation per vial).
-
----
-
-### Flow D — Cycles + breaks (mostly automatic)
-
-Entry: Cycles
-
-Actions:
-* View per-substance timeline: cycles and computed breaks.
-* Manually create a cycle (rare, but needed for corrections):
-  * choose substance → app checks last event gap and suggests start_ts
-  * on confirm, auto-assign eligible events (optional)
-* End a cycle:
-  * set end_ts
-  * show computed break clock starting immediately
-* Fix missed new-cycle selection:
-  * “Split cycle here” action: pick an event → create new cycle starting at that event → reassign events after it
-
-Comparisons shown in cycle detail:
-* actual cycle length vs **recommended cycle length**
-* actual break length vs **recommended break length**
-* total dose vs **recommended dose range** (by route, where possible)
-
----
-
-### Flow E — Recommendations (manual now, AI later)
-
-Entry: Recommendations (or within Substance detail)
-
-Actions:
-* Add cycle length recommendation (min/max days)
-* Add break length recommendation (min/max days)
-* Add dosing recommendation by route (min/max, units)
-* Add frequency recommendation (e.g. times/week)
-* Attach evidence source links/notes
-
-The UI must make it obvious these are “user-entered reference ranges,” not medical advice.
-
----
-
-### Flow F — Analytics (including spend)
-
-Entry: Dashboard
-
-Must-have views (v1):
-1. **Today summary**
-   * administered mg by substance
-   * effective systemic/CNS p50 (with p05–p95 band)
-   * alerts: missing base BA for substance+route, missing calibration for device units
-2. **Calendar**
-   * day rows × substance columns (admin and effective views toggle)
-3. **Trends**
-   * 7/30/90 day rolling totals (admin and effective p50)
-   * uncertainty ribbons (p05–p95)
-4. **Cycles & breaks**
-   * cycle length distribution across history
-   * days on vs days off
-5. **Inventory**
-   * remaining mass/volume per active vial (estimated)
-   * “runway” = remaining / recent average daily usage
-6. **Spend**
-   * USD/day, USD/week, USD/month (based on cost attribution)
-   * cost per administered mg and per effective mg (p50)
-   * per-substance spend share
-
----
-
-### Flow G — Import/export (and “bulk add” is just import with a nicer UI)
-
-Entry: Settings → Data
-
-Actions:
-* Export all tables (CSV bundle)
-* Import CSV templates with:
-  * dry-run validation
-  * id mapping + dedupe by unique keys
-* Clipboard paste import for quick setup (substances/formulations/vials)
-
----
-
-## 8) Implementation modules (concrete boundaries, easy to extend)
-
-### 8.1 Domain modules (pure logic; no DB/React)
-
-* **units/**
-  * `parseQuantity(input_text) -> {kind, value, unit}`
-  * `toCanonicalMassMg(...)`
-  * `toCanonicalVolumeMl(...)`
-* **dose/**
-  * `resolveVial(formulationId, explicitVialId?)`
-  * `computeDose({input, vial, calibration}) -> {dose_mass_mg, dose_volume_ml}`
-* **uncertainty/**
-  * `sample(dist, rng)`
-  * `simulateEffectiveDose({dose_mg, dists}, n, seed) -> percentiles`
-  * `composeBioavailability({baseFraction, multipliers}) -> fraction`
-* **cycles/**
-  * `suggestCycleAction({substanceId, ts, gapDaysRule}) -> {createNew?: boolean}`
-  * `splitCycleAtEvent(eventId)`
-* **cost/**
-  * `allocateVialCost(orderItem, expectedVials) -> cost_per_vial`
-  * `eventCostFromVial(eventDoseMg, vialContentMg, vialCostUsd)`
-
-### 8.2 Data access modules (thin wrappers, all typed)
-
-* `substancesRepo`, `routesRepo`, `formulationsRepo`, `vialsRepo`, `eventsRepo`, `cyclesRepo`, `recsRepo`, `distsRepo`
-
-### 8.3 SQL views (make dashboards cheap)
-
-* `v_event_enriched` (join event → formulation → substance/route → vial)
-* `v_daily_totals_admin`
-* `v_daily_totals_effective_systemic` (p05/p50/p95 sums)
-* `v_daily_totals_effective_cns`
-* `v_cycle_summary` (length, totals, adherence to recs)
-* `v_spend_daily_weekly_monthly`
-* `v_inventory_status` (used/remaining/runway)
-* `v_model_coverage` (missing BA/calibration/modifiers)
-* `v_order_item_vial_counts` (vials created/active/closed per order item; remaining/used)
-
----
-
-## 9) Required pages (routes) — updated
-
-### `/today` (default)
-
-* Spreadsheet-like grid (add many events fast)
-* Inline cycle prompt when needed
-* Inline “missing model/calibration” warnings without blocking save (unless dose can’t be computed)
-
-### `/substances`
-
-* List + bulk add
-* Substance detail:
-  * formulations
-  * base BA specs per route/compartment
-  * recommendations
-  * analytics quick links
-
-### `/formulations`
-
-* List + bulk add
-* Formulation detail:
-  * components + modifier dists
-  * default vial/device settings
-
-### `/inventory`
-
-* Vials grouped by formulation
-* “Generate from order item”
-* Remaining/runway + event timeline per vial
-
-### `/cycles`
-
-* Per-substance cycles + computed breaks
-* Split/merge tools for corrections
-
-### `/orders`
-
-* Orders, items, shipping events
-* Cost allocation preview
-* Generate vials
-
-### `/analytics`
-
-* Calendar + trends + uncertainty bands
-* Spend analytics
-
-### `/settings`
-
-* Profile, units, default MC N, cycle defaults
-* Data import/export
-* Danger zone: delete/export first, then delete
-
----
-
-## 10) Nonfunctional requirements (treat as features)
-
-### Security & privacy
-
-* **RLS** on all user-owned tables.
-* No public read/write.
-* Optional: require re-auth to view/export (UI-level).
-* Consider encrypting especially sensitive free-text notes if you ever add multi-user sharing (not MVP).
-
-### Correctness
-
-* Canonical units (mg/mL) internally; preserve raw input.
-* IU never auto-converted to mg without a substance-specific rule (future).
-* MC determinism with stored seed + snapshot.
-* Clear compartment semantics: systemic vs CNS are separate outputs.
-
-### Performance
-
-* Index `(user_id, ts desc)` on events.
-* Partial index for active vial uniqueness.
-* Use views/materialized views for daily aggregates once history grows.
-
----
-
-## 11) “LLM agent research readiness” — what you must store now
-
-To enable a future agent to fetch real-world values, you need these fields/tables today:
-
-* Substance identity: canonical name + aliases (searchability).
-* Route + device context (because BA depends on them).
-* Base BA distributions per substance+route+compartment (with evidence links).
-* Modifier distributions per formulation/component/device calibration (with evidence links).
-* Recommendations (dose/cycle/break/frequency) with evidence links.
-* Explicit “unknown” status so the UI can highlight gaps (coverage views).
-
-This is why **distributions + specs** are separate tables: the agent fills specs; the app consumes them.
-
----
-
-## 12) Practical “definition of done” checklist (MVP)
-
-The MVP is done when:
-
-* Bulk add works (paste/grid) for substances, formulations, vials.
-* “Today Log” lets you enter 10 rows in ~1 minute on desktop without fighting the UI.
-* Each saved event has:
-  * parsed input stored as text + structured fields
-  * canonical dose mg (when possible)
-  * MC percentiles for systemic (and CNS if configured)
-  * cycle auto-assigned, with gap-based new-cycle suggestion
-* Cycles page can split a cycle at an event (fix missed new cycle).
-* Recommendations can be entered and compared vs actual cycle/break lengths.
-* Orders → generate vials works, and order items show vials remaining/used.
-* Analytics shows:
-  * administered totals
-  * effective p50 with p05–p95 bands
-  * spend USD/day/week/month
-* Export/import round-trip succeeds.
-* RLS prevents cross-user access by construction.
-
----
-
-## References (no tracking params)
-
-[Next.js 16]: https://nextjs.org/blog/next-16
-[Next.js upgrade v16]: https://nextjs.org/docs/app/guides/upgrading/version-16
-[Supabase SSR migration]: https://supabase.com/docs/guides/auth/server-side/migrating-to-ssr-from-auth-helpers
-[Supabase Auth Helpers deprecated]: https://github.com/supabase/auth-helpers
-[Prisma ORM 7 announcement]: https://www.prisma.io/blog/announcing-prisma-orm-7-0-0
-[UCUM]: https://ucum.org/ucum
-[ucum.js]: https://github.com/jmandel/ucum.js/
-
----
-
-## Plan change notes
-
-2026-02-07: Clarified distribution parameter mapping (`p1/p2/p3` vs `min_value/max_value`) to avoid ambiguous sampling, added an explicit rule to avoid double-counting component modifiers (`component_modifier_specs` vs `formulation_components.modifier_dist_id`), expanded micro-unit synonyms to include Greek-mu variants, and clarified that `default_mass_unit` is for true mass units (IU is supported but not auto-convertible without substance-specific rules).
-
-Details:
-
-* Distribution parameter mapping (MVP):
-  * `point`: `p1=value`
-  * `uniform`: `min_value`, `max_value`
-  * `triangular`: `p1=min`, `p2=mode`, `p3=max`
-  * `beta_pert`: `p1=min`, `p2=mode`, `p3=max` (lambda=4)
-  * `lognormal`: `p1=median`, `p2=log_sigma` (optionally clamp with `min_value`/`max_value`)
-
-* Component modifiers: avoid double-counting. If `component_modifier_specs` rows exist for a component (for a given compartment or `both`), use those. Otherwise, `formulation_components.modifier_dist_id` (if set) can be treated as a fallback multiplier that applies to both systemic and CNS.
+## Concrete Steps
+
+All commands below are run from the repo root: `/data/projects/peptaide`.
+
+1. Add the Settings Hub layout and move routes:
+
+   - Create `web/src/app/(app)/(hub)/layout.tsx`
+   - Extract the sidebar into `web/src/components/settings-hub/sidebar.tsx` (client component) and import it from the layout.
+   - `git mv` each of the routes listed above from `web/src/app/(app)/...` into `web/src/app/(app)/(hub)/...`.
+   - Fix any broken relative imports.
+
+2. Restyle pages and forms:
+
+   - Edit each page and component under `web/src/app/(app)/(hub)/...`.
+   - Prefer minimal, mechanical class substitutions first, then iterate visually.
+
+3. Add inventory summary view:
+
+   - Create migration `supabase/migrations/20260210000000_098_inventory_summary_view.sql` (timestamp may differ, but must be unique).
+   - Apply it to the running local DB without wiping data by running the SQL directly via psql:
+
+       psql \"postgresql://postgres:postgres@127.0.0.1:54322/postgres\" -v ON_ERROR_STOP=1 -f supabase/migrations/<new_file>.sql
+
+4. Update `/today` Control Center:
+
+   - Add `web/src/lib/repos/inventorySummaryRepo.ts`
+   - Update `web/src/app/(app)/today/page.tsx`
+
+5. Validation:
+
+   - Run `node web/scripts/tbrowser/peptaide-e2e.mjs`
+
+## Validation and Acceptance
+
+Acceptance is:
+
+1. Navigate to `/settings` and click each sidebar link (“Routes”, “Formulations”, “Devices”, “Inventory”, “Orders”, “Cycles”, “Distributions”, “Evidence”, “App Settings”). The left sidebar remains visible across navigation and highlights the current section.
+2. The target pages look consistent with the Stitch theme (same backgrounds, border colors, typography, and button styles), not like the old zinc/white pages.
+3. Navigate to `/today` and confirm each Control Center inventory card shows total remaining mg across all on-hand vials (not just the active vial), and the percent bar reflects total stock.
+4. Run `node web/scripts/tbrowser/peptaide-e2e.mjs` and it completes successfully (no console errors, no failed network requests).
+
+## Idempotence and Recovery
+
+- Moving routes into a route group is idempotent as long as each URL path is defined only once. If a move causes a conflict, remove the duplicated old path.
+- The DB migration is additive (new view). It can be applied multiple times because it uses `create or replace view`.
+- If the local DB needs rebuilding, `supabase db reset --yes` will wipe data; the spreadsheet import runner `node web/scripts/tbrowser/import-spreadsheetdata.mjs` can re-import events + reconcile to restore an October-present dataset for `t.hinton@protonmail.com`.
+
+## Artifacts and Notes
+
+- Settings hub nav source of truth: `web/src/app/(app)/settings/page.tsx` (to be refactored into shared sidebar).
+- Inventory view used today: `supabase/migrations/20260209095000_096_inventory_status_lot_and_clamp.sql`.
+- `/today` Control Center logic: `web/src/app/(app)/today/page.tsx` (active vials only today; to be changed).
+
+## Interfaces and Dependencies
+
+New DB interface:
+
+- `public.v_inventory_summary` view (security invoker) must provide, at minimum:
+  - `user_id uuid`
+  - `formulation_id uuid`
+  - `substance_id uuid`, `substance_name text`
+  - `route_id uuid`, `route_name text`
+  - `total_content_mass_mg numeric`
+  - `total_used_mass_mg numeric`
+  - `total_remaining_mass_mg numeric`
+  - `avg_daily_administered_mg_14d numeric`
+  - `runway_days_estimate_total_mg numeric`
+  - plus optional active vial columns: `active_vial_id uuid`, `active_lot text`, `active_remaining_mass_mg numeric`
+
+New app interface:
+
+- `web/src/lib/repos/inventorySummaryRepo.ts` exports:
+  - `export type InventorySummaryRow = Database['public']['Views']['v_inventory_summary']['Row']`
+  - `export async function listInventorySummary(supabase: DbClient): Promise<InventorySummaryRow[]>`
+
+Plan revisions:
+
+- (2026-02-10) Initial plan created after repo inspection.
+
