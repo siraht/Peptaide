@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'error'
 
@@ -9,6 +9,7 @@ export function SignInForm() {
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const [devCode, setDevCode] = useState<string | null>(null)
+  const devPollRef = useRef(0)
 
   function emailFromDom(): string {
     try {
@@ -77,6 +78,26 @@ export function SignInForm() {
     }
   }
 
+  async function sleep(ms: number) {
+    await new Promise((r) => setTimeout(r, ms))
+  }
+
+  async function fetchDevOtpCode(opts: { email: string; sinceMs: number }): Promise<string | null> {
+    const sp = new URLSearchParams()
+    sp.set('email', opts.email)
+    sp.set('since', String(opts.sinceMs))
+    const res = await fetch(`/api/auth/dev-otp?${sp.toString()}`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+
+    const data = (await res.json().catch(() => null)) as { ok?: boolean; code?: string | null } | null
+    if (!res.ok || !data?.ok) return null
+    return typeof data.code === 'string' && data.code.trim() ? data.code.trim() : null
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setStatus('sending')
@@ -94,7 +115,8 @@ export function SignInForm() {
         return
       }
 
-      const data = await postJson<{ ok: boolean; error?: string; dev_code?: string }>(
+      const sinceMs = Date.now()
+      const data = await postJson<{ ok: boolean; error?: string; dev_exposed?: boolean }>(
         '/api/auth/send-otp',
         { email: emailRaw },
         { timeoutMs: 15000 },
@@ -109,9 +131,25 @@ export function SignInForm() {
       setStatus('sent')
       const host = window.location.hostname
       const mailpitHint = mailpitHintForHost(host)
-      const hint = data.dev_code ? ' (Dev: code is shown below.)' : ''
+      const devExposed = Boolean(data.dev_exposed)
+      const hint = devExposed ? ' (Dev: code will appear below.)' : ''
       setMessage(`Check your email (or Mailpit) for a sign-in link or 6-digit code.${mailpitHint}${hint}`)
-      if (data.dev_code) setDevCode(String(data.dev_code))
+
+      if (devExposed) {
+        const pollId = ++devPollRef.current
+        ;(async () => {
+          const started = Date.now()
+          while (Date.now() - started < 60000) {
+            if (devPollRef.current !== pollId) return
+            const code = await fetchDevOtpCode({ email: emailRaw, sinceMs }).catch(() => null)
+            if (code) {
+              setDevCode(code)
+              return
+            }
+            await sleep(750)
+          }
+        })()
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setStatus('error')
