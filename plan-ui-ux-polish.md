@@ -21,23 +21,29 @@ After this plan, the UI should feel consistent and “Stripe-level” in the way
 - [x] (2026-02-11 00:40Z) Repo state audit: identified current uncommitted UI polish changes (10 files) and confirmed existing conclusive browser harness already sweeps `/setup` and `/analytics` and deeply exercises `/settings` and `/today`. Evidence: `git status --porcelain=v1` and inspection of `web/scripts/tbrowser/peptaide-e2e.mjs`.
 
 - [x] (2026-02-11 00:46Z) Commit the current uncommitted UI polish changes (ellipsis fixes, `color-scheme`, `theme-color`, mobile hub sidebar collapse, and the `/analytics` restyle) so they are not lost and so future diffs stay reviewable. Evidence: commit `7a65753`.
-- [ ] (2026-02-11 00:40Z) Restyle `/setup` to match the Stitch theme tokens (surface cards, slate/gray typography, spacing) and remove remaining `bg-white`/`text-zinc-*` scaffolding look.
-- [ ] (2026-02-11 00:40Z) Fix `/analytics` number + currency formatting to use `Intl.NumberFormat` (no manual `$${n.toFixed(2)}`), while keeping the current table layout.
-- [ ] (2026-02-11 00:40Z) Focus and accessibility pass:
+- [x] (2026-02-11 00:51Z) Restyle `/setup` to match the Stitch theme tokens (surface cards, slate/gray typography, spacing) and remove remaining `bg-white`/`text-zinc-*` scaffolding look. Evidence: commit `a501970`.
+- [x] (2026-02-11 00:51Z) Fix `/analytics` number + currency formatting to use `Intl.NumberFormat` (no manual `$${n.toFixed(2)}`), while keeping the current table layout. Evidence: commit `a501970`.
+- [x] (2026-02-11 01:11Z) Focus and accessibility pass:
   - add a skip link in `web/src/app/(app)/layout.tsx` (keyboard users can jump to main content),
   - replace focus styling in key inputs/buttons to use `focus-visible:*` rings (keep border focus if useful),
   - ensure icon-only controls have `aria-label` (especially any header-only icons).
-- [ ] (2026-02-11 00:40Z) Animation pass: replace `transition-all` with `transition-colors` / `transition-shadow` in the touched surfaces so we follow compositor-friendly rules and avoid accidental layout transitions.
-- [ ] (2026-02-11 00:40Z) Validation: run web quality gates and the conclusive browser harness.
+- [x] (2026-02-11 01:11Z) Animation pass: replaced all remaining `transition-all` usages in `web/src/` with `transition-colors` to avoid accidental layout transitions.
+- [x] (2026-02-11 01:11Z) Validation: ran web quality gates and the conclusive browser harness.
   - `cd web && npm run typecheck`
   - `cd web && npm run lint`
   - `cd web && npm test`
-  - `node web/scripts/tbrowser/peptaide-e2e.mjs`
+  - `E2E_BASE_URL=http://127.0.0.1:3010 node web/scripts/tbrowser/peptaide-e2e.mjs` (PASS, artifacts: `/tmp/peptaide-e2e-2026-02-11T01-05-28-607Z`)
 
 ## Surprises & Discoveries
 
 - Observation: The project already has a strong, “conclusive” E2E harness that sweeps key pages and fails on console/network errors, plus a mockup compare report for `/today` and `/settings`. This is a good backbone for UI polish work, because it makes regressions visible without adding heavyweight snapshot infra.
   Evidence: `web/scripts/tbrowser/peptaide-e2e.mjs` (see `sweepPages(...)` and `writeMockupCompareReport()`).
+
+- Observation: `next dev` using Turbopack can crash in this environment with `Too many open files (os error 24)`, which breaks conclusive E2E runs if we rely on a dev server.
+  Evidence: Turbopack panic log path `/tmp/next-panic-acfd0f6908ed27b40552d7421a380652.log` (seen when starting `npm run dev -p 3010`).
+
+- Observation: Next.js 16 warns when `themeColor` is configured under `metadata`; it expects `export const viewport = { themeColor: ... }`.
+  Evidence: `npm run build` emitted warnings until `web/src/app/layout.tsx` was updated to use the `viewport` export.
 
 ## Decision Log
 
@@ -51,7 +57,7 @@ After this plan, the UI should feel consistent and “Stripe-level” in the way
 
 ## Outcomes & Retrospective
 
-- (TBD) This section will be updated after each major milestone with what changed, what improved, and what still feels non-premium.
+- (2026-02-11) Delivered: `/setup` and `/analytics` now match the Stitch-style token system, analytics uses `Intl.NumberFormat`, focus rings are `focus-visible` on key controls (plus a skip link), and `transition-all` has been eliminated in `web/src/`. Conclusive browser verification passed and produced updated sweep screenshots and mockup compare output under `/tmp/peptaide-e2e-2026-02-11T01-05-28-607Z/`.
 
 ## Context and Orientation
 

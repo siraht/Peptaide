@@ -44,7 +44,7 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Category</span>
           <select
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100"
             name="category"
             defaultValue="cycle_length_days"
             required
@@ -59,7 +59,7 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Route (optional)</span>
           <select
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100"
             name="route_id"
             defaultValue=""
           >
@@ -75,7 +75,7 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Min (optional)</span>
           <input
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="min_value"
             inputMode="decimal"
           />
@@ -84,7 +84,7 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Max (optional)</span>
           <input
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="max_value"
             inputMode="decimal"
           />
@@ -93,7 +93,7 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Unit</span>
           <input
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="unit"
             placeholder='e.g. "days", "mg", "mcg", "times/week"'
             required
@@ -102,13 +102,13 @@ export function SubstanceRecommendationsForm(props: { substanceId: string; route
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
-          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Evidence source (optional)</span>
           <select
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100"
             name="evidence_source_id"
             defaultValue=""
           >

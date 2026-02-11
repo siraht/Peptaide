@@ -231,7 +231,7 @@ export function DataPortabilitySection() {
             <span className="text-slate-700 dark:text-slate-300">Events CSV file</span>
             <input
               data-e2e="simple-events-file"
-              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
+              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => setEventsFile(e.target.files?.[0] ?? null)}
@@ -320,7 +320,7 @@ export function DataPortabilitySection() {
             <span className="text-slate-700 dark:text-slate-300">Export ZIP file</span>
             <input
               data-e2e="bundle-zip-file"
-              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
+              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
               type="file"
               accept=".zip"
               onChange={(e) => setBundleFile(e.target.files?.[0] ?? null)}
@@ -404,7 +404,7 @@ export function DataPortabilitySection() {
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-700 dark:text-slate-300">Confirm</span>
             <input
-              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
+              className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
               placeholder="DELETE"

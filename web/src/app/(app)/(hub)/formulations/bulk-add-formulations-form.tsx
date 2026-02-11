@@ -37,7 +37,7 @@ export function BulkAddFormulationsForm(props: {
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Substance</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="substance_id" required>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="substance_id" required>
             {substances.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
@@ -48,7 +48,7 @@ export function BulkAddFormulationsForm(props: {
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Route</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="route_id" required>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="route_id" required>
             {routes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label}
@@ -59,7 +59,7 @@ export function BulkAddFormulationsForm(props: {
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Device (optional)</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="device_id">
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="device_id">
             <option value="">(none)</option>
             {devices.map((d) => (
               <option key={d.id} value={d.id}>
@@ -73,7 +73,7 @@ export function BulkAddFormulationsForm(props: {
           <span className="text-slate-600 dark:text-slate-400">Formulation names</span>
           <textarea
             ref={textareaRef}
-            className="min-h-[140px] w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary p-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+            className="min-h-[140px] w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary p-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="lines"
             placeholder={'default\nwith enhancer A\nwith enhancer B'}
           />

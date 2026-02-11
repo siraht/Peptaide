@@ -26,7 +26,7 @@ export function CreateRouteForm() {
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Name</span>
           <input
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="name"
             placeholder="e.g. subcutaneous"
             required
@@ -35,7 +35,7 @@ export function CreateRouteForm() {
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Default input kind</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="default_input_kind">
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="default_input_kind">
             <option value="mass">mass</option>
             <option value="volume">volume</option>
             <option value="device_units">device_units</option>
@@ -45,7 +45,7 @@ export function CreateRouteForm() {
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Default input unit</span>
-          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="default_input_unit" placeholder="mg" required />
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="default_input_unit" placeholder="mg" required />
         </label>
 
         <label className="flex items-center gap-2 text-sm">
@@ -55,7 +55,7 @@ export function CreateRouteForm() {
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Notes</span>
-          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <div className="sm:col-span-2">

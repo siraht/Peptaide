@@ -33,7 +33,7 @@ export function GenerateVialsForm(props: { orderItems: OrdersOrderItemOption[] }
       <form className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" action={formAction}>
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Order item</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="order_item_id" required>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="order_item_id" required>
             {orderItems.map((oi) => (
               <option key={oi.id} value={oi.id}>
                 {oi.label}
@@ -45,7 +45,7 @@ export function GenerateVialsForm(props: { orderItems: OrdersOrderItemOption[] }
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Vial count (optional)</span>
           <input
-            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+            className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
             name="vial_count"
             inputMode="numeric"
             placeholder="(defaults to expected_vials or qty)"
@@ -54,12 +54,12 @@ export function GenerateVialsForm(props: { orderItems: OrdersOrderItemOption[] }
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Content mass</span>
-          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="content_mass_value" required inputMode="decimal" />
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="content_mass_value" required inputMode="decimal" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Mass unit</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="content_mass_unit" defaultValue="mg">
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="content_mass_unit" defaultValue="mg">
             <option value="mg">mg</option>
             <option value="mcg">mcg</option>
             <option value="ug">ug</option>
@@ -70,12 +70,12 @@ export function GenerateVialsForm(props: { orderItems: OrdersOrderItemOption[] }
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Total volume (optional)</span>
-          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="total_volume_value" inputMode="decimal" />
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="total_volume_value" inputMode="decimal" />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Volume unit</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="total_volume_unit" defaultValue="mL">
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="total_volume_unit" defaultValue="mL">
             <option value="mL">mL</option>
             <option value="cc">cc</option>
             <option value="uL">uL</option>
@@ -84,14 +84,14 @@ export function GenerateVialsForm(props: { orderItems: OrdersOrderItemOption[] }
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Cost per vial USD (optional)</span>
-          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="cost_usd" inputMode="decimal" />
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="cost_usd" inputMode="decimal" />
         </label>
 
         <div className="hidden sm:block" />
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-slate-600 dark:text-slate-400">Notes (optional)</span>
-          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
+          <input className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500" name="notes" />
         </label>
 
         <div className="sm:col-span-2">

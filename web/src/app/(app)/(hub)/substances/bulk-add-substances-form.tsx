@@ -38,7 +38,7 @@ export function BulkAddSubstancesForm() {
       <form className="mt-3 space-y-3" action={formAction}>
         <textarea
           ref={textareaRef}
-          className="min-h-[140px] w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary p-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+          className="min-h-[140px] w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary p-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
           name="lines"
           placeholder={'semax,Semax,peptide,systemic\nselank,Selank,peptide,cns'}
         />

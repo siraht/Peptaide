@@ -1,4 +1,5 @@
-import type { Metadata } from 'next'
+/* eslint-disable @next/next/no-page-custom-font */
+import type { Metadata, Viewport } from 'next'
 import { Geist_Mono, Manrope } from 'next/font/google'
 
 import './globals.css'
@@ -16,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Peptaide',
   description: 'Peptide + medication tracker with uncertainty-aware analytics.',
+}
+
+export const viewport: Viewport = {
   themeColor: '#101622',
 }
 

@@ -27,7 +27,7 @@ export function CreateCycleNowForm(props: { substances: CycleSubstanceOption[] }
       <form className="mt-3 flex flex-wrap items-end gap-3" action={formAction}>
         <label className="flex min-w-[16rem] flex-col gap-1 text-sm">
           <span className="text-slate-600 dark:text-slate-400">Substance</span>
-          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm transition-all outline-none text-slate-900 dark:text-slate-100" name="substance_id" required>
+          <select className="h-10 rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm transition-colors outline-none text-slate-900 dark:text-slate-100" name="substance_id" required>
             {substances.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}

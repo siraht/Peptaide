@@ -209,7 +209,7 @@ export function SignInForm() {
           <input
             autoCapitalize="off"
             autoComplete="email"
-            className="mt-1 h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
+            className="mt-1 h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             name="email"
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -232,7 +232,7 @@ export function SignInForm() {
         <form className="mt-2 flex gap-2" onSubmit={onVerifyCode}>
           <input
             autoComplete="one-time-code"
-            className="h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
+            className="h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
             inputMode="numeric"
             name="code"
             placeholder="6-digit code"

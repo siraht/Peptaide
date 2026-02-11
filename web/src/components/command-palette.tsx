@@ -91,7 +91,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
   return (
     <>
       <button
-        className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:text-primary dark:hover:text-white transition-colors"
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:text-primary dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
         type="button"
         onClick={() => {
           setQuery('')
@@ -115,7 +115,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
           }}
           data-e2e="cmdk-overlay"
         >
-          <div className="w-full max-w-xl overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark shadow-2xl">
+          <div className="w-full max-w-xl overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark shadow-2xl focus-within:ring-2 focus-within:ring-primary/40">
             <Command label="Command palette">
               <div className="border-b border-gray-200 dark:border-gray-800 p-3">
                 <Command.Input

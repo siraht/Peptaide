@@ -79,7 +79,7 @@ export default async function SettingsPage({
                 <div className="relative max-w-md w-full">
                   <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
                   <input
-                    className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded text-sm transition-all outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary rounded text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
                     placeholder="Search by name…"
                     type="text"
                     name="substance_search"

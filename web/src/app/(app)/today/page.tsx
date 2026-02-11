@@ -346,7 +346,7 @@ export default async function TodayPage({
               {quickLogFormulations.map((f) => (
                 <Link
                   key={f.formulationId}
-                  className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-blue-300 rounded-lg border border-primary/20 transition-all text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-blue-300 rounded-lg border border-primary/20 transition-colors text-sm font-medium"
                   href={`/today?focus=log&formulation_id=${encodeURIComponent(f.formulationId)}`}
                   data-e2e="today-quick-log-item"
                   data-formulation-id={f.formulationId}
@@ -357,7 +357,7 @@ export default async function TodayPage({
               ))}
 
               <Link
-                className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 href="/today?focus=log"
                 data-e2e="today-quick-log-custom"
               >
@@ -617,7 +617,7 @@ export default async function TodayPage({
           <div className="flex gap-2">
             <Link
               href="/orders"
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-all"
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-colors"
               title="Add New Order"
               data-e2e="today-control-orders"
             >
@@ -625,7 +625,7 @@ export default async function TodayPage({
             </Link>
             <Link
               href="/inventory"
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all"
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-dark transition-colors"
               title="Inventory"
               data-e2e="today-control-inventory"
             >
@@ -846,7 +846,7 @@ export default async function TodayPage({
 
         <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-surface-dark">
           <button
-            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all group"
+            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors group"
             type="button"
             data-e2e="today-scan-vial"
           >

@@ -99,6 +99,12 @@ export default async function AppLayout({
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-gray-800 dark:text-gray-100 h-screen overflow-hidden flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 rounded-md bg-surface-light dark:bg-surface-dark px-4 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-lg ring-1 ring-border-light dark:ring-border-dark"
+      >
+        Skip to content
+      </a>
       <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark flex items-center justify-between px-6 shrink-0">
         <div className="flex items-center gap-4 min-w-0">
           <Link href="/today" className="flex items-center gap-3 min-w-0">
@@ -116,23 +122,32 @@ export default async function AppLayout({
 
         <div className="flex items-center gap-3 sm:gap-6">
           <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
-            <span className="material-icons text-lg">calendar_today</span>
+            <span className="material-icons text-lg" aria-hidden="true">
+              calendar_today
+            </span>
             <span>{localDateLabel}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <Link
               href="/settings"
-              className="p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
               aria-label="Open settings"
               title="Settings"
             >
-              <span className="material-icons">settings</span>
+              <span className="material-icons" aria-hidden="true">
+                settings
+              </span>
             </Link>
 
-            <button className="relative p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Notifications">
-              <span className="material-icons">notifications</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <button
+              className="relative p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
+              aria-label="Notifications"
+            >
+              <span className="material-icons" aria-hidden="true">
+                notifications
+              </span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" aria-hidden="true"></span>
             </button>
           </div>
 
@@ -144,7 +159,7 @@ export default async function AppLayout({
             <div className="hidden sm:block max-w-[16rem] truncate">{data.user.email}</div>
             <form action={signOut}>
               <button
-                className="inline-flex h-9 items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:text-primary dark:hover:text-white transition-colors"
+                className="inline-flex h-9 items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:text-primary dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
                 type="submit"
               >
                 Sign out
@@ -154,7 +169,7 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden">
+      <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden">
         <div className="h-full overflow-auto">{children}</div>
       </main>
     </div>
