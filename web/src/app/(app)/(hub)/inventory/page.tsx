@@ -5,20 +5,36 @@ import { ReconcileImportedVialsForm } from './reconcile-imported-vials-form'
 import { EmptyState } from '@/components/ui/empty-state'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
+import { listOrderItems } from '@/lib/repos/orderItemsRepo'
+import { listOrders } from '@/lib/repos/ordersRepo'
+import { listSubstances } from '@/lib/repos/substancesRepo'
+import { listVendors } from '@/lib/repos/vendorsRepo'
 import { createClient } from '@/lib/supabase/server'
+import { buildVialOrderItemLinkOptions } from '@/lib/inventory/vialOrderItemLinkOptions'
 
 export default async function InventoryPage() {
   const supabase = await createClient()
 
-  const [formulations, inventory] = await Promise.all([
+  const [formulations, inventory, orders, orderItems, substances, vendors] = await Promise.all([
     listFormulationsEnriched(supabase),
     listInventoryStatus(supabase),
+    listOrders(supabase),
+    listOrderItems(supabase),
+    listSubstances(supabase),
+    listVendors(supabase),
   ])
 
   const formulationOptions = formulations.map((f) => {
     const substance = f.substance?.display_name ?? 'Unknown substance'
     const route = f.route?.name ?? 'Unknown route'
     return { id: f.formulation.id, label: `${substance} / ${route} / ${f.formulation.name}` }
+  })
+  const orderItemLinkOptions = buildVialOrderItemLinkOptions({
+    orders,
+    orderItems,
+    vendors,
+    substances,
+    formulations,
   })
 
   return (
@@ -39,7 +55,7 @@ export default async function InventoryPage() {
           actionLabel="Open formulations"
         />
       ) : (
-        <CreateVialForm formulations={formulationOptions} />
+        <CreateVialForm formulations={formulationOptions} orderItemLinks={orderItemLinkOptions} />
       )}
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">

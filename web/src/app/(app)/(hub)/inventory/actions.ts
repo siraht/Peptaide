@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 
+import { allocateVialCost, resolveVialCreateCost } from '@/lib/domain/cost/cost'
 import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
 import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { reconcileImportedVialsFromTags } from '@/lib/migrate/reconcileImportedVials'
@@ -14,6 +15,7 @@ import {
   getVialById,
 } from '@/lib/repos/vialsRepo'
 import { getFormulationEnrichedById } from '@/lib/repos/formulationsRepo'
+import { getOrderItemById } from '@/lib/repos/orderItemsRepo'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -50,8 +52,11 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
   const contentMassUnit = String(formData.get('content_mass_unit') ?? '').trim()
   const totalVolumeValueRaw = String(formData.get('total_volume_value') ?? '').trim()
   const totalVolumeUnit = String(formData.get('total_volume_unit') ?? '').trim()
+  const orderItemIdRaw = String(formData.get('order_item_id') ?? '').trim()
   const costUsdRaw = String(formData.get('cost_usd') ?? '').trim()
+  const manualCostOverrideRaw = String(formData.get('cost_manual_override') ?? '').trim()
   const notes = String(formData.get('notes') ?? '').trim()
+  const manualCostOverride = manualCostOverrideRaw === '1'
 
   if (!formulationId) return { status: 'error', message: 'formulation_id is required.' }
   if (!isVialStatus(statusRaw)) return { status: 'error', message: 'Invalid status.' }
@@ -63,11 +68,11 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
   }
 
   let totalVolumeValue: number | null = null
-  let costUsd: number | null = null
+  let costUsdInput: number | null = null
 
   try {
     totalVolumeValue = parseOptionalNumber(totalVolumeValueRaw, 'total_volume_value')
-    costUsd = parseOptionalNumber(costUsdRaw, 'cost_usd')
+    costUsdInput = parseOptionalNumber(costUsdRaw, 'cost_usd')
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return { status: 'error', message: msg }
@@ -79,7 +84,7 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
   if (totalVolumeValue != null && !totalVolumeUnit) {
     return { status: 'error', message: 'total_volume_unit is required when total_volume_value is provided.' }
   }
-  if (costUsd != null && costUsd < 0) {
+  if (costUsdInput != null && costUsdInput < 0) {
     return { status: 'error', message: 'cost_usd must be >= 0.' }
   }
 
@@ -91,6 +96,36 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
   }
 
   const substanceId = formulationEnriched.formulation.substance_id
+
+  let linkedOrderItemId: string | null = null
+  let linkedDerivedCostUsd: number | null = null
+  if (orderItemIdRaw) {
+    const orderItem = await getOrderItemById(supabase, { orderItemId: orderItemIdRaw })
+    if (!orderItem) {
+      return { status: 'error', message: 'Selected order item was not found.' }
+    }
+    if (!orderItem.formulation_id) {
+      return { status: 'error', message: 'Selected order item is missing formulation linkage.' }
+    }
+    if (orderItem.formulation_id !== formulationId) {
+      return {
+        status: 'error',
+        message: 'Selected order item does not match the chosen formulation.',
+      }
+    }
+    linkedOrderItemId = orderItem.id
+    linkedDerivedCostUsd = allocateVialCost({
+      priceTotalUsd: orderItem.price_total_usd,
+      expectedVials: orderItem.expected_vials,
+    })
+  }
+
+  const finalCostUsd = resolveVialCreateCost({
+    hasLinkedOrderItem: linkedOrderItemId != null,
+    linkedDefaultCostUsd: linkedDerivedCostUsd,
+    manualCostUsd: costUsdInput,
+    manualOverride: manualCostOverride,
+  })
 
   let concentration: number | null = null
   if (totalVolumeValue != null && totalVolumeUnit) {
@@ -112,14 +147,14 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
     await createVial(supabase, {
       substanceId,
       formulationId,
-      orderItemId: null,
+      orderItemId: linkedOrderItemId,
       status: statusRaw,
       contentMassValue,
       contentMassUnit,
       totalVolumeValue,
       totalVolumeUnit: totalVolumeValue != null ? totalVolumeUnit : null,
       concentrationMgPerMl: concentration,
-      costUsd,
+      costUsd: finalCostUsd,
       notes: notes || null,
     })
   } catch (e) {
@@ -135,6 +170,8 @@ export async function createVialAction(_prev: CreateVialState, formData: FormDat
   }
 
   revalidatePath('/inventory')
+  revalidatePath('/setup/inventory')
+  revalidatePath('/orders')
   revalidatePath('/today')
   return { status: 'success', message: 'Created.' }
 }

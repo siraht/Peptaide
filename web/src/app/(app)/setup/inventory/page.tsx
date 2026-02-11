@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { CreateVialForm } from '@/app/(app)/(hub)/inventory/create-vial-form'
 import { GenerateVialsForm } from '@/app/(app)/(hub)/orders/generate-vials-form'
 import { SetupStepShell } from '@/app/(app)/setup/step-shell'
+import { buildVialOrderItemLinkOptions } from '@/lib/inventory/vialOrderItemLinkOptions'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listOrders } from '@/lib/repos/ordersRepo'
@@ -23,32 +24,19 @@ export default async function SetupInventoryPage() {
     listOrderItems(supabase),
   ])
 
-  const vendorById = new Map(vendors.map((v) => [v.id, v] as const))
-  const substanceById = new Map(substances.map((s) => [s.id, s] as const))
-  const formulationById = new Map(formulations.map((f) => [f.formulation.id, f] as const))
-  const orderById = new Map(orders.map((o) => [o.id, o] as const))
-
   const formulationOptions = formulations.map((f) => {
     const substance = f.substance?.display_name ?? 'Unknown substance'
     const route = f.route?.name ?? 'Unknown route'
     return { id: f.formulation.id, label: `${substance} / ${route} / ${f.formulation.name}` }
   })
-
-  const orderIds = new Set(orders.map((o) => o.id))
-  const eligibleOrderItems = orderItems.filter((oi) => orderIds.has(oi.order_id) && oi.formulation_id != null)
-  const orderItemOptions = eligibleOrderItems.map((oi) => {
-    const order = orderById.get(oi.order_id)
-    const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
-    const orderDay = order?.ordered_at ? order.ordered_at.slice(0, 10) : '(date)'
-    const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
-    const formulationName =
-      oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'
-
-    return {
-      id: oi.id,
-      label: `${vendorName} / ${orderDay} - ${substanceName} - ${formulationName} (${oi.qty} ${oi.unit_label})`,
-    }
+  const orderItemLinkOptions = buildVialOrderItemLinkOptions({
+    orders,
+    orderItems,
+    vendors,
+    substances,
+    formulations,
   })
+  const orderItemOptions = orderItemLinkOptions.map((oi) => ({ id: oi.id, label: oi.selectorLabel }))
 
   const vialsByStatus = inventory.reduce(
     (acc, row) => {
@@ -104,7 +92,7 @@ export default async function SetupInventoryPage() {
           </div>
         ) : (
           <>
-            <CreateVialForm formulations={formulationOptions} />
+            <CreateVialForm formulations={formulationOptions} orderItemLinks={orderItemLinkOptions} />
 
             {orderItemOptions.length === 0 ? (
               <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
@@ -127,4 +115,3 @@ export default async function SetupInventoryPage() {
     </SetupStepShell>
   )
 }
-

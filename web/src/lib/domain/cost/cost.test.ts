@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { allocateVialCost, eventCostFromVial } from './cost'
+import { allocateVialCost, eventCostFromVial, resolveVialCreateCost } from './cost'
 
 describe('cost.allocateVialCost', () => {
   test('allocates cost per vial', () => {
@@ -48,3 +48,37 @@ describe('cost.eventCostFromVial', () => {
   })
 })
 
+describe('cost.resolveVialCreateCost', () => {
+  test('uses linked default when linked and no manual override', () => {
+    expect(
+      resolveVialCreateCost({
+        hasLinkedOrderItem: true,
+        linkedDefaultCostUsd: 12.5,
+        manualCostUsd: 99,
+        manualOverride: false,
+      }),
+    ).toBe(12.5)
+  })
+
+  test('uses manual value when linked and manual override is active', () => {
+    expect(
+      resolveVialCreateCost({
+        hasLinkedOrderItem: true,
+        linkedDefaultCostUsd: 12.5,
+        manualCostUsd: 9,
+        manualOverride: true,
+      }),
+    ).toBe(9)
+  })
+
+  test('preserves legacy behavior for unlinked vials', () => {
+    expect(
+      resolveVialCreateCost({
+        hasLinkedOrderItem: false,
+        linkedDefaultCostUsd: 12.5,
+        manualCostUsd: 7,
+        manualOverride: false,
+      }),
+    ).toBe(7)
+  })
+})

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 
+import { allocateVialCost } from '@/lib/domain/cost/cost'
 import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
 import { toUserFacingDbErrorMessage } from '@/lib/errors/userFacingDbError'
 import { createFormulation } from '@/lib/repos/formulationsRepo'
@@ -362,12 +363,11 @@ export async function generateVialsFromOrderItemAction(
   let costPerVial: number | null = null
   if (costUsdOverride != null) {
     costPerVial = costUsdOverride
-  } else if (
-    orderItem.price_total_usd != null &&
-    orderItem.expected_vials != null &&
-    orderItem.expected_vials > 0
-  ) {
-    costPerVial = Number(orderItem.price_total_usd) / orderItem.expected_vials
+  } else {
+    costPerVial = allocateVialCost({
+      priceTotalUsd: orderItem.price_total_usd,
+      expectedVials: orderItem.expected_vials,
+    })
   }
 
   try {
@@ -638,7 +638,10 @@ async function generatePlannedVialsForOrderItem(
   const toCreate = Math.max(0, opts.expectedVials - existingCount)
   if (toCreate === 0) return 0
 
-  const costPerVial = opts.expectedVials > 0 ? opts.priceTotalUsd / opts.expectedVials : null
+  const costPerVial = allocateVialCost({
+    priceTotalUsd: opts.priceTotalUsd,
+    expectedVials: opts.expectedVials,
+  })
 
   for (let i = 0; i < toCreate; i++) {
     await createVial(supabase, {

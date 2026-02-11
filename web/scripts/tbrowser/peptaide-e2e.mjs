@@ -994,6 +994,12 @@ async function createVial({ formulationLabelIncludes, massValue, massUnit, volum
   await tagSetupForms(['vial'])
   const formSel = 'form[data-e2e-form="vial"]'
 
+  // Unlinked path should remain the default.
+  const linkedByDefault = await evalJs(`Boolean(document.querySelector(${JSON.stringify(`${formSel} [data-e2e="vial-link-order-item-toggle"]:checked`)}))`)
+  if (linkedByDefault) {
+    fail('Expected Add vial form to default to unlinked creation, but order-link toggle was pre-checked.')
+  }
+
   const formulationId = await selectOptionValue(`${formSel} select[name="formulation_id"]`, formulationLabelIncludes)
   runAgentBrowser(['select', `${formSel} select[name="formulation_id"]`, formulationId])
   runAgentBrowser(['select', `${formSel} select[name="status"]`, 'active'])
@@ -1004,6 +1010,69 @@ async function createVial({ formulationLabelIncludes, massValue, massUnit, volum
   fill(`${formSel} input[name="cost_usd"]`, String(costUsd))
   click(`${formSel} button[type="submit"]`)
   await waitForBodyText('Created', { label: 'vial create success' })
+  assertHealthy('setup-create-vial-unlinked')
+}
+
+async function createLinkedVialFromInventory({
+  formulationLabelIncludes,
+  orderItemLabelIncludes,
+  expectedCostUsd,
+  massValue,
+  massUnit,
+  volumeValue,
+  volumeUnit,
+}) {
+  logLine('inventory: creating linked vial with order-item cost autofill')
+  open(`${BASE_URL}/inventory`)
+  await waitForBodyText('Inventory', { label: 'inventory page visible' })
+
+  const tagged = await evalJs(
+    `(() => {
+      const btn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').trim() === 'Create')
+      const form = btn ? btn.closest('form') : null
+      if (!form) return false
+      form.setAttribute('data-e2e-form', 'inventory-vial')
+      return true
+    })()`,
+  )
+  if (!tagged) fail('Could not tag inventory Add vial form.')
+  const formSel = 'form[data-e2e-form="inventory-vial"]'
+
+  const formulationId = await selectOptionValue(`${formSel} select[name="formulation_id"]`, formulationLabelIncludes)
+  runAgentBrowser(['select', `${formSel} select[name="formulation_id"]`, formulationId])
+  runAgentBrowser(['select', `${formSel} select[name="status"]`, 'planned'])
+
+  check(`${formSel} [data-e2e="vial-link-order-item-toggle"]`)
+
+  const orderItemId = await selectOptionValue(`${formSel} select[name="order_item_id"]`, orderItemLabelIncludes)
+  runAgentBrowser(['select', `${formSel} select[name="order_item_id"]`, orderItemId])
+
+  await waitUntil(
+    async () => {
+      const v = await evalJs(
+        `document.querySelector(${JSON.stringify(`${formSel} [data-e2e="vial-cost-usd-input"]`)})?.value ?? ''`,
+      )
+      const n = Number(v)
+      return Number.isFinite(n) && Math.abs(n - expectedCostUsd) < 0.0001
+    },
+    { label: 'linked vial cost auto-filled from order item', timeoutMs: 60000 },
+  )
+
+  const hasProvenance = await evalJs(
+    `Boolean(document.querySelector(${JSON.stringify(`${formSel} [data-e2e="vial-link-provenance-preview"]`)}))`,
+  )
+  if (!hasProvenance) {
+    fail('Expected provenance preview to render after selecting linked order item.')
+  }
+
+  fill(`${formSel} input[name="content_mass_value"]`, String(massValue))
+  runAgentBrowser(['select', `${formSel} select[name="content_mass_unit"]`, massUnit])
+  fill(`${formSel} input[name="total_volume_value"]`, String(volumeValue))
+  runAgentBrowser(['select', `${formSel} select[name="total_volume_unit"]`, volumeUnit])
+
+  click(`${formSel} button[type="submit"]`)
+  await waitForBodyText('Created', { label: 'linked vial create success' })
+  assertHealthy('inventory-create-vial-linked')
 }
 
 async function addBaseBaSpec({ substanceLabelIncludes, routeLabelIncludes, distLabelIncludes }) {
@@ -3140,6 +3209,15 @@ async function runFullScope() {
   await deleteEvidenceSourceViaUi({ citation: evidenceCitationDelete })
 
   await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: E2E_FORMULATION_IN })
+  await createLinkedVialFromInventory({
+    formulationLabelIncludes: E2E_FORMULATION_IN,
+    orderItemLabelIncludes: E2E_VENDOR_NAME,
+    expectedCostUsd: 50,
+    massValue: 10,
+    massUnit: 'mg',
+    volumeValue: 10,
+    volumeUnit: 'mL',
+  })
   await inventoryActivateCloseOneVial()
 
   // Capture a /today screenshot at the same viewport size as the Stitch mockup artifact (1600x1280) so
