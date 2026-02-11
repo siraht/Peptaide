@@ -3,6 +3,7 @@ import { activateVialAction, closeVialAction, discardVialAction } from './action
 import { ReconcileImportedVialsForm } from './reconcile-imported-vials-form'
 
 import { EmptyState } from '@/components/ui/empty-state'
+import { buildVialSelectorSubstances } from '@/lib/inventory/vialSelectorData'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
@@ -15,11 +16,7 @@ export default async function InventoryPage() {
     listInventoryStatus(supabase),
   ])
 
-  const formulationOptions = formulations.map((f) => {
-    const substance = f.substance?.display_name ?? 'Unknown substance'
-    const route = f.route?.name ?? 'Unknown route'
-    return { id: f.formulation.id, label: `${substance} / ${route} / ${f.formulation.name}` }
-  })
+  const selectorSubstances = buildVialSelectorSubstances(formulations, inventory)
 
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
@@ -30,7 +27,7 @@ export default async function InventoryPage() {
 
       <ReconcileImportedVialsForm />
 
-      {formulationOptions.length === 0 ? (
+      {selectorSubstances.length === 0 ? (
         <EmptyState
           icon="inventory_2"
           title="Vials need formulations"
@@ -39,7 +36,7 @@ export default async function InventoryPage() {
           actionLabel="Open formulations"
         />
       ) : (
-        <CreateVialForm formulations={formulationOptions} />
+        <CreateVialForm substances={selectorSubstances} />
       )}
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
