@@ -6,17 +6,33 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { buildVialSelectorSubstances } from '@/lib/inventory/vialSelectorData'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
+import { listOrderItems } from '@/lib/repos/orderItemsRepo'
+import { listOrders } from '@/lib/repos/ordersRepo'
+import { listSubstances } from '@/lib/repos/substancesRepo'
+import { listVendors } from '@/lib/repos/vendorsRepo'
 import { createClient } from '@/lib/supabase/server'
+import { buildVialOrderItemLinkOptions } from '@/lib/inventory/vialOrderItemLinkOptions'
 
 export default async function InventoryPage() {
   const supabase = await createClient()
 
-  const [formulations, inventory] = await Promise.all([
+  const [formulations, inventory, orders, orderItems, substances, vendors] = await Promise.all([
     listFormulationsEnriched(supabase),
     listInventoryStatus(supabase),
+    listOrders(supabase),
+    listOrderItems(supabase),
+    listSubstances(supabase),
+    listVendors(supabase),
   ])
 
   const selectorSubstances = buildVialSelectorSubstances(formulations, inventory)
+  const orderItemLinkOptions = buildVialOrderItemLinkOptions({
+    orders,
+    orderItems,
+    vendors,
+    substances,
+    formulations,
+  })
 
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
@@ -36,7 +52,7 @@ export default async function InventoryPage() {
           actionLabel="Open formulations"
         />
       ) : (
-        <CreateVialForm substances={selectorSubstances} />
+        <CreateVialForm substances={selectorSubstances} orderItemLinks={orderItemLinkOptions} />
       )}
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">

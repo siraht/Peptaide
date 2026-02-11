@@ -4,6 +4,7 @@ import { CreateVialForm } from '@/app/(app)/(hub)/inventory/create-vial-form'
 import { GenerateVialsForm } from '@/app/(app)/(hub)/orders/generate-vials-form'
 import { SetupStepShell } from '@/app/(app)/setup/step-shell'
 import { buildVialSelectorSubstances } from '@/lib/inventory/vialSelectorData'
+import { buildVialOrderItemLinkOptions } from '@/lib/inventory/vialOrderItemLinkOptions'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listOrders } from '@/lib/repos/ordersRepo'
@@ -15,36 +16,25 @@ import { createClient } from '@/lib/supabase/server'
 export default async function SetupInventoryPage() {
   const supabase = await createClient()
 
-  const [formulations, inventory, substances, vendors, orders, orderItems] = await Promise.all([
+  const [formulations, inventory, orders, orderItems, substances, vendors] = await Promise.all([
     listFormulationsEnriched(supabase),
     listInventoryStatus(supabase),
-    listSubstances(supabase),
-    listVendors(supabase),
     listOrders(supabase),
     listOrderItems(supabase),
+    listSubstances(supabase),
+    listVendors(supabase),
   ])
 
-  const vendorById = new Map(vendors.map((v) => [v.id, v] as const))
-  const substanceById = new Map(substances.map((s) => [s.id, s] as const))
-  const formulationById = new Map(formulations.map((f) => [f.formulation.id, f] as const))
-  const orderById = new Map(orders.map((o) => [o.id, o] as const))
   const selectorSubstances = buildVialSelectorSubstances(formulations, inventory)
-
-  const orderIds = new Set(orders.map((o) => o.id))
-  const eligibleOrderItems = orderItems.filter((oi) => orderIds.has(oi.order_id) && oi.formulation_id != null)
-  const orderItemOptions = eligibleOrderItems.map((oi) => {
-    const order = orderById.get(oi.order_id)
-    const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
-    const orderDay = order?.ordered_at ? order.ordered_at.slice(0, 10) : '(date)'
-    const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
-    const formulationName =
-      oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'
-
-    return {
-      id: oi.id,
-      label: `${vendorName} / ${orderDay} - ${substanceName} - ${formulationName} (${oi.qty} ${oi.unit_label})`,
-    }
+  const orderItemLinkOptions = buildVialOrderItemLinkOptions({
+    orders,
+    orderItems,
+    vendors,
+    substances,
+    formulations,
   })
+
+  const orderItemOptions = orderItemLinkOptions.map((oi) => ({ id: oi.id, label: oi.selectorLabel }))
 
   const vialsByStatus = inventory.reduce(
     (acc, row) => {
@@ -100,7 +90,7 @@ export default async function SetupInventoryPage() {
           </div>
         ) : (
           <>
-            <CreateVialForm substances={selectorSubstances} />
+            <CreateVialForm substances={selectorSubstances} orderItemLinks={orderItemLinkOptions} />
 
             {orderItemOptions.length === 0 ? (
               <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
@@ -117,7 +107,7 @@ export default async function SetupInventoryPage() {
         )}
 
         <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-          If you don’t want to track costs, you can leave cost fields blank and still use runway estimates based on doses.
+          If you don't want to track costs, you can leave cost fields blank and still use runway estimates based on doses.
         </div>
       </div>
     </SetupStepShell>

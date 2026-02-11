@@ -9,6 +9,18 @@ export function allocateVialCost(opts: {
   return priceTotalUsd / expectedVials
 }
 
+export function resolveVialCreateCost(opts: {
+  hasLinkedOrderItem: boolean
+  linkedDefaultCostUsd: number | null
+  manualCostUsd: number | null
+  manualOverride: boolean
+}): number | null {
+  const { hasLinkedOrderItem, linkedDefaultCostUsd, manualCostUsd, manualOverride } = opts
+  if (!hasLinkedOrderItem) return manualCostUsd
+  if (manualOverride) return manualCostUsd
+  return linkedDefaultCostUsd
+}
+
 export function eventCostFromVial(opts: {
   doseMassMg: number | null
   doseVolumeMl: number | null
@@ -52,4 +64,3 @@ export function eventCostFromVial(opts: {
   if (fraction == null || !Number.isFinite(fraction) || fraction < 0) return null
   return vialCostUsd * fraction
 }
-
