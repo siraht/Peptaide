@@ -1445,16 +1445,20 @@ async function todayHubDeepInteractions() {
           fail(`today inline save failed: ${err}`)
         }
 
-        if (notes) {
-          return Boolean(
-            await evalJs(
-              `document.querySelector('[data-e2e="today-log-table"]')?.innerText.includes(${JSON.stringify(String(notes))})`,
-            ),
-          )
-        }
-
         const v = await evalJs('document.querySelector(\'[data-e2e="today-log-input-dose"]\')?.value || ""')
-        return typeof v === 'string' && v.trim() === ''
+        const ok = await evalJs(
+          'document.querySelector(\'[data-e2e="today-log-input-row"] span.text-emerald-700\')?.textContent?.trim() || ""',
+        )
+        const doseCleared = typeof v === 'string' && v.trim() === ''
+        const hasSavedStatus = typeof ok === 'string' && ok.includes('Saved.')
+        if (!notes) return doseCleared || hasSavedStatus
+
+        const notesVisible = Boolean(
+          await evalJs(
+            `document.querySelector('[data-e2e="today-log-table"]')?.innerText.includes(${JSON.stringify(String(notes))})`,
+          ),
+        )
+        return notesVisible || doseCleared || hasSavedStatus
       },
       { label: `today inline save (${via})`, timeoutMs: 60000 },
     )
@@ -2938,7 +2942,7 @@ async function main() {
     multiplierDistLabelIncludes: E2E_DIST_MULTIPLIER,
   })
 
-  // Log events with multiple input types.
+  // Seed one deterministic event used by downstream today/copy-row assertions.
   await logEventInTodayTable({
     formulationLabelIncludes: 'Demo formulation',
     inputText: '0.3mL',

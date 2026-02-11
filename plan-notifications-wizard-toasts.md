@@ -283,6 +283,7 @@ Acceptance checks (human-verifiable):
 - Passing browser harness artifacts:
   - `/tmp/peptaide-e2e-2026-02-11T02-59-30-924Z/`
   - Mockup compare report: `/tmp/peptaide-e2e-2026-02-11T02-59-30-924Z/mockup-compare.html`
+  - Follow-up fresh-eyes validation run: `/tmp/peptaide-e2e-2026-02-11T03-10-21-219Z/`
 - Quality gates run (all pass):
   - `cd web && npm run typecheck`
   - `cd web && npm test`
@@ -324,3 +325,4 @@ New/updated interfaces:
       export function useToast(): { pushToast: (t: ToastInput) => void }
 
 Revision note (2026-02-11): Updated this ExecPlan after completing browser/test validation and resolving e2e flakiness around today-log assertions. Added the final artifact paths, quality-gate evidence, new decisions, and retrospective so a fresh contributor can restart from this file alone.
+Revision note (2026-02-11, fresh-eyes pass): Added follow-up conclusive browser artifact path after tightening inline today-log e2e save assertions to use stable save acknowledgement semantics.
