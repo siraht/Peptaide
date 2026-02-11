@@ -74,6 +74,11 @@ export function TodayLogTable(props: {
     hideDeletedHref,
   } = props
 
+  // SSR renders this client component as HTML, but interactive behaviors only work once hydrated.
+  // E2E uses this marker to avoid interacting before React handlers are attached.
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => setHydrated(true), [])
+
   const router = useRouter()
   const [, startTransition] = useTransition()
   const searchParams = useSearchParams()
@@ -186,6 +191,7 @@ export function TodayLogTable(props: {
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-surface-dark" data-e2e="today-log-table">
+      {hydrated ? <span className="hidden" data-e2e="today-log-hydrated" /> : null}
       <div className="flex items-baseline justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-800">
         <div>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Today log</h2>
