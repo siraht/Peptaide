@@ -521,12 +521,14 @@ export async function createEventAction(
             if (!cycleDecision) {
               const msPerDay = 24 * 60 * 60 * 1000
               const gapDays = (newEventTs.getTime() - lastEventTs.getTime()) / msPerDay
+              const gapDaysLabel = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(gapDays)
+              const gapThresholdLabel = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(
+                gapDaysThreshold,
+              )
               const substanceLabel = formulationEnriched.substance?.display_name ?? 'this substance'
               return {
                 status: 'confirm_new_cycle',
-                message: `New cycle for ${substanceLabel}? Gap since last event is ${gapDays.toFixed(
-                  1,
-                )} days (threshold ${gapDaysThreshold}). OK = start new cycle; Cancel = keep current cycle.`,
+                message: `New cycle for ${substanceLabel}? Gap since last event is ${gapDaysLabel} days (threshold ${gapThresholdLabel}). OK = start new cycle; Cancel = keep current cycle.`,
               }
             }
 

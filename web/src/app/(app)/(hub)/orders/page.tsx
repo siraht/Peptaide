@@ -22,7 +22,12 @@ function toFiniteNumber(x: number | string | null | undefined): number | null {
 function fmtMoney(x: number | string | null | undefined): string {
   const n = toFiniteNumber(x)
   if (n == null) return '-'
-  return `$${n.toFixed(2).replace(/\.?0+$/, '')}`
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(n)
 }
 
 export default async function OrdersPage() {

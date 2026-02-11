@@ -6,9 +6,11 @@ import { listCycleSummary } from '@/lib/repos/cycleSummaryRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
 
+const NUM_FMT_2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
+
 function fmt(x: unknown): string {
   if (x == null) return '-'
-  if (typeof x === 'number') return Number.isFinite(x) ? x.toFixed(2).replace(/\.?0+$/, '') : '-'
+  if (typeof x === 'number') return Number.isFinite(x) ? NUM_FMT_2.format(x) : '-'
   return String(x)
 }
 
@@ -41,7 +43,7 @@ export default async function CyclesPage() {
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No cycles yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
+            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm tabular-nums">
               <thead>
                 <tr className="text-xs text-slate-500 uppercase tracking-wide">
                   <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-medium">Substance</th>

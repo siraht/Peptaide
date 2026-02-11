@@ -57,7 +57,7 @@ After this plan, the UI should feel consistent and “Stripe-level” in the way
 
 ## Outcomes & Retrospective
 
-- (2026-02-11) Delivered: `/setup` and `/analytics` now match the Stitch-style token system, analytics uses `Intl.NumberFormat`, focus rings are `focus-visible` on key controls (plus a skip link), and `transition-all` has been eliminated in `web/src/`. Conclusive browser verification passed and produced updated sweep screenshots and mockup compare output under `/tmp/peptaide-e2e-2026-02-11T01-05-28-607Z/`.
+- (2026-02-11) Delivered: `/setup` and `/analytics` now match the Stitch-style token system, user-visible numeric formatting on `/today`, `/analytics`, `/orders`, and `/cycles` uses `Intl.NumberFormat`, focus rings are `focus-visible` on key controls (plus a skip link), and `transition-all` has been eliminated in `web/src/`. Conclusive browser verification passed and produced updated sweep screenshots and mockup compare output under `/tmp/peptaide-e2e-2026-02-11T01-05-28-607Z/`.
 
 ## Context and Orientation
 
