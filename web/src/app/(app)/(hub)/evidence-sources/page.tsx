@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { deleteEvidenceSourceAction } from './actions'
 import { CreateEvidenceSourceForm } from './create-evidence-source-form'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -11,7 +12,7 @@ export default async function EvidenceSourcesPage() {
   const sources = await listEvidenceSources(supabase)
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Evidence sources</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -29,7 +30,12 @@ export default async function EvidenceSourcesPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Saved evidence sources</h2>
         {sources.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No evidence sources yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="link"
+            title="No evidence sources yet"
+            description="Store citations and notes here, then attach them to recommendations and specs."
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm">

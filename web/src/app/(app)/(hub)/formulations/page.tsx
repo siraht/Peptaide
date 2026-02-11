@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BulkAddFormulationsForm } from './bulk-add-formulations-form'
 import { CreateFormulationForm } from './create-formulation-form'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listRoutes } from '@/lib/repos/routesRepo'
@@ -20,7 +21,7 @@ export default async function FormulationsPage() {
   ])
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Formulations</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -29,9 +30,15 @@ export default async function FormulationsPage() {
       </div>
 
       {substances.length === 0 || routes.length === 0 ? (
-        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
-          Create at least one substance and one route before creating formulations.
-        </div>
+        <EmptyState
+          icon="medication"
+          title="Formulations need prerequisites"
+          description="Create at least one substance and one route before creating formulations."
+          actionHref="/settings?tab=substances"
+          actionLabel="Open substances"
+          secondaryHref="/routes"
+          secondaryLabel="Open routes"
+        />
       ) : (
         <>
           <CreateFormulationForm
@@ -50,7 +57,14 @@ export default async function FormulationsPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
         {formulations.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No formulations yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="medication"
+            title="No formulations yet"
+            description="Create your first formulation to start logging events against an active vial."
+            actionHref="/formulations?focus=new"
+            actionLabel="Create formulation"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm">

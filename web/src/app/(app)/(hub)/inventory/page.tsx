@@ -2,6 +2,7 @@ import { CreateVialForm } from './create-vial-form'
 import { activateVialAction, closeVialAction, discardVialAction } from './actions'
 import { ReconcileImportedVialsForm } from './reconcile-imported-vials-form'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
@@ -21,7 +22,7 @@ export default async function InventoryPage() {
   })
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Inventory</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Vials and basic runway estimates.</p>
@@ -30,9 +31,13 @@ export default async function InventoryPage() {
       <ReconcileImportedVialsForm />
 
       {formulationOptions.length === 0 ? (
-        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
-          Create at least one formulation before creating vials.
-        </div>
+        <EmptyState
+          icon="inventory_2"
+          title="Vials need formulations"
+          description="Create at least one formulation before creating vials."
+          actionHref="/formulations"
+          actionLabel="Open formulations"
+        />
       ) : (
         <CreateVialForm formulations={formulationOptions} />
       )}
@@ -40,7 +45,16 @@ export default async function InventoryPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Vials</h2>
         {inventory.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No vials yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="science"
+            title="No vials yet"
+            description="Create a vial here or generate planned vials from Orders."
+            actionHref="/orders"
+            actionLabel="Open orders"
+            secondaryHref="/inventory"
+            secondaryLabel="Add vial"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[1200px] border-separate border-spacing-0 text-left text-sm">

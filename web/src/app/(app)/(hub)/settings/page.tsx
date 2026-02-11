@@ -73,46 +73,47 @@ export default async function SettingsPage({
       <main className="flex-1 flex flex-col bg-background-light dark:bg-background-dark min-w-0">
         {tab === 'substances' ? (
           <>
-            <div className="h-16 flex-none px-6 flex items-center justify-between border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark z-10">
-              <div className="flex items-center gap-4 flex-1 min-w-0">
-                <h2 className="text-xl font-bold hidden md:block">Substances</h2>
-                <div className="h-8 w-px bg-border-light dark:bg-border-dark mx-2 hidden md:block"></div>
-                <div className="relative max-w-md w-full">
-                  <span
-                    className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"
-                    aria-hidden="true"
+            <div className="flex-none border-b border-border-light bg-surface-light/90 px-4 py-3 dark:border-border-dark dark:bg-surface-dark/90 sm:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 sm:text-xl">Substances</h2>
+                <div className="flex items-center gap-2">
+                  <a
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border-light bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-primary/30 hover:text-primary dark:border-border-dark dark:bg-slate-900/30 dark:text-slate-200"
+                    href="/api/export"
                   >
-                    search
-                  </span>
-                  <input
-                    className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary rounded text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
-                    placeholder="Search by name…"
-                    type="text"
-                    name="substance_search"
-                    data-e2e="settings-substance-search"
-                  />
+                    <span className="material-icons-outlined text-[18px]" aria-hidden="true">
+                      file_download
+                    </span>
+                    <span className="hidden sm:inline">Export CSV bundle</span>
+                    <span className="sm:hidden">Export</span>
+                  </a>
+                  <Link
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
+                    href="/substances?focus=new"
+                  >
+                    <span className="material-icons-outlined text-[18px]" aria-hidden="true">
+                      add
+                    </span>
+                    <span className="hidden sm:inline">New Substance</span>
+                    <span className="sm:hidden">New</span>
+                  </Link>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <a
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                  href="/api/export"
+              <div className="relative mt-3 max-w-xl">
+                <span
+                  className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"
+                  aria-hidden="true"
                 >
-                  <span className="material-icons-outlined text-lg" aria-hidden="true">
-                    file_download
-                  </span>
-                  Export CSV bundle
-                </a>
-                <Link
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-                  href="/substances?focus=new"
-                >
-                  <span className="material-icons-outlined text-lg" aria-hidden="true">
-                    add
-                  </span>
-                  New Substance
-                </Link>
+                  search
+                </span>
+                <input
+                  className="w-full rounded-xl border border-transparent bg-slate-100 py-2 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder-slate-500 focus:border-primary focus-visible:ring-1 focus-visible:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                  placeholder="Search by name…"
+                  type="text"
+                  name="substance_search"
+                  data-e2e="settings-substance-search"
+                />
               </div>
             </div>
 
@@ -188,9 +189,9 @@ export default async function SettingsPage({
             </div>
           </>
         ) : (
-          <div className="p-6 space-y-6">
+          <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
             <div>
-              <h1 className="text-xl font-semibold">Settings</h1>
+              <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Settings</h1>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Preferences, defaults, and data portability.</p>
             </div>
 
@@ -204,10 +205,16 @@ export default async function SettingsPage({
       </main>
 
       {tab === 'substances' && selectedSubstance ? (
-        <aside
-          className="w-96 flex-none bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark flex flex-col shadow-xl z-20"
-          data-e2e="settings-substance-editor"
-        >
+        <>
+          <Link
+            className="absolute inset-0 z-10 bg-slate-900/45 backdrop-blur-[1px] sm:hidden"
+            href={tabHref('substances')}
+            aria-label="Close substance editor"
+          />
+          <aside
+            className="absolute inset-y-0 right-0 z-20 flex w-full max-w-md flex-col border-l border-border-light bg-surface-light shadow-2xl dark:border-border-dark dark:bg-surface-dark sm:relative sm:w-96 sm:max-w-none sm:shadow-xl"
+            data-e2e="settings-substance-editor"
+          >
           <div className="p-6 border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-800/20">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -256,7 +263,8 @@ export default async function SettingsPage({
               profileGapDefaultDays={profile.cycle_gap_default_days}
             />
           </div>
-        </aside>
+          </aside>
+        </>
       ) : null}
     </div>
   )

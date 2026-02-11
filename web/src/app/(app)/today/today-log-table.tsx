@@ -190,9 +190,9 @@ export function TodayLogTable(props: {
   if (formulations.length === 0) return null
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-surface-dark" data-e2e="today-log-table">
+    <div className="rounded-2xl border border-gray-200 bg-white/80 shadow-sm dark:border-gray-800 dark:bg-surface-dark" data-e2e="today-log-table">
       {hydrated ? <span className="hidden" data-e2e="today-log-hydrated" /> : null}
-      <div className="flex items-baseline justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+      <div className="flex items-baseline justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
         <div>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Today log</h2>
           <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
@@ -208,14 +208,14 @@ export function TodayLogTable(props: {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[900px] w-full text-left border-collapse">
+        <table className="min-w-[560px] w-full text-left border-collapse">
           <thead className="sticky top-0 bg-white/70 dark:bg-surface-dark z-10">
             <tr className="text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-800">
               <th className="py-3 pl-2 w-28">Time</th>
               <th className="py-3">Compound / Vial</th>
               <th className="py-3 text-right">Input</th>
-              <th className="py-3 pl-4">Route</th>
-              <th className="py-3">Notes</th>
+              <th className="py-3 pl-4 hidden md:table-cell">Route</th>
+              <th className="py-3 hidden lg:table-cell">Notes</th>
               <th className="py-3 w-24 text-center">Action</th>
             </tr>
           </thead>
@@ -235,18 +235,18 @@ export function TodayLogTable(props: {
                   <td className="py-3 pl-2 font-mono text-gray-600 dark:text-gray-400">{formatLocalTime(e.ts, timeZone)}</td>
                   <td className="py-3">
                     <div className="font-medium text-gray-900 dark:text-gray-100">{compound}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       {formulationName ? formulationName : '—'}
                       {vialLabel ? ` • ${vialLabel}` : ''}
                     </div>
                   </td>
                   <td className="py-3 text-right font-mono text-gray-900 dark:text-gray-100">{e.input_text ?? '-'}</td>
-                  <td className="py-3 pl-4">
+                  <td className="py-3 pl-4 hidden md:table-cell">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                       {e.route_name ?? '-'}
                     </span>
                   </td>
-                  <td className="py-3 text-gray-500 truncate max-w-[260px]">{e.notes ?? '-'}</td>
+                  <td className="py-3 hidden lg:table-cell text-gray-500 truncate max-w-[260px]">{e.notes ?? '-'}</td>
                   <td className="py-3 text-center">
                     {showDeleted && e.event_id ? (
                       <form action={restoreEventAction}>
@@ -354,7 +354,7 @@ export function TodayLogTable(props: {
                   ) : null}
                 </div>
               </td>
-              <td className="py-3 pl-4 align-top">
+              <td className="py-3 pl-4 align-top hidden md:table-cell">
                 <select
                   className="bg-transparent border-0 p-0 text-sm focus:ring-0 text-gray-500 dark:text-gray-400 cursor-pointer"
                   value={routeName}
@@ -364,7 +364,7 @@ export function TodayLogTable(props: {
                   <option>{routeName}</option>
                 </select>
               </td>
-              <td className="py-3 align-top">
+              <td className="py-3 align-top hidden lg:table-cell">
                 <input
                   className="bg-transparent border-0 p-0 w-full text-sm focus:ring-0 text-gray-900 dark:text-gray-100"
                   placeholder="Add notes…"

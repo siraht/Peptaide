@@ -4,6 +4,7 @@ import { BulkAddSubstancesForm } from './bulk-add-substances-form'
 import { CreateSubstanceForm } from './create-substance-form'
 import { deleteSubstanceAction } from './actions'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -12,7 +13,7 @@ export default async function SubstancesPage() {
   const substances = await listSubstances(supabase)
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Substances</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -27,7 +28,14 @@ export default async function SubstancesPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
         {substances.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No substances yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="biotech"
+            title="No substances yet"
+            description="Create your first tracked compound to unlock formulations, inventory, and logging."
+            actionHref="/substances?focus=new"
+            actionLabel="Create substance"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[700px] border-separate border-spacing-0 text-left text-sm">

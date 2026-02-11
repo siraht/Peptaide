@@ -63,7 +63,7 @@ export function NotificationsBell(props: { items: NotificationItem[] }) {
   return (
     <div ref={rootRef} className="relative" data-e2e="notifications-root">
       <button
-        className="relative p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
+        className="relative rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
         aria-label="Open notifications"
         aria-expanded={open}
         aria-controls={panelId}
@@ -90,10 +90,10 @@ export function NotificationsBell(props: { items: NotificationItem[] }) {
           id={panelId}
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 mt-2 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark shadow-2xl"
+          className="absolute right-0 mt-2 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark shadow-2xl max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-16 max-sm:mt-0"
           data-e2e="notifications-panel"
         >
-          <div className="flex items-start justify-between gap-3 p-4 border-b border-border-light dark:border-border-dark">
+          <div className="flex items-start justify-between gap-3 border-b border-border-light bg-slate-50/70 p-4 dark:border-border-dark dark:bg-slate-900/20">
             <div className="min-w-0">
               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</div>
               <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
@@ -130,7 +130,7 @@ export function NotificationsBell(props: { items: NotificationItem[] }) {
                 {items.map((it) => {
                   const meta = severityMeta(it.severity)
                   const content = (
-                    <div className="flex gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <div className="flex gap-3 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <span className="material-icons text-slate-500 dark:text-slate-400" aria-hidden="true">
                         {meta.icon}
                       </span>
@@ -175,4 +175,3 @@ export function NotificationsBell(props: { items: NotificationItem[] }) {
     </div>
   )
 }
-

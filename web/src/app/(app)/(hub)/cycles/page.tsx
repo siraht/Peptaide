@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { CreateCycleNowForm } from './create-cycle-form'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listCycleSummary } from '@/lib/repos/cycleSummaryRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
@@ -27,7 +28,7 @@ export default async function CyclesPage() {
   const substanceOptions = substances.map((s) => ({ id: s.id, label: s.display_name }))
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Cycles</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -40,7 +41,12 @@ export default async function CyclesPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
         {cycles.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No cycles yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="timeline"
+            title="No cycles yet"
+            description="Cycles will appear once events are logged or when you manually start one."
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm tabular-nums">

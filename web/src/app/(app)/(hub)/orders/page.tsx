@@ -5,6 +5,7 @@ import { GenerateVialsForm } from './generate-vials-form'
 import { ImportRetaPeptideOrdersForm } from './import-reta-peptide-orders-form'
 import { deleteOrderAction, deleteOrderItemAction, deleteVendorAction } from './actions'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listOrderItemVialCounts } from '@/lib/repos/orderItemVialCountsRepo'
 import { listOrders } from '@/lib/repos/ordersRepo'
@@ -90,7 +91,7 @@ export default async function OrdersPage() {
     })
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Orders</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -103,25 +104,39 @@ export default async function OrdersPage() {
       <CreateVendorForm />
 
       {vendorOptions.length === 0 ? (
-        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
-          Create a vendor before creating orders.
-        </div>
+        <EmptyState
+          icon="storefront"
+          title="Orders need vendors"
+          description="Create a vendor before creating orders."
+          actionHref="/orders?focus=new-vendor"
+          actionLabel="Create vendor"
+        />
       ) : (
         <CreateOrderForm vendors={vendorOptions} />
       )}
 
       {orderOptions.length === 0 || substanceOptions.length === 0 ? (
-        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
-          Create at least one order and substance before adding order items.
-        </div>
+        <EmptyState
+          icon="receipt_long"
+          title="Order items need setup"
+          description="Create at least one order and one substance before adding order items."
+          actionHref="/orders"
+          actionLabel="Create order"
+          secondaryHref="/settings?tab=substances"
+          secondaryLabel="Open substances"
+        />
       ) : (
         <CreateOrderItemForm orders={orderOptions} substances={substanceOptions} formulations={formulationOptions} />
       )}
 
       {orderItemOptions.length === 0 ? (
-        <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 text-sm text-slate-600 dark:text-slate-400 shadow-sm">
-          To generate vials, create an order item that is linked to a formulation.
-        </div>
+        <EmptyState
+          icon="medication_liquid"
+          title="No vial generation targets yet"
+          description="Create an order item linked to a formulation to generate planned vials."
+          actionHref="/orders"
+          actionLabel="Add order item"
+        />
       ) : (
         <GenerateVialsForm orderItems={orderItemOptions} />
       )}
@@ -129,7 +144,14 @@ export default async function OrdersPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Vendors</h2>
         {vendors.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No vendors yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="store"
+            title="No vendors yet"
+            description="Start by saving your first vendor to anchor order costs."
+            actionHref="/orders?focus=new-vendor"
+            actionLabel="Create vendor"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[700px] border-separate border-spacing-0 text-left text-sm">
@@ -164,7 +186,14 @@ export default async function OrdersPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Orders</h2>
         {orders.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No orders yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="shopping_cart"
+            title="No orders yet"
+            description="Create your first order to track planned stock and landed costs."
+            actionHref="/orders?focus=new-order"
+            actionLabel="Create order"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
@@ -209,7 +238,14 @@ export default async function OrdersPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Order items</h2>
         {visibleItems.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No order items yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="format_list_bulleted"
+            title="No order items yet"
+            description="Add item lines to map received quantities to formulations."
+            actionHref="/orders?focus=new-order-item"
+            actionLabel="Add order item"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[1500px] border-separate border-spacing-0 text-left text-sm">

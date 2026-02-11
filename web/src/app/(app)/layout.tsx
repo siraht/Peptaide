@@ -29,8 +29,6 @@ export default async function AppLayout({
     redirect('/sign-in')
   }
 
-  // Ensure a profile row exists for the signed-in user. This is idempotent and relies on DB defaults
-  // so it will not overwrite user preferences once a profile is configured.
   {
     const maxAttempts = 8
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -92,63 +90,60 @@ export default async function AppLayout({
 
   return (
     <ToastProvider>
-      <div className="bg-background-light dark:bg-background-dark text-gray-800 dark:text-gray-100 h-screen overflow-hidden flex flex-col">
+      <div className="flex h-screen flex-col overflow-hidden bg-background-light text-gray-800 dark:bg-background-dark dark:text-gray-100">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 rounded-md bg-surface-light dark:bg-surface-dark px-4 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-lg ring-1 ring-border-light dark:ring-border-dark"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 rounded-xl bg-surface-light px-4 py-2 text-sm font-medium text-slate-900 shadow-lg ring-1 ring-border-light dark:bg-surface-dark dark:text-slate-100 dark:ring-border-dark"
         >
           Skip to content
         </a>
-        <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-4 min-w-0">
-            <Link href="/today" className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg shrink-0">
-                P
+
+        <header className="shrink-0 border-b border-border-light/80 bg-surface-light/90 backdrop-blur supports-[backdrop-filter]:bg-surface-light/75 dark:border-border-dark dark:bg-background-dark/90 dark:supports-[backdrop-filter]:bg-background-dark/75">
+          <div className="mx-auto flex h-16 max-w-[1680px] items-center gap-3 px-3 sm:px-5 lg:px-6">
+            <Link href="/today" className="group flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20 transition-transform group-hover:scale-[1.03]">
+                <span className="text-base font-bold">P</span>
               </div>
               <div className="min-w-0">
-                <div className="text-lg font-semibold tracking-tight truncate">Peptaide</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 leading-none truncate">
+                <p className="truncate text-[22px] font-semibold tracking-tight leading-none">Peptaide</p>
+                <p className="mt-0.5 hidden truncate text-[11px] text-slate-500 sm:block dark:text-slate-400">
                   Log, inventory, and uncertainty-aware analytics
-                </div>
+                </p>
               </div>
             </Link>
-          </div>
 
-          <div className="flex items-center gap-3 sm:gap-6">
-            <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
-              <span className="material-icons text-lg" aria-hidden="true">
-                calendar_today
-              </span>
-              <span>{localDateLabel}</span>
-            </div>
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <div className="hidden items-center gap-2 rounded-xl border border-border-light bg-slate-50 px-3 py-1.5 text-sm text-slate-600 shadow-sm lg:flex dark:border-border-dark dark:bg-slate-900/30 dark:text-slate-300">
+                <span className="material-icons-outlined text-[17px]" aria-hidden="true">
+                  calendar_today
+                </span>
+                <span>{localDateLabel}</span>
+              </div>
 
-            <div className="flex items-center gap-2">
+              <CommandPalette logItems={logItems} />
+
               <Link
                 href="/settings"
-                className="p-2 text-gray-500 hover:text-primary transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
                 aria-label="Open settings"
                 title="Settings"
               >
-                <span className="material-icons" aria-hidden="true">
+                <span className="material-icons-outlined text-[20px]" aria-hidden="true">
                   settings
                 </span>
               </Link>
 
               <NotificationsBell items={notifications} />
-            </div>
 
-            <div className="hidden md:block">
-              <CommandPalette logItems={logItems} />
-            </div>
+              <div className="hidden max-w-[15rem] truncate text-sm text-slate-500 xl:block dark:text-slate-400">{data.user.email}</div>
 
-            <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-              <div className="hidden sm:block max-w-[16rem] truncate">{data.user.email}</div>
               <form action={signOut}>
                 <button
-                  className="inline-flex h-9 items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:text-primary dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
+                  className="inline-flex h-10 items-center rounded-xl border border-border-light bg-surface-light px-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-primary/40 hover:text-primary dark:border-border-dark dark:bg-surface-dark dark:text-slate-200 dark:hover:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
                   type="submit"
                 >
-                  Sign out
+                  <span className="hidden sm:inline">Sign out</span>
+                  <span className="sm:hidden">Exit</span>
                 </button>
               </form>
             </div>

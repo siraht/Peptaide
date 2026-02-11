@@ -202,14 +202,14 @@ export function SignInForm() {
   const codeDisabled = status === 'sending' || status === 'verifying'
 
   return (
-    <div className="mt-4 space-y-3">
+    <div className="mt-5 space-y-4">
       <form className="space-y-3" onSubmit={onSubmit}>
         <label className="block">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</span>
           <input
             autoCapitalize="off"
             autoComplete="email"
-            className="mt-1 h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
+            className="mt-1 h-11 w-full rounded-xl border border-transparent bg-slate-100 px-3 text-sm text-slate-900 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 dark:bg-slate-800 dark:text-slate-100"
             name="email"
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -218,7 +218,7 @@ export function SignInForm() {
         </label>
 
         <button
-          className="h-10 w-full rounded-md bg-primary px-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 disabled:opacity-50"
           disabled={sendDisabled}
           type="submit"
         >
@@ -226,20 +226,21 @@ export function SignInForm() {
         </button>
       </form>
 
-      <div className="rounded-lg border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-3">
-        <p className="text-sm text-slate-600 dark:text-slate-300">Have a code instead? Enter it below.</p>
+      <div className="rounded-2xl border border-border-light bg-slate-50/80 p-4 dark:border-border-dark dark:bg-slate-900/40">
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Have a code instead?</p>
+        <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">Enter it below to sign in instantly.</p>
 
-        <form className="mt-2 flex gap-2" onSubmit={onVerifyCode}>
+        <form className="mt-3 flex gap-2" onSubmit={onVerifyCode}>
           <input
             autoComplete="one-time-code"
-            className="h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary px-3 text-sm text-slate-900 dark:text-slate-100 outline-none"
+            className="h-11 w-full rounded-xl border border-transparent bg-slate-100 px-3 text-sm text-slate-900 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 dark:bg-slate-800 dark:text-slate-100"
             inputMode="numeric"
             name="code"
             placeholder="6-digit code"
             type="text"
           />
           <button
-            className="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="h-11 shrink-0 rounded-xl bg-primary px-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 disabled:opacity-50"
             disabled={codeDisabled}
             type="submit"
           >
@@ -249,12 +250,12 @@ export function SignInForm() {
       </div>
 
       {devCode ? (
-        <div className="rounded-lg border border-border-light dark:border-border-dark bg-primary/10 p-3 text-sm text-slate-900 dark:text-slate-100">
-          <div className="text-xs font-semibold text-primary">Dev OTP code</div>
+        <div className="rounded-2xl border border-border-light bg-primary/10 p-3 text-sm text-slate-900 dark:border-border-dark dark:text-slate-100">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Dev OTP code</div>
           <div className="mt-1 flex items-center justify-between gap-3">
             <div className="font-mono text-lg tracking-widest">{devCode}</div>
             <button
-              className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
+              className="h-8 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-colors hover:bg-primary/90"
               type="button"
               onClick={() => setCodeInputValue(devCode)}
             >
@@ -265,7 +266,7 @@ export function SignInForm() {
       ) : null}
 
       {message && (
-        <p className="text-sm text-slate-600 dark:text-slate-300" role="status">
+        <p className="rounded-xl border border-border-light bg-slate-50/80 px-3 py-2 text-sm text-slate-600 dark:border-border-dark dark:bg-slate-900/30 dark:text-slate-300" role="status">
           {message}
         </p>
       )}

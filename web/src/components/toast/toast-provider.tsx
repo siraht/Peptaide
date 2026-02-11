@@ -99,7 +99,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="fixed top-4 right-4 z-[60] flex w-[min(28rem,calc(100vw-2rem))] flex-col gap-3"
+        className="fixed inset-x-0 bottom-3 z-[60] mx-auto flex w-[min(28rem,calc(100vw-1.25rem))] flex-col gap-3 px-2 sm:inset-auto sm:right-4 sm:top-4 sm:bottom-auto sm:px-0"
         aria-live="polite"
         aria-relevant="additions removals"
         data-e2e="toast-viewport"
@@ -109,7 +109,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           return (
             <div
               key={t.id}
-              className="relative overflow-hidden rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark shadow-xl"
+              className="relative overflow-hidden rounded-2xl border border-border-light bg-surface-light shadow-xl animate-[peptaide-toast-in_220ms_ease-out] dark:border-border-dark dark:bg-surface-dark"
               role="status"
               data-e2e="toast"
               data-kind={t.kind}
@@ -136,6 +136,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   </span>
                 </button>
               </div>
+              <div className={`h-0.5 w-full ${styles.bar} opacity-30`} aria-hidden="true" />
             </div>
           )
         })}

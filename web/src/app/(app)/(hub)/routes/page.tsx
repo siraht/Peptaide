@@ -2,6 +2,7 @@ import { CreateRouteForm } from './create-route-form'
 import { BulkAddRoutesForm } from './bulk-add-routes-form'
 import { deleteRouteAction } from './actions'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -10,7 +11,7 @@ export default async function RoutesPage() {
   const routes = await listRoutes(supabase)
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Routes</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Reference table for administration routes.</p>
@@ -23,7 +24,14 @@ export default async function RoutesPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
         {routes.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No routes yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="alt_route"
+            title="No routes yet"
+            description="Routes define how doses are entered and interpreted."
+            actionHref="/routes?focus=new"
+            actionLabel="Create route"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[800px] border-separate border-spacing-0 text-left text-sm">

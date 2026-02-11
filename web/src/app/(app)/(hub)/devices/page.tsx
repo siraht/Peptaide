@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { CreateDeviceForm } from './create-device-form'
 import { deleteDeviceAction } from './actions'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -11,7 +12,7 @@ export default async function DevicesPage() {
   const devices = await listDevices(supabase)
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Devices</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -24,7 +25,14 @@ export default async function DevicesPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
         {devices.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No devices yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="vaccines"
+            title="No devices yet"
+            description="Create reusable device profiles such as spray heads, syringes, or pens."
+            actionHref="/devices?focus=new"
+            actionLabel="Create device"
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[800px] border-separate border-spacing-0 text-left text-sm">

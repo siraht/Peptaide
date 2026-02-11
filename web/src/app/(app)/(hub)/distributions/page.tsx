@@ -1,5 +1,6 @@
 import { CreateDistributionForm } from './create-distribution-form'
 
+import { EmptyState } from '@/components/ui/empty-state'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { createClient } from '@/lib/supabase/server'
 
@@ -8,7 +9,7 @@ export default async function DistributionsPage() {
   const dists = await listDistributions(supabase)
 
   return (
-    <div className="h-full overflow-auto p-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Distributions</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -21,7 +22,12 @@ export default async function DistributionsPage() {
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
         {dists.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">No distributions yet.</p>
+          <EmptyState
+            className="mt-3"
+            icon="functions"
+            title="No distributions yet"
+            description="Add reusable uncertainty distributions for bioavailability and calibration."
+          />
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm">
