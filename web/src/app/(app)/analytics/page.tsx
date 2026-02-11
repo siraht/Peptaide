@@ -12,13 +12,18 @@ function toFiniteNumber(x: number | string | null | undefined): number | null {
 function formatNumber(x: number | string | null | undefined, digits = 3): string {
   const n = toFiniteNumber(x)
   if (n == null) return '-'
-  return n.toFixed(digits).replace(/\.?0+$/, '')
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(n)
 }
 
 function formatMoney(x: number | string | null | undefined): string {
   const n = toFiniteNumber(x)
   if (n == null) return '-'
-  return `$${n.toFixed(2).replace(/\.?0+$/, '')}`
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(n)
 }
 
 function mustGetLocalYmd(date: Date, timeZone: string): { year: number; month: number; day: number } {

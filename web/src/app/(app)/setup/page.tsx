@@ -127,18 +127,18 @@ export default async function SetupPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold">Setup</h1>
-        <p className="mt-1 text-sm text-zinc-700">
-          MVP onboarding flow. Goal: add your core reference data so you can log events and see model coverage gaps.
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Setup</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Add your core reference data so logging and analytics work end-to-end.
         </p>
       </div>
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-900">1. Profile defaults</h2>
-          <p className="mt-1 text-sm text-zinc-700">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">1. Profile defaults</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Configure timezone and units. These affect day grouping and default entry behavior.
           </p>
         </div>
@@ -148,46 +148,46 @@ export default async function SetupPage() {
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">2. Substances</h2>
-            <p className="mt-1 text-sm text-zinc-700">Add substances you plan to track.</p>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">2. Substances</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Add substances you plan to track.</p>
           </div>
-          <Link className="text-sm text-zinc-700 underline hover:text-zinc-900" href="/substances">
+          <Link className="text-sm text-slate-600 dark:text-slate-400 underline hover:text-primary" href="/substances">
             Manage
           </Link>
         </div>
         <BulkAddSubstancesForm />
-        <p className="text-sm text-zinc-700">Current: {substances.length}.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Current: {substances.length}.</p>
       </section>
 
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">3. Routes</h2>
-            <p className="mt-1 text-sm text-zinc-700">Add routes and choose defaults (kind/unit).</p>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">3. Routes</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Add routes and choose defaults (kind/unit).</p>
           </div>
-          <Link className="text-sm text-zinc-700 underline hover:text-zinc-900" href="/routes">
+          <Link className="text-sm text-slate-600 dark:text-slate-400 underline hover:text-primary" href="/routes">
             Manage
           </Link>
         </div>
         <BulkAddRoutesForm />
-        <p className="text-sm text-zinc-700">Current: {routes.length}.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Current: {routes.length}.</p>
       </section>
 
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">4. Formulations</h2>
-            <p className="mt-1 text-sm text-zinc-700">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">4. Formulations</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
               Create loggable combinations of (substance + route + optional device).
             </p>
           </div>
-          <Link className="text-sm text-zinc-700 underline hover:text-zinc-900" href="/formulations">
+          <Link className="text-sm text-slate-600 dark:text-slate-400 underline hover:text-primary" href="/formulations">
             Manage
           </Link>
         </div>
 
         {substances.length === 0 || routes.length === 0 ? (
-          <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Add at least one substance and one route first.
           </div>
         ) : (
@@ -197,30 +197,30 @@ export default async function SetupPage() {
             devices={devices.map((d) => ({ id: d.id, label: d.name }))}
           />
         )}
-        <p className="text-sm text-zinc-700">Current: {formulations.length}.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Current: {formulations.length}.</p>
       </section>
 
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">5. Vials (inventory)</h2>
-            <p className="mt-1 text-sm text-zinc-700">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">5. Vials (inventory)</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
               Create vials so event logging can compute concentration-based conversions and cost allocation. For batch
               creation, you can generate planned vials from orders.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 text-sm">
-            <Link className="text-zinc-700 underline hover:text-zinc-900" href="/inventory">
+            <Link className="text-slate-600 dark:text-slate-400 underline hover:text-primary" href="/inventory">
               Manage inventory
             </Link>
-            <Link className="text-zinc-700 underline hover:text-zinc-900" href="/orders">
+            <Link className="text-slate-600 dark:text-slate-400 underline hover:text-primary" href="/orders">
               Manage orders
             </Link>
           </div>
         </div>
 
         {formulationOptions.length === 0 ? (
-          <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Add at least one formulation first.
           </div>
         ) : (
@@ -228,9 +228,9 @@ export default async function SetupPage() {
         )}
 
         {orderItemOptions.length === 0 ? (
-          <div className="rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             To generate planned vials from orders, create an order item linked to a formulation (see{' '}
-            <Link className="underline hover:text-zinc-900" href="/orders">
+            <Link className="underline hover:text-primary" href="/orders">
               Orders
             </Link>
             ).
@@ -239,36 +239,38 @@ export default async function SetupPage() {
           <GenerateVialsForm orderItems={orderItemOptions} />
         )}
 
-        <p className="text-sm text-zinc-700">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
           Current: {inventory.length} total (active {vialsByStatus.active}, planned {vialsByStatus.planned}, closed{' '}
           {vialsByStatus.closed}, discarded {vialsByStatus.discarded}
           {vialsByStatus.unknown > 0 ? `, unknown ${vialsByStatus.unknown}` : ''}).
         </p>
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">6. Model coverage (bioavailability + calibrations)</h2>
-        <p className="mt-1 text-sm text-zinc-700">
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          6. Model coverage (bioavailability + calibrations)
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           This is the to-do list for effective dose percentiles. You can add base bioavailability specs and device
           calibrations below (distributions required), or manage them on the substance/device detail pages.
         </p>
-        <div className="mt-2 flex flex-wrap gap-3 text-sm text-zinc-700">
-          <Link className="underline hover:text-zinc-900" href="/distributions">
+        <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
+          <Link className="underline hover:text-primary" href="/distributions">
             Distributions
           </Link>
-          <Link className="underline hover:text-zinc-900" href="/today">
+          <Link className="underline hover:text-primary" href="/today">
             Today (logging surface)
           </Link>
         </div>
 
         {substances.length === 0 || routes.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Add at least one substance and one route first.
           </div>
         ) : fractionDists.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Create at least one fraction distribution first (see{' '}
-            <Link className="underline hover:text-zinc-900" href="/distributions">
+            <Link className="underline hover:text-primary" href="/distributions">
               Distributions
             </Link>
             ).
@@ -285,25 +287,25 @@ export default async function SetupPage() {
         )}
 
         {devices.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Add at least one device first (see{' '}
-            <Link className="underline hover:text-zinc-900" href="/devices">
+            <Link className="underline hover:text-primary" href="/devices">
               Devices
             </Link>
             ).
           </div>
         ) : calibrationRoutes.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             No routes support device calibration yet. Enable it on a route (see{' '}
-            <Link className="underline hover:text-zinc-900" href="/routes">
+            <Link className="underline hover:text-primary" href="/routes">
               Routes
             </Link>
             ).
           </div>
         ) : volumeDists.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Create at least one <span className="font-mono">volume_ml_per_unit</span> distribution first (see{' '}
-            <Link className="underline hover:text-zinc-900" href="/distributions">
+            <Link className="underline hover:text-primary" href="/distributions">
               Distributions
             </Link>
             ).
@@ -319,13 +321,13 @@ export default async function SetupPage() {
         )}
 
         {formulationOptions.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Add at least one formulation first.
           </div>
         ) : multiplierDists.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-white p-4 text-sm text-zinc-700">
+          <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-400">
             Create at least one multiplier distribution first (see{' '}
-            <Link className="underline hover:text-zinc-900" href="/distributions">
+            <Link className="underline hover:text-primary" href="/distributions">
               Distributions
             </Link>
             ).
@@ -340,19 +342,33 @@ export default async function SetupPage() {
         )}
 
         {coverageGaps.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-700">No coverage gaps detected.</p>
+          <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">No coverage gaps detected.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
+            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm tabular-nums">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Formulation</th>
-                  <th className="border-b px-2 py-2 font-medium">Substance</th>
-                  <th className="border-b px-2 py-2 font-medium">Route</th>
-                  <th className="border-b px-2 py-2 font-medium">Device</th>
-                  <th className="border-b px-2 py-2 font-medium">Base systemic</th>
-                  <th className="border-b px-2 py-2 font-medium">Base CNS</th>
-                  <th className="border-b px-2 py-2 font-medium">Device cal</th>
+                <tr className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Formulation
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Substance
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Route
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Device
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Base systemic
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Base CNS
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Device cal
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -371,65 +387,79 @@ export default async function SetupPage() {
 
                   return (
                     <tr key={rowKey}>
-                      <td className="border-b px-2 py-2 text-zinc-900">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-900 dark:text-slate-100">
                         {formulationId ? (
-                          <Link className="underline hover:text-zinc-900" href={`/formulations/${formulationId}`}>
+                          <Link className="underline hover:text-primary" href={`/formulations/${formulationId}`}>
                             {c.formulation_name ?? '-'}
                           </Link>
                         ) : (
                           <span>{c.formulation_name ?? '-'}</span>
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {substanceId ? (
-                          <Link className="underline hover:text-zinc-900" href={`/substances/${substanceId}`}>
+                          <Link className="underline hover:text-primary" href={`/substances/${substanceId}`}>
                             {c.substance_name ?? '-'}
                           </Link>
                         ) : (
                           <span>{c.substance_name ?? '-'}</span>
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{c.route_name ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
+                        {c.route_name ?? '-'}
+                      </td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {deviceId ? (
-                          <Link className="underline hover:text-zinc-900" href={`/devices/${deviceId}`}>
+                          <Link className="underline hover:text-primary" href={`/devices/${deviceId}`}>
                             {c.device_name ?? '(device)'}
                           </Link>
                         ) : (
                           '-'
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {systemicRelevant ? (
                           c.missing_base_systemic ? (
-                            <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                            <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                              missing
+                            </span>
                           ) : (
-                            <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                              ok
+                            </span>
                           )
                         ) : (
-                          <span className="text-zinc-500">n/a</span>
+                          <span className="text-slate-400">n/a</span>
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {cnsRelevant ? (
                           c.missing_base_cns ? (
-                            <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                            <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                              missing
+                            </span>
                           ) : (
-                            <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                              ok
+                            </span>
                           )
                         ) : (
-                          <span className="text-zinc-500">n/a</span>
+                          <span className="text-slate-400">n/a</span>
                         )}
                       </td>
-                      <td className="border-b px-2 py-2 text-zinc-700">
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-slate-600 dark:text-slate-400">
                         {c.supports_device_calibration && deviceId ? (
                           c.missing_any_device_calibration ? (
-                            <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">missing</span>
+                            <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                              missing
+                            </span>
                           ) : (
-                            <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">ok</span>
+                            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                              ok
+                            </span>
                           )
                         ) : (
-                          <span className="text-zinc-500">n/a</span>
+                          <span className="text-slate-400">n/a</span>
                         )}
                       </td>
                     </tr>
