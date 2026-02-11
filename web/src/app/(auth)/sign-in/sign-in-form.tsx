@@ -222,7 +222,7 @@ export function SignInForm() {
           disabled={sendDisabled}
           type="submit"
         >
-          {status === 'sending' ? 'Sending...' : 'Send sign-in link'}
+          {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
         </button>
       </form>
 
@@ -243,7 +243,7 @@ export function SignInForm() {
             disabled={codeDisabled}
             type="submit"
           >
-            {status === 'verifying' ? 'Verifying...' : 'Sign in'}
+            {status === 'verifying' ? 'Verifying…' : 'Sign in'}
           </button>
         </form>
       </div>

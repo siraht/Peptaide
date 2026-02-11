@@ -39,7 +39,7 @@ function activeKeyForPath(pathname: string, searchParams: URLSearchParams): Acti
 }
 
 function navItemClass(active: boolean): string {
-  return `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+  return `group flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-3 py-2 rounded-lg transition-colors ${
     active
       ? 'bg-primary/10 text-primary font-medium'
       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -72,76 +72,78 @@ export function SettingsHubSidebar() {
 
   return (
     <nav
-      className="w-64 flex-none bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col justify-between py-4"
+      className="w-16 sm:w-64 flex-none bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col justify-between py-4"
       data-e2e="hub-sidebar"
     >
-      <div className="space-y-1 px-3">
-        <div className="px-3 mb-2">
+      <div className="space-y-1 px-2 sm:px-3">
+        <div className="px-3 mb-2 hidden sm:block">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reference Data</p>
         </div>
 
-        <Link className={navItemClass(active === 'substances')} href={substancesHref}>
+        <Link className={navItemClass(active === 'substances')} href={substancesHref} aria-label="Substances">
           <span className={`material-icons-outlined ${navIconClass(active === 'substances')}`}>biotech</span>
-          Substances
+          <span className="sr-only sm:not-sr-only">Substances</span>
         </Link>
 
-        <Link className={`${navItemClass(active === 'routes')} group`} href="/routes">
+        <Link className={navItemClass(active === 'routes')} href="/routes" aria-label="Routes">
           <span className={`material-icons-outlined ${navIconClass(active === 'routes')}`}>alt_route</span>
-          Routes
+          <span className="sr-only sm:not-sr-only">Routes</span>
         </Link>
-        <Link className={`${navItemClass(active === 'formulations')} group`} href="/formulations">
+        <Link className={navItemClass(active === 'formulations')} href="/formulations" aria-label="Formulations">
           <span className={`material-icons-outlined ${navIconClass(active === 'formulations')}`}>medication</span>
-          Formulations
+          <span className="sr-only sm:not-sr-only">Formulations</span>
         </Link>
-        <Link className={`${navItemClass(active === 'devices')} group`} href="/devices">
+        <Link className={navItemClass(active === 'devices')} href="/devices" aria-label="Devices">
           <span className={`material-icons-outlined ${navIconClass(active === 'devices')}`}>vaccines</span>
-          Devices
+          <span className="sr-only sm:not-sr-only">Devices</span>
         </Link>
 
-        <div className="h-px bg-border-light dark:bg-border-dark my-3 mx-3"></div>
+        <div className="h-px bg-border-light dark:bg-border-dark my-3 mx-3 hidden sm:block"></div>
 
-        <div className="px-3 mb-2">
+        <div className="px-3 mb-2 hidden sm:block">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Operations</p>
         </div>
-        <Link className={`${navItemClass(active === 'inventory')} group`} href="/inventory">
+        <Link className={navItemClass(active === 'inventory')} href="/inventory" aria-label="Inventory">
           <span className={`material-icons-outlined ${navIconClass(active === 'inventory')}`}>inventory_2</span>
-          Inventory
+          <span className="sr-only sm:not-sr-only">Inventory</span>
         </Link>
-        <Link className={`${navItemClass(active === 'orders')} group`} href="/orders">
+        <Link className={navItemClass(active === 'orders')} href="/orders" aria-label="Orders">
           <span className={`material-icons-outlined ${navIconClass(active === 'orders')}`}>shopping_cart</span>
-          Orders
+          <span className="sr-only sm:not-sr-only">Orders</span>
         </Link>
-        <Link className={`${navItemClass(active === 'cycles')} group`} href="/cycles">
+        <Link className={navItemClass(active === 'cycles')} href="/cycles" aria-label="Cycles">
           <span className={`material-icons-outlined ${navIconClass(active === 'cycles')}`}>timeline</span>
-          Cycles
+          <span className="sr-only sm:not-sr-only">Cycles</span>
         </Link>
 
-        <div className="h-px bg-border-light dark:bg-border-dark my-3 mx-3"></div>
+        <div className="h-px bg-border-light dark:bg-border-dark my-3 mx-3 hidden sm:block"></div>
 
-        <div className="px-3 mb-2">
+        <div className="px-3 mb-2 hidden sm:block">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">System</p>
         </div>
-        <Link className={`${navItemClass(active === 'distributions')} group`} href="/distributions">
+        <Link className={navItemClass(active === 'distributions')} href="/distributions" aria-label="Distributions">
           <span className={`material-icons-outlined ${navIconClass(active === 'distributions')}`}>functions</span>
-          Distributions
+          <span className="sr-only sm:not-sr-only">Distributions</span>
         </Link>
-        <Link className={`${navItemClass(active === 'evidence')} group`} href="/evidence-sources">
+        <Link className={navItemClass(active === 'evidence')} href="/evidence-sources" aria-label="Evidence">
           <span className={`material-icons-outlined ${navIconClass(active === 'evidence')}`}>link</span>
-          Evidence
+          <span className="sr-only sm:not-sr-only">Evidence</span>
         </Link>
-        <Link className={navItemClass(active === 'app')} href={appSettingsHref}>
+        <Link className={navItemClass(active === 'app')} href={appSettingsHref} aria-label="App Settings">
           <span className={`material-icons-outlined ${navIconClass(active === 'app')}`}>settings</span>
-          App Settings
+          <span className="sr-only sm:not-sr-only">App Settings</span>
         </Link>
       </div>
 
-      <div className="px-4">
+      <div className="px-2 sm:px-4">
         <div className="bg-slate-100 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700/50">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">System Status: Stable</span>
+            <span className="sr-only sm:not-sr-only text-xs font-medium text-slate-600 dark:text-slate-300">
+              System Status: Stable
+            </span>
           </div>
-          <div className="text-[10px] text-slate-400">MVP (local Supabase)</div>
+          <div className="hidden sm:block text-[10px] text-slate-400">MVP (local Supabase)</div>
         </div>
       </div>
     </nav>

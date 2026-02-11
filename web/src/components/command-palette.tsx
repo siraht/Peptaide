@@ -123,7 +123,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
                   value={query}
                   onValueChange={setQuery}
                   className="w-full bg-transparent text-sm text-gray-900 dark:text-gray-100 outline-none placeholder:text-gray-400"
-                  placeholder="Type to search..."
+                  placeholder="Type to search…"
                   data-e2e="cmdk-input"
                 />
               </div>

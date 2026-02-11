@@ -19,6 +19,12 @@ body {
   height: 100%;
 }
 
+html {
+  color-scheme: dark;
+  background: var(--color-background-dark);
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Scrollbars: keep subtle by default (the mockups rely on tighter, darker thumbs). */
 ::-webkit-scrollbar {
   width: 8px;

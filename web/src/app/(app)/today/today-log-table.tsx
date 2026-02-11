@@ -361,7 +361,7 @@ export function TodayLogTable(props: {
               <td className="py-3 align-top">
                 <input
                   className="bg-transparent border-0 p-0 w-full text-sm focus:ring-0 text-gray-900 dark:text-gray-100"
-                  placeholder="Add notes..."
+                  placeholder="Add notes…"
                   value={notes}
                   onChange={(e) => {
                     setNotes(e.target.value)

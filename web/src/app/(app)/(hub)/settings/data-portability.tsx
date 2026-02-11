@@ -266,7 +266,7 @@ export function DataPortabilitySection() {
               disabled={eventsBusy != null}
               onClick={() => runSimpleEventsImport('dry-run')}
             >
-              {eventsBusy === 'dry-run' ? 'Running...' : 'Dry run'}
+              {eventsBusy === 'dry-run' ? 'Running…' : 'Dry run'}
             </button>
             <button
               data-e2e="simple-events-apply"
@@ -275,7 +275,7 @@ export function DataPortabilitySection() {
               disabled={eventsBusy != null}
               onClick={() => runSimpleEventsImport('apply')}
             >
-              {eventsBusy === 'apply' ? 'Importing...' : 'Import'}
+              {eventsBusy === 'apply' ? 'Importing…' : 'Import'}
             </button>
           </div>
 
@@ -293,7 +293,7 @@ export function DataPortabilitySection() {
                     </div>
                   ))}
                   {eventsResult.row_errors.length > 3 ? (
-                    <div className="text-slate-600 dark:text-slate-400">{`... and ${eventsResult.row_errors.length - 3} more`}</div>
+                    <div className="text-slate-600 dark:text-slate-400">{`… and ${eventsResult.row_errors.length - 3} more`}</div>
                   ) : null}
                 </div>
               ) : null}
@@ -345,7 +345,7 @@ export function DataPortabilitySection() {
               disabled={busy != null}
               onClick={() => runImport('dry-run')}
             >
-              {busy === 'dry-run' ? 'Running...' : 'Dry run'}
+              {busy === 'dry-run' ? 'Running…' : 'Dry run'}
             </button>
             <button
               data-e2e="bundle-apply"
@@ -354,7 +354,7 @@ export function DataPortabilitySection() {
               disabled={busy != null}
               onClick={() => runImport('apply')}
             >
-              {busy === 'apply' ? 'Importing...' : 'Import'}
+              {busy === 'apply' ? 'Importing…' : 'Import'}
             </button>
           </div>
 
@@ -417,7 +417,7 @@ export function DataPortabilitySection() {
             disabled={busy != null || !canDelete}
             onClick={deleteMyData}
           >
-            {busy === 'delete' ? 'Deleting...' : 'Delete all my data'}
+            {busy === 'delete' ? 'Deleting…' : 'Delete all my data'}
           </button>
         </div>
       </div>

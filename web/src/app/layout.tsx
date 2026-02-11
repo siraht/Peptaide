@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Peptaide',
   description: 'Peptide + medication tracker with uncertainty-aware analytics.',
+  themeColor: '#101622',
 }
 
 export default function RootLayout({

@@ -363,7 +363,7 @@ export function TodayLogGrid(props: {
                 </td>
                 <td className="border-b px-2 py-2 text-gray-600 dark:text-gray-400">
                   {row.status === 'saving' ? (
-                    <span>Saving...</span>
+                    <span>Saving…</span>
                   ) : row.status === 'success' ? (
                     <span className="text-emerald-700 dark:text-emerald-300">Saved</span>
                   ) : row.status === 'error' ? (

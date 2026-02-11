@@ -84,36 +84,54 @@ export default async function AnalyticsPage() {
   ])
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold">Analytics</h1>
-        <p className="mt-1 text-sm text-zinc-700">Read-only surfaces backed by `security_invoker` SQL views.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Analytics</h1>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          Trends for administered and effective dose, plus spend over time.
+        </p>
       </div>
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Daily administered dose (mg)</h2>
-        <p className="mt-1 text-sm text-zinc-700">Last 180 local days, grouped by substance.</p>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Daily administered dose (mg)</h2>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Last 180 local days, grouped by substance.</p>
 
         {admin.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No data yet.</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">No data yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm">
+            <table className="min-w-[900px] border-separate border-spacing-0 text-left text-sm tabular-nums">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Day (local)</th>
-                  <th className="border-b px-2 py-2 font-medium">Substance</th>
-                  <th className="border-b px-2 py-2 font-medium">Admin mg</th>
-                  <th className="border-b px-2 py-2 font-medium">Events</th>
+                <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Day (local)
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Substance
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Admin mg
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Events
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {admin.map((r, i) => (
                   <tr key={`${r.day_local ?? 'day'}-${r.substance_id ?? 'substance'}-${i}`}>
-                    <td className="border-b px-2 py-2 text-zinc-700">{r.day_local ?? '-'}</td>
-                    <td className="border-b px-2 py-2 text-zinc-900">{r.substance_name ?? '-'}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{formatNumber(r.administered_mg)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{r.event_count ?? '-'}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {r.day_local ?? '-'}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-gray-900 dark:text-gray-100">
+                      {r.substance_name ?? '-'}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {formatNumber(r.administered_mg)}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {r.event_count ?? '-'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -122,37 +140,55 @@ export default async function AnalyticsPage() {
         )}
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Daily effective dose (systemic, mg)</h2>
-        <p className="mt-1 text-sm text-zinc-700">
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Daily effective dose (systemic, mg)</h2>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Last 180 local days. Note: these p05/p50/p95 values are summed per day, so they are an approximate band, not
           true daily quantiles.
         </p>
 
         {effSystemic.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No data yet.</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">No data yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
+            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm tabular-nums">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Day (local)</th>
-                  <th className="border-b px-2 py-2 font-medium">Substance</th>
-                  <th className="border-b px-2 py-2 font-medium">p05</th>
-                  <th className="border-b px-2 py-2 font-medium">p50</th>
-                  <th className="border-b px-2 py-2 font-medium">p95</th>
-                  <th className="border-b px-2 py-2 font-medium">Events</th>
+                <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Day (local)
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Substance
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">p05</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">p50</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">p95</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Events
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {effSystemic.map((r, i) => (
                   <tr key={`${r.day_local ?? 'day'}-${r.substance_id ?? 'substance'}-${i}`}>
-                    <td className="border-b px-2 py-2 text-zinc-700">{r.day_local ?? '-'}</td>
-                    <td className="border-b px-2 py-2 text-zinc-900">{r.substance_name ?? '-'}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{formatNumber(r.eff_systemic_p05_mg)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{formatNumber(r.eff_systemic_p50_mg)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{formatNumber(r.eff_systemic_p95_mg)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{r.event_count ?? '-'}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {r.day_local ?? '-'}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-gray-900 dark:text-gray-100">
+                      {r.substance_name ?? '-'}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {formatNumber(r.eff_systemic_p05_mg)}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {formatNumber(r.eff_systemic_p50_mg)}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {formatNumber(r.eff_systemic_p95_mg)}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {r.event_count ?? '-'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -161,36 +197,54 @@ export default async function AnalyticsPage() {
         )}
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Daily effective dose (CNS, mg)</h2>
-        <p className="mt-1 text-sm text-zinc-700">
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Daily effective dose (CNS, mg)</h2>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Last 180 local days. Same note as systemic: summed percentiles are an approximate band.
         </p>
 
         {effCns.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No data yet.</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">No data yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
+            <table className="min-w-[1100px] border-separate border-spacing-0 text-left text-sm tabular-nums">
               <thead>
-                <tr className="text-xs text-zinc-600">
-                  <th className="border-b px-2 py-2 font-medium">Day (local)</th>
-                  <th className="border-b px-2 py-2 font-medium">Substance</th>
-                  <th className="border-b px-2 py-2 font-medium">p05</th>
-                  <th className="border-b px-2 py-2 font-medium">p50</th>
-                  <th className="border-b px-2 py-2 font-medium">p95</th>
-                  <th className="border-b px-2 py-2 font-medium">Events</th>
+                <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Day (local)
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Substance
+                  </th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">p05</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">p50</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">p95</th>
+                  <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                    Events
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {effCns.map((r, i) => (
                   <tr key={`${r.day_local ?? 'day'}-${r.substance_id ?? 'substance'}-${i}`}>
-                    <td className="border-b px-2 py-2 text-zinc-700">{r.day_local ?? '-'}</td>
-                    <td className="border-b px-2 py-2 text-zinc-900">{r.substance_name ?? '-'}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{formatNumber(r.eff_cns_p05_mg)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{formatNumber(r.eff_cns_p50_mg)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{formatNumber(r.eff_cns_p95_mg)}</td>
-                    <td className="border-b px-2 py-2 text-zinc-700">{r.event_count ?? '-'}</td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {r.day_local ?? '-'}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 text-gray-900 dark:text-gray-100">
+                      {r.substance_name ?? '-'}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {formatNumber(r.eff_cns_p05_mg)}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {formatNumber(r.eff_cns_p50_mg)}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {formatNumber(r.eff_cns_p95_mg)}
+                    </td>
+                    <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                      {r.event_count ?? '-'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -199,28 +253,38 @@ export default async function AnalyticsPage() {
         )}
       </section>
 
-      <section className="rounded-lg border bg-white p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Spend</h2>
-        <p className="mt-1 text-sm text-zinc-700">Rollups from event-attributed costs (`administration_events.cost_usd`).</p>
+      <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Spend</h2>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Rollups from event-attributed costs.</p>
 
         {spendDay.length === 0 && spendWeek.length === 0 && spendMonth.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-700">No data yet.</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">No data yet.</p>
         ) : (
           <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="overflow-x-auto">
-              <h3 className="text-xs font-semibold text-zinc-700">Daily</h3>
-              <table className="mt-2 min-w-[320px] border-separate border-spacing-0 text-left text-sm">
+              <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                Daily
+              </h3>
+              <table className="mt-2 min-w-[320px] border-separate border-spacing-0 text-left text-sm tabular-nums">
                 <thead>
-                  <tr className="text-xs text-zinc-600">
-                    <th className="border-b px-2 py-2 font-medium">Day</th>
-                    <th className="border-b px-2 py-2 font-medium">Spend</th>
+                  <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                      Day
+                    </th>
+                    <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                      Spend
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {spendDay.slice(0, 30).map((r, i) => (
                     <tr key={`${r.period_start_date ?? 'day'}-${i}`}>
-                      <td className="border-b px-2 py-2 text-zinc-700">{r.period_start_date ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{formatMoney(r.spend_usd)}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                        {r.period_start_date ?? '-'}
+                      </td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                        {formatMoney(r.spend_usd)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -228,19 +292,29 @@ export default async function AnalyticsPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <h3 className="text-xs font-semibold text-zinc-700">Weekly</h3>
-              <table className="mt-2 min-w-[320px] border-separate border-spacing-0 text-left text-sm">
+              <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                Weekly
+              </h3>
+              <table className="mt-2 min-w-[320px] border-separate border-spacing-0 text-left text-sm tabular-nums">
                 <thead>
-                  <tr className="text-xs text-zinc-600">
-                    <th className="border-b px-2 py-2 font-medium">Week start</th>
-                    <th className="border-b px-2 py-2 font-medium">Spend</th>
+                  <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                      Week start
+                    </th>
+                    <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                      Spend
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {spendWeek.slice(0, 16).map((r, i) => (
                     <tr key={`${r.period_start_date ?? 'week'}-${i}`}>
-                      <td className="border-b px-2 py-2 text-zinc-700">{r.period_start_date ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{formatMoney(r.spend_usd)}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                        {r.period_start_date ?? '-'}
+                      </td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                        {formatMoney(r.spend_usd)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -248,19 +322,29 @@ export default async function AnalyticsPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <h3 className="text-xs font-semibold text-zinc-700">Monthly</h3>
-              <table className="mt-2 min-w-[320px] border-separate border-spacing-0 text-left text-sm">
+              <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                Monthly
+              </h3>
+              <table className="mt-2 min-w-[320px] border-separate border-spacing-0 text-left text-sm tabular-nums">
                 <thead>
-                  <tr className="text-xs text-zinc-600">
-                    <th className="border-b px-2 py-2 font-medium">Month start</th>
-                    <th className="border-b px-2 py-2 font-medium">Spend</th>
+                  <tr className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                      Month start
+                    </th>
+                    <th className="border-b border-border-light dark:border-border-dark px-2 py-2 font-semibold">
+                      Spend
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {spendMonth.slice(0, 12).map((r, i) => (
                     <tr key={`${r.period_start_date ?? 'month'}-${i}`}>
-                      <td className="border-b px-2 py-2 text-zinc-700">{r.period_start_date ?? '-'}</td>
-                      <td className="border-b px-2 py-2 text-zinc-700">{formatMoney(r.spend_usd)}</td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                        {r.period_start_date ?? '-'}
+                      </td>
+                      <td className="border-b border-border-light dark:border-border-dark px-2 py-2 font-mono text-gray-600 dark:text-gray-400">
+                        {formatMoney(r.spend_usd)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
