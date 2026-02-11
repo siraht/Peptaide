@@ -233,7 +233,7 @@ export function CreateVialForm(props: {
 
           {filteredSubstances.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-              No substances match "{searchQuery}".
+              No substances match &quot;{searchQuery}&quot;.
             </p>
           ) : (
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">

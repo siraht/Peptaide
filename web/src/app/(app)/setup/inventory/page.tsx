@@ -167,7 +167,7 @@ export default async function SetupInventoryPage() {
         )}
 
         <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-          If you don't want to track costs, you can leave cost fields blank and still use runway estimates based on doses.
+          If you don&apos;t want to track costs, you can leave cost fields blank and still use runway estimates based on doses.
         </div>
       </div>
     </SetupStepShell>

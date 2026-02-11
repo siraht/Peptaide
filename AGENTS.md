@@ -1,6 +1,6 @@
 # ExecPlans
 
-When writing complex features or significant refactors, use an ExecPlan (as described in .agent/PLANSwHD.md) from design to implementation.
+When writing complex features or significant refactors, or being given PRs to implement, use an ExecPlan (as described in .agent/PLANSwHD.md) from design to implementation.
 
 # How to operate
 
