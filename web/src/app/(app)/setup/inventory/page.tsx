@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { CreateVialForm } from '@/app/(app)/(hub)/inventory/create-vial-form'
 import { GenerateVialsForm } from '@/app/(app)/(hub)/orders/generate-vials-form'
 import { SetupStepShell } from '@/app/(app)/setup/step-shell'
+import { buildVialSelectorSubstances } from '@/lib/inventory/vialSelectorData'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listOrders } from '@/lib/repos/ordersRepo'
@@ -27,12 +28,7 @@ export default async function SetupInventoryPage() {
   const substanceById = new Map(substances.map((s) => [s.id, s] as const))
   const formulationById = new Map(formulations.map((f) => [f.formulation.id, f] as const))
   const orderById = new Map(orders.map((o) => [o.id, o] as const))
-
-  const formulationOptions = formulations.map((f) => {
-    const substance = f.substance?.display_name ?? 'Unknown substance'
-    const route = f.route?.name ?? 'Unknown route'
-    return { id: f.formulation.id, label: `${substance} / ${route} / ${f.formulation.name}` }
-  })
+  const selectorSubstances = buildVialSelectorSubstances(formulations, inventory)
 
   const orderIds = new Set(orders.map((o) => o.id))
   const eligibleOrderItems = orderItems.filter((oi) => orderIds.has(oi.order_id) && oi.formulation_id != null)
@@ -63,7 +59,7 @@ export default async function SetupInventoryPage() {
     { planned: 0, active: 0, closed: 0, discarded: 0, unknown: 0 },
   )
 
-  const prereqMissing = formulationOptions.length === 0
+  const prereqMissing = selectorSubstances.length === 0
 
   return (
     <SetupStepShell
@@ -104,7 +100,7 @@ export default async function SetupInventoryPage() {
           </div>
         ) : (
           <>
-            <CreateVialForm formulations={formulationOptions} />
+            <CreateVialForm substances={selectorSubstances} />
 
             {orderItemOptions.length === 0 ? (
               <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
@@ -127,4 +123,3 @@ export default async function SetupInventoryPage() {
     </SetupStepShell>
   )
 }
-

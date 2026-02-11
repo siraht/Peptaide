@@ -11,7 +11,13 @@ export type FormulationSelectOption = { id: string; label: string }
 export type CreateFormulationState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
-  | { status: 'success'; message: string }
+  | {
+      status: 'success'
+      message: string
+      createdFormulationId?: string
+      createdSubstanceId?: string
+      returnTo?: string
+    }
 
 export type BulkAddFormulationsState =
   | { status: 'idle' }
@@ -23,6 +29,22 @@ export type BulkAddFormulationsState =
       errors: string[]
     }
 
+const ALLOWED_FORMULATION_RETURN_PATHS = new Set(['/inventory', '/setup/inventory'])
+
+function sanitizeReturnToPath(raw: string): string | null {
+  if (!raw) return null
+  if (!raw.startsWith('/')) return null
+  if (raw.startsWith('//')) return null
+
+  try {
+    const url = new URL(raw, 'http://localhost')
+    if (!ALLOWED_FORMULATION_RETURN_PATHS.has(url.pathname)) return null
+    return url.pathname
+  } catch {
+    return null
+  }
+}
+
 export async function createFormulationAction(
   _prev: CreateFormulationState,
   formData: FormData,
@@ -33,15 +55,17 @@ export async function createFormulationAction(
   const name = String(formData.get('name') ?? '').trim()
   const isDefaultForRoute = String(formData.get('is_default_for_route') ?? '') === 'on'
   const notes = String(formData.get('notes') ?? '').trim()
+  const returnTo = sanitizeReturnToPath(String(formData.get('return_to') ?? '').trim())
 
   if (!substanceId) return { status: 'error', message: 'substance is required.' }
   if (!routeId) return { status: 'error', message: 'route is required.' }
   if (!name) return { status: 'error', message: 'name is required.' }
 
   const supabase = await createClient()
+  let createdFormulationId = ''
 
   try {
-    await createFormulation(supabase, {
+    const created = await createFormulation(supabase, {
       substanceId,
       routeId,
       deviceId: deviceIdRaw ? deviceIdRaw : null,
@@ -49,13 +73,23 @@ export async function createFormulationAction(
       isDefaultForRoute,
       notes: notes || null,
     })
+    createdFormulationId = created.id
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return { status: 'error', message: toUserFacingDbErrorMessage(msg) ?? msg }
   }
 
   revalidatePath('/formulations')
-  return { status: 'success', message: 'Created.' }
+  revalidatePath('/inventory')
+  revalidatePath('/setup/inventory')
+
+  return {
+    status: 'success',
+    message: 'Created.',
+    createdFormulationId,
+    createdSubstanceId: substanceId,
+    returnTo: returnTo ?? undefined,
+  }
 }
 
 export async function bulkAddFormulationsAction(

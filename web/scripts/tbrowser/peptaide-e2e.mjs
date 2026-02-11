@@ -45,6 +45,7 @@ const E2E_DIST_VOL_PER_SPRAY = `E2E: vol per spray 0.10 ${NAME_TAG}`
 const E2E_DEVICE_SPRAY = `E2E Spray ${NAME_TAG}`
 const E2E_ROUTE_INTRANA = `E2E intranasal ${NAME_TAG}`
 const E2E_FORMULATION_IN = `E2E IN formulation ${NAME_TAG}`
+const E2E_FORMULATION_IN_FROM_VIAL_CTA = `E2E IN via vial flow ${NAME_TAG}`
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3002'
 const MAILPIT_URL = process.env.E2E_MAILPIT_URL || 'http://127.0.0.1:54324'
@@ -986,16 +987,212 @@ async function bulkAddFormulation({ formulationName, substanceLabelIncludes, rou
   await waitForBodyText('Created', { label: 'formulations bulk-add success' })
 }
 
+async function clickFormulationMiniCardByLabel(formulationLabelIncludes) {
+  const clicked = await evalJs(
+    `(() => {
+      const cards = Array.from(document.querySelectorAll('[data-e2e="vial-formulation-card"]'))
+      const target = cards.find((el) => (el.textContent || '').includes(${JSON.stringify(formulationLabelIncludes)}))
+      if (!target) return false
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      return true
+    })()`,
+  )
+  if (!clicked) {
+    fail(`Could not find vial formulation mini card containing "${formulationLabelIncludes}"`)
+  }
+
+  await waitUntil(
+    async () =>
+      Boolean(
+        await evalJs(
+          `(() => {
+            const cards = Array.from(document.querySelectorAll('[data-e2e="vial-formulation-card"]'))
+            const target = cards.find((el) => (el.textContent || '').includes(${JSON.stringify(formulationLabelIncludes)}))
+            return target ? target.getAttribute('aria-pressed') === 'true' : false
+          })()`,
+        ),
+      ),
+    { label: `formulation mini card selected (${formulationLabelIncludes})`, timeoutMs: 30000 },
+  )
+}
+
+async function waitForVialSelectorCards({ label, timeoutMs = 60000 } = {}) {
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="vial-substance-card"]\'))')),
+    { label: label || 'vial selector cards present', timeoutMs },
+  )
+}
+
+async function openPageWithVialSelector(pathname, { label, maxAttempts = 4 } = {}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    open(`${BASE_URL}${pathname}`)
+    try {
+      await waitForVialSelectorCards({
+        label: `${label || pathname} selector present (attempt ${attempt}/${maxAttempts})`,
+        timeoutMs: 25000,
+      })
+      return
+    } catch (e) {
+      if (attempt >= maxAttempts) throw e
+      logLine(`${label || pathname}: selector not visible yet, retrying`)
+      await sleep(2000)
+    }
+  }
+}
+
+async function createFormulationFromVialFlow({ substanceLabelIncludes, routeLabelIncludes, formulationName }) {
+  logLine(`inventory: add formulation from vial flow (${formulationName})`)
+  await openPageWithVialSelector('/inventory', { label: 'inventory vial selector before add formulation' })
+
+  const clickedCta = await evalJs(
+    `(() => {
+      const cards = Array.from(document.querySelectorAll('[data-e2e="vial-substance-card"]'))
+      const substanceCard = cards.find((el) => (el.textContent || '').includes(${JSON.stringify(substanceLabelIncludes)}))
+      if (!substanceCard) return false
+      const cta = substanceCard.querySelector('[data-e2e="vial-add-formulation"]')
+      if (!cta) return false
+      cta.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      return true
+    })()`,
+  )
+  if (!clickedCta) fail(`Could not click add-formulation CTA for substance "${substanceLabelIncludes}"`)
+
+  await waitUntil(
+    async () => {
+      const href = await evalJs('window.location.href')
+      if (typeof href !== 'string' || !href) return false
+      const u = new URL(href)
+      return u.pathname === '/formulations' && u.searchParams.get('return_to') === '/inventory'
+    },
+    { label: 'navigate to /formulations from vial add-formulation CTA', timeoutMs: 60000 },
+  )
+
+  waitFor('form[data-e2e="create-formulation-form"]')
+  const createForm = 'form[data-e2e="create-formulation-form"]'
+
+  const selectedSubstanceText = await evalJs(
+    `(() => {
+      const sel = document.querySelector(${JSON.stringify(`${createForm} select[name="substance_id"]`)})
+      if (!sel) return ''
+      const option = sel.options[sel.selectedIndex]
+      return option ? (option.textContent || '').trim() : ''
+    })()`,
+  )
+  if (typeof selectedSubstanceText !== 'string' || !selectedSubstanceText.includes(substanceLabelIncludes)) {
+    fail(
+      `Expected substance preselection to include "${substanceLabelIncludes}" but got "${String(selectedSubstanceText)}"`,
+    )
+  }
+
+  const routeId = await selectOptionValue(`${createForm} select[name="route_id"]`, routeLabelIncludes)
+  runAgentBrowser(['select', `${createForm} select[name="route_id"]`, routeId])
+  fill(`${createForm} input[name="name"]`, formulationName)
+  click(`${createForm} button[type="submit"]`)
+
+  await waitUntil(
+    async () => {
+      const href = await evalJs('window.location.href')
+      if (typeof href !== 'string' || !href) return false
+      const u = new URL(href)
+      return u.pathname === '/inventory' && Boolean(u.searchParams.get('created_formulation_id'))
+    },
+    { label: 'return to inventory after creating formulation from vial flow', timeoutMs: 60000 },
+  )
+
+  await waitUntil(
+    async () =>
+      Boolean(
+        await evalJs(
+          `Array.from(document.querySelectorAll('[data-e2e="vial-formulation-card"]')).some((el) => (el.textContent || '').includes(${JSON.stringify(formulationName)}))`,
+        ),
+      ),
+    { label: `new formulation appears in vial selector (${formulationName})`, timeoutMs: 60000 },
+  )
+
+  await waitUntil(
+    async () =>
+      Boolean(
+        await evalJs(
+          `(() => {
+            const cards = Array.from(document.querySelectorAll('[data-e2e="vial-formulation-card"]'))
+            const target = cards.find((el) => (el.textContent || '').includes(${JSON.stringify(formulationName)}))
+            return target ? target.getAttribute('aria-pressed') === 'true' : false
+          })()`,
+        ),
+      ),
+    { label: `new formulation preselected after return (${formulationName})`, timeoutMs: 60000 },
+  )
+}
+
+async function verifyVialSelectorMobileSanity({ formulationLabelIncludes }) {
+  logLine('inventory: mobile vial selector sanity')
+  setViewport(390, 844)
+  await openPageWithVialSelector('/inventory', { label: 'mobile inventory vial selector' })
+
+  await clickFormulationMiniCardByLabel(formulationLabelIncludes)
+
+  const metrics = await evalJs(
+    `(() => {
+      const viewportWidth = window.innerWidth
+      const docOverflowPx = Math.max(0, Math.ceil(document.documentElement.scrollWidth - viewportWidth))
+      const cards = Array.from(document.querySelectorAll('[data-e2e="vial-substance-card"]'))
+      let maxCardOverflowPx = 0
+      for (const card of cards) {
+        const rect = card.getBoundingClientRect()
+        maxCardOverflowPx = Math.max(maxCardOverflowPx, Math.ceil(Math.max(0, rect.right - viewportWidth)))
+      }
+
+      const selectedCard = document.querySelector('[data-e2e="vial-formulation-card"][aria-pressed="true"]')
+      return {
+        docOverflowPx,
+        maxCardOverflowPx,
+        cardCount: cards.length,
+        selectedCount: selectedCard ? 1 : 0,
+      }
+    })()`,
+  )
+
+  if (!metrics || typeof metrics !== 'object') fail('Could not read mobile vial selector metrics')
+
+  const docOverflowPx = Number(metrics.docOverflowPx ?? 0)
+  const maxCardOverflowPx = Number(metrics.maxCardOverflowPx ?? 0)
+  const cardCount = Number(metrics.cardCount ?? 0)
+  const selectedCount = Number(metrics.selectedCount ?? 0)
+
+  if (!Number.isFinite(cardCount) || cardCount < 1) {
+    fail('Expected at least one substance card in mobile vial selector')
+  }
+  if (!Number.isFinite(selectedCount) || selectedCount < 1) {
+    fail('Expected a selected formulation mini card in mobile vial selector')
+  }
+  if (Number.isFinite(docOverflowPx) && docOverflowPx > 2) {
+    fail(`Mobile vial selector has horizontal document overflow (${docOverflowPx}px)`)
+  }
+  if (Number.isFinite(maxCardOverflowPx) && maxCardOverflowPx > 2) {
+    fail(`Mobile vial selector cards overflow viewport (${maxCardOverflowPx}px)`)
+  }
+
+  assertHealthy('inventory-mobile-vial-selector')
+  setViewport(1280, 720)
+}
+
 async function createVial({ formulationLabelIncludes, massValue, massUnit, volumeValue, volumeUnit, costUsd }) {
-  logLine('setup: creating vial')
-  open(`${BASE_URL}/setup/inventory`)
-  waitFor('select[name="formulation_id"]')
+  logLine('inventory: creating vial')
+  await openPageWithVialSelector('/inventory', { label: 'inventory vial selector before create vial' })
 
-  await tagSetupForms(['vial'])
-  const formSel = 'form[data-e2e-form="vial"]'
+  const formSel = 'form[data-e2e="vial-create-form"]'
 
-  const formulationId = await selectOptionValue(`${formSel} select[name="formulation_id"]`, formulationLabelIncludes)
-  runAgentBrowser(['select', `${formSel} select[name="formulation_id"]`, formulationId])
+  await clickFormulationMiniCardByLabel(formulationLabelIncludes)
+  await waitUntil(
+    async () => {
+      const value = await evalJs(
+        `document.querySelector(${JSON.stringify(`${formSel} input[name="formulation_id"]`)})?.value || ""`,
+      )
+      return typeof value === 'string' && value.length > 0
+    },
+    { label: 'selected formulation id present in hidden input', timeoutMs: 30000 },
+  )
+
   runAgentBrowser(['select', `${formSel} select[name="status"]`, 'active'])
   fill(`${formSel} input[name="content_mass_value"]`, String(massValue))
   runAgentBrowser(['select', `${formSel} select[name="content_mass_unit"]`, massUnit])
@@ -3083,14 +3280,20 @@ async function runFullScope() {
     routeLabelIncludes: E2E_ROUTE_INTRANA,
     deviceLabelIncludes: E2E_DEVICE_SPRAY,
   })
+  await createFormulationFromVialFlow({
+    substanceLabelIncludes: 'Demo substance',
+    routeLabelIncludes: E2E_ROUTE_INTRANA,
+    formulationName: E2E_FORMULATION_IN_FROM_VIAL_CTA,
+  })
   await createVial({
-    formulationLabelIncludes: E2E_FORMULATION_IN,
+    formulationLabelIncludes: E2E_FORMULATION_IN_FROM_VIAL_CTA,
     massValue: 10,
     massUnit: 'mg',
     volumeValue: 10,
     volumeUnit: 'mL',
     costUsd: 50,
   })
+  await verifyVialSelectorMobileSanity({ formulationLabelIncludes: E2E_FORMULATION_IN_FROM_VIAL_CTA })
   await addBaseBaSpec({
     substanceLabelIncludes: 'Demo substance',
     routeLabelIncludes: E2E_ROUTE_INTRANA,
