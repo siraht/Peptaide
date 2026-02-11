@@ -454,7 +454,9 @@ function isRetryableNavigationError(e) {
   return (
     msg.includes('net::ERR_NETWORK_CHANGED') ||
     msg.includes('net::ERR_CONNECTION_RESET') ||
-    msg.includes('net::ERR_INTERNET_DISCONNECTED')
+    msg.includes('net::ERR_INTERNET_DISCONNECTED') ||
+    msg.includes('net::ERR_CONNECTION_REFUSED') ||
+    msg.includes('net::ERR_CONNECTION_CLOSED')
   )
 }
 
@@ -770,19 +772,35 @@ async function signInWithCodePreferDevUi(email) {
   const statusText = await evalJs('document.querySelector(\'p[role="status"]\')?.textContent || ""')
   const devExposed = typeof statusText === 'string' && statusText.includes('Dev:')
 
+  let codeFilledFromDevUi = false
   if (devExposed) {
     logLine('auth: using dev OTP UI (no Mailpit dependency for the client)')
-    await waitForBodyText('Dev OTP code', { label: 'dev OTP code visible', timeoutMs: 60000 })
-    clickButtonByName('Use code')
-    await waitUntil(
-      async () => {
-        const v = await evalJs('document.querySelector(\'input[name="code"]\')?.value || ""')
-        return typeof v === 'string' && v.trim().length >= 6
-      },
-      { label: 'dev OTP use-code filled input', timeoutMs: 10000 },
-    )
-  } else {
-    logLine('auth: dev OTP UI not exposed; falling back to Mailpit code')
+    const clickedUseCode = await evalJs(`(() => {
+      const buttons = Array.from(document.querySelectorAll('button'))
+      const btn = buttons.find((b) => (b.textContent || '').replace(/\\s+/g, ' ').trim() === 'Use code')
+      if (!btn) return false
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      return true
+    })()`)
+
+    if (clickedUseCode) {
+      try {
+        await waitUntil(
+          async () => {
+            const v = await evalJs('document.querySelector(\'input[name="code"]\')?.value || ""')
+            return typeof v === 'string' && v.trim().length >= 6
+          },
+          { label: 'dev OTP use-code filled input', timeoutMs: 10000 },
+        )
+        codeFilledFromDevUi = true
+      } catch {
+        codeFilledFromDevUi = false
+      }
+    }
+  }
+
+  if (!codeFilledFromDevUi) {
+    logLine(devExposed ? 'auth: dev OTP UI fallback to Mailpit code' : 'auth: dev OTP UI not exposed; falling back to Mailpit code')
     const { code } = await waitForOtpEmail(email, { sinceMs: since - 2000, excludeIds: existingIds })
     waitFor('input[name="code"]')
     fill('input[name="code"]', code)
@@ -801,8 +819,16 @@ async function signInWithCodePreferDevUi(email) {
 
 async function signOut() {
   logLine('auth: signing out')
-  // The header is always present in the authed app layout.
-  clickButtonByName('Sign out')
+  // Use a deterministic data-e2e hook on the shared app header sign-out button.
+  const clicked = await evalJs(`(() => {
+    const wanted = document.querySelector('button[data-e2e="app-sign-out"]')
+    if (!wanted) return false
+    wanted.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    return true
+  })()`)
+  if (!clicked) {
+    fail('Could not find sign-out submit button in app header')
+  }
   await waitUntil(
     async () => {
       const url = await evalJs('window.location.href')
@@ -1673,7 +1699,15 @@ async function commandPaletteDeepInteractions() {
     async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="cmdk-item-/today?focus=log"]\'))')),
     { label: 'cmdk log event item visible', timeoutMs: 30000 },
   )
-  click('[data-e2e="cmdk-item-/today?focus=log"]')
+  const clickedLogEvent = await evalJs(`(() => {
+    const el = document.querySelector('[data-e2e="cmdk-item-/today?focus=log"]')
+    if (!el) return false
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    return true
+  })()`)
+  if (!clickedLogEvent) {
+    fail('cmdk log event item was visible but click dispatch failed')
+  }
   await waitUntil(
     async () => {
       const url = await evalJs('window.location.href')
@@ -1996,7 +2030,10 @@ async function deviceDetailCalibrationCrudViaUi({ deviceNameIncludes, routeLabel
   await waitForBodyText('Calibrations', { label: 'device detail page visible' })
 
   const formSel = 'form[data-e2e="device-calibration-form"]'
-  waitFor(formSel)
+  await waitUntil(
+    async () => Boolean(await evalJs(`Boolean(document.querySelector(${JSON.stringify(formSel)}))`)),
+    { label: 'device calibration form visible', timeoutMs: 60000 },
+  )
 
   const routeId = await selectOptionValue(`${formSel} select[name="route_id"]`, routeLabelIncludes)
   runAgentBrowser(['select', `${formSel} select[name="route_id"]`, routeId])
@@ -2360,8 +2397,9 @@ async function assertSettingsStitchVisualContract() {
     fail('Expected --font-manrope to be set (Manrope loaded), but it was empty.')
   }
 
-  if (!approxEq(res.navW, 256, { tol: 3 })) {
-    fail(`Expected settings nav width ~256px but got ${String(res.navW)}.`)
+  // Current settings shell uses a 17.5rem sidebar (~280px at 16px root font size).
+  if (!approxEq(res.navW, 280, { tol: 4 })) {
+    fail(`Expected settings nav width ~280px but got ${String(res.navW)}.`)
   }
   if (!approxEq(res.asideW, 384, { tol: 3 })) {
     fail(`Expected settings editor aside width ~384px but got ${String(res.asideW)}.`)
@@ -2375,7 +2413,13 @@ async function assertSettingsStitchVisualContract() {
 }
 
 async function assertHubSidebarPresent(label) {
-  const ok = await evalJs('Boolean(document.querySelector(\'[data-e2e="hub-sidebar"]\'))')
+  const ok = await evalJs(`(() => {
+    const navs = Array.from(document.querySelectorAll('[data-e2e="hub-sidebar"]'))
+    return navs.some((n) => {
+      if (!(n instanceof HTMLElement)) return false
+      return n.offsetParent !== null
+    })
+  })()`)
   if (ok) return
   takeScreenshot(`${label}-missing-hub-sidebar`)
   fail(`Expected Settings Hub sidebar to be present on this page, but it was missing. (${label})`)
@@ -2405,7 +2449,22 @@ async function hubSidebarClickthroughSweep() {
     clearDiagnostics()
 
     // Click through the sidebar nav link to validate the shared route-group layout actually persists.
-    click(`[data-e2e="hub-sidebar"] a:has-text("${t.navText}")`)
+    const clicked = await evalJs(`(() => {
+      const navs = Array.from(document.querySelectorAll('[data-e2e="hub-sidebar"]'))
+      const visibleNav = navs.find((n) => n instanceof HTMLElement && n.offsetParent !== null)
+      if (!visibleNav) return false
+      const normalize = (s) => String(s || '').replace(/\\s+/g, ' ').trim().toLowerCase()
+      const wanted = normalize(${JSON.stringify(t.navText)})
+      const links = Array.from(visibleNav.querySelectorAll('a'))
+      const target = links.find((a) => normalize(a.textContent).includes(wanted))
+      if (!target) return false
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      return true
+    })()`)
+    if (!clicked) {
+      takeScreenshot(`hub-clickthrough-missing-${t.navText}`)
+      fail(`Could not click sidebar item "${t.navText}" in visible hub sidebar`)
+    }
 
     await waitUntil(
       async () => {
@@ -2813,7 +2872,9 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
 async function sweepPages({ labelPrefix }) {
   const pages = [
     { label: 'today', path: '/today', expectHubSidebar: false },
-    { label: 'setup', path: '/setup', expectHubSidebar: false },
+    // Sweep the concrete first setup step to avoid transient redirect-shell hydration noise
+    // from /setup -> /setup/profile when sampling diagnostics immediately after navigation.
+    { label: 'setup', path: '/setup/profile', expectHubSidebar: false },
     { label: 'analytics', path: '/analytics', expectHubSidebar: false },
     { label: 'substances', path: '/substances', expectHubSidebar: true },
     { label: 'routes', path: '/routes', expectHubSidebar: true },

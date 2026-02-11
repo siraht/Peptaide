@@ -141,6 +141,7 @@ export default async function AppLayout({
                 <button
                   className="inline-flex h-10 items-center rounded-xl border border-border-light bg-surface-light px-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-primary/40 hover:text-primary dark:border-border-dark dark:bg-surface-dark dark:text-slate-200 dark:hover:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
                   type="submit"
+                  data-e2e="app-sign-out"
                 >
                   <span className="hidden sm:inline">Sign out</span>
                   <span className="sm:hidden">Exit</span>
