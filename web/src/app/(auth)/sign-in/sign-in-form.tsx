@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Status = 'idle' | 'sending' | 'sent' | 'verifying' | 'error'
 
@@ -10,6 +10,13 @@ export function SignInForm() {
   const [message, setMessage] = useState<string | null>(null)
   const [devCode, setDevCode] = useState<string | null>(null)
   const devPollRef = useRef(0)
+
+  useEffect(() => {
+    return () => {
+      // Invalidate any in-flight dev OTP poll loop on unmount.
+      devPollRef.current += 1
+    }
+  }, [])
 
   function emailFromDom(): string {
     try {

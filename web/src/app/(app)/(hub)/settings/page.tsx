@@ -167,7 +167,11 @@ export default async function SettingsPage({
                           <td className="p-4 text-sm text-slate-600 dark:text-slate-400">{s.family ?? '-'}</td>
                           <td className="p-4 text-sm text-slate-600 dark:text-slate-400">{s.target_compartment_default}</td>
                           <td className="p-4 text-right">
-                            <Link className="text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100" href={`/substances/${s.id}`}>
+                            <Link
+                              className="text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                              href={`/substances/${s.id}`}
+                              aria-label={`Open ${s.display_name} detail`}
+                            >
                               <span className="material-icons text-sm">open_in_new</span>
                             </Link>
                           </td>

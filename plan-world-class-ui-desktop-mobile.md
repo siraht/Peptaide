@@ -24,6 +24,12 @@ After this plan, the app should feel cohesive and polished on both desktop and m
   - `cd web && npm run lint`
   - `cd web && npm test`
   - `node web/scripts/tbrowser/peptaide-e2e.mjs` (PASS, artifacts: `/tmp/peptaide-e2e-2026-02-11T03-50-06-950Z`)
+- [x] (2026-02-11 04:11Z) Post-implementation fresh-eyes audit and fixes:
+  - fixed mobile `/today` flow to prevent Control Center reachability issues caused by nested overflow/flex interactions,
+  - restored notes input visibility in the responsive `TodayLogTable` (avoids small-screen capability regression),
+  - hardened accessibility/interaction details (icon labels, dialog semantics, empty-state focus rings),
+  - added cleanup for sign-in dev OTP polling on unmount.
+  Validation after fixes: `cd web && npm run typecheck`, `cd web && npm run lint`, `cd web && npm test`, `cd web && npm run build`.
 
 ## Surprises & Discoveries
 
@@ -35,6 +41,9 @@ After this plan, the app should feel cohesive and polished on both desktop and m
 
 - Observation: The old fixed-height settings toolbar and fixed-width right editor are major contributors to mobile clipping and overlap; converting the toolbar to wrapped rows and the editor to an overlay sheet resolves this without introducing route-level complexity.
   Evidence: Updated `web/src/app/(app)/(hub)/settings/page.tsx` behavior under the conclusive mobile sweep and manual screenshot diffs in `/tmp/peptaide-e2e-2026-02-11T03-50-06-950Z`.
+
+- Observation: On stacked (mobile) `/today`, root-level `overflow-hidden` combined with section-internal `flex-1 overflow-auto` can make the second section effectively unreachable.
+  Evidence: Fresh-eyes code audit + responsive layout reasoning confirmed a nested-scroll trap risk in `web/src/app/(app)/today/page.tsx` before the fix.
 
 ## Decision Log
 
@@ -54,12 +63,17 @@ After this plan, the app should feel cohesive and polished on both desktop and m
   Rationale: This avoids dual-maintenance while materially improving mobile readability and preserving test coverage stability.
   Date/Author: 2026-02-11 / Codex
 
+- Decision: On mobile `/today`, prefer page-level scrolling with `xl:overflow-*` guards over nested section scroll regions.
+  Rationale: This keeps both “Today’s Log” and “Control Center” reachable and avoids flex/overflow traps common on small viewports.
+  Date/Author: 2026-02-11 / Codex
+
 ## Outcomes & Retrospective
 
 - (2026-02-11) Delivered a modality-aware UI polish pass that materially improved perceived quality without changing core behavior. Desktop now has stronger shell hierarchy and visual rhythm; mobile now has dedicated hub navigation and less clipping in settings/substance editing.
 - System states were elevated from utilitarian to intentional through a reusable empty-state primitive, shimmer skeleton improvements, and updated toast presentation/placement.
 - `/today` now has cleaner section framing and better mobile table usability via responsive column visibility while keeping all existing logging flows intact.
 - Validation passed end-to-end with full browser workflow coverage (including mobile page sweeps), confirming no functional regressions.
+- (2026-02-11, follow-up audit) Closed a post-polish regression risk by fixing mobile `/today` reachability, restoring inline note entry visibility on smaller screens, and tightening accessibility semantics in command palette/settings links/empty states.
 
 ## Context and Orientation
 
@@ -140,3 +154,4 @@ Primary artifact paths expected after validation:
 
 Plan revision note (2026-02-11, initial): Created this ExecPlan to drive a dedicated world-class desktop+mobile polish pass requested by the user, with explicit modality-specific design goals.
 Plan revision note (2026-02-11, implementation): Updated all living sections after delivery, recorded decisions made during execution, and attached concrete validation evidence/artifacts so the plan is restartable and auditable.
+Plan revision note (2026-02-11, fresh-eyes audit): Added post-implementation bug-fix pass details and validation evidence for the user-requested careful re-read and correction cycle.

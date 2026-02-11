@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function TodayLoading() {
   return (
-    <div className="flex flex-col lg:flex-row h-full" data-e2e="today-loading">
+    <div className="h-full overflow-auto xl:overflow-hidden flex flex-col xl:flex-row" data-e2e="today-loading">
       <section className="flex-1 min-w-0">
         <div className="p-6 space-y-6">
           <div className="flex items-start justify-between gap-6">
@@ -58,7 +58,7 @@ export default function TodayLoading() {
         </div>
       </section>
 
-      <section className="lg:w-2/5 w-full flex flex-col bg-gray-50 dark:bg-[#0c1017] lg:border-l border-gray-200 dark:border-gray-800">
+      <section className="xl:w-2/5 w-full flex flex-col bg-gray-50 dark:bg-[#0c1017] xl:border-l border-gray-200 dark:border-gray-800">
         <div className="p-6 shrink-0 flex justify-between items-center">
           <div>
             <Skeleton className="h-6 w-40" rounded="lg" />
@@ -116,4 +116,3 @@ export default function TodayLoading() {
     </div>
   )
 }
-

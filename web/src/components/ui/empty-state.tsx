@@ -40,14 +40,14 @@ export function EmptyState({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Link
                 href={actionHref}
-                className="inline-flex items-center rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary/90"
+                className="inline-flex items-center rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
               >
                 {actionLabel}
               </Link>
               {secondaryHref && secondaryLabel ? (
                 <Link
                   href={secondaryHref}
-                  className="inline-flex items-center rounded-xl border border-border-light bg-surface-light px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-primary/30 hover:text-primary dark:border-border-dark dark:bg-surface-dark dark:text-slate-300"
+                  className="inline-flex items-center rounded-xl border border-border-light bg-surface-light px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:border-border-dark dark:bg-surface-dark dark:text-slate-300 dark:focus-visible:ring-offset-background-dark"
                 >
                   {secondaryLabel}
                 </Link>

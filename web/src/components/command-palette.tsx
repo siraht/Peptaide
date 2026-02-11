@@ -81,6 +81,15 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
     return () => window.clearTimeout(t)
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
   function runNav(href: string) {
     setOpen(false)
     setQuery('')
@@ -97,6 +106,8 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
           setOpen(true)
         }}
         aria-label="Open command palette"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         data-e2e="cmdk-open"
       >
         <span className="material-icons-outlined text-[18px]" aria-hidden="true">
@@ -110,6 +121,7 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
       {open ? (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/50 p-4 pt-16 backdrop-blur-sm sm:pt-24"
+          role="presentation"
           onMouseDown={(e) => {
             if (e.currentTarget === e.target) {
               setOpen(false)
@@ -118,7 +130,12 @@ export function CommandPalette(props: { logItems?: CommandPaletteItem[] } = {}) 
           }}
           data-e2e="cmdk-overlay"
         >
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border-light/70 bg-surface-light shadow-2xl dark:border-border-dark/70 dark:bg-surface-dark focus-within:ring-2 focus-within:ring-primary/40">
+          <div
+            className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border-light/70 bg-surface-light shadow-2xl dark:border-border-dark/70 dark:bg-surface-dark focus-within:ring-2 focus-within:ring-primary/40"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command palette"
+          >
             <Command label="Command palette">
               <div className="border-b border-border-light dark:border-border-dark px-4 py-3">
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">

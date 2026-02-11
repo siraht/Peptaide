@@ -287,7 +287,7 @@ export default async function TodayPage({
   const maxDailyAdminMg = Math.max(...dailyAdminTotalsByDay.map((d) => d.mg), 1)
 
   return (
-    <div className="h-full flex flex-col xl:flex-row overflow-hidden" data-e2e="today-root">
+    <div className="h-full overflow-auto xl:overflow-hidden flex flex-col xl:flex-row" data-e2e="today-root">
       <section
         className="xl:w-3/5 w-full flex flex-col xl:border-r border-gray-200 dark:border-gray-800 bg-surface-light dark:bg-background-dark min-w-0"
         data-e2e="today-log-hub"
@@ -333,7 +333,7 @@ export default async function TodayPage({
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto px-4 py-2 space-y-6 sm:px-6">
+        <div className="px-4 py-2 space-y-6 sm:px-6 xl:flex-1 xl:overflow-auto">
           {formulationOptions.length === 0 ? (
             <div className="space-y-3">
               <EmptyState
@@ -493,7 +493,12 @@ export default async function TodayPage({
           <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Analytics Dashboard</h3>
             <div className="flex gap-2">
-              <Link className="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-gray-500" href="/analytics" title="Open analytics">
+              <Link
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded text-gray-500"
+                href="/analytics"
+                title="Open analytics"
+                aria-label="Open analytics"
+              >
                 <span className="material-icons text-sm">open_in_new</span>
               </Link>
             </div>
@@ -587,6 +592,7 @@ export default async function TodayPage({
               href="/orders"
               className="flex items-center justify-center w-9 h-9 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-colors"
               title="Add New Order"
+              aria-label="Add new order"
               data-e2e="today-control-orders"
             >
               <span className="material-icons text-sm">add_shopping_cart</span>
@@ -595,6 +601,7 @@ export default async function TodayPage({
               href="/inventory"
               className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-dark transition-colors"
               title="Inventory"
+              aria-label="Open inventory"
               data-e2e="today-control-inventory"
             >
               <span className="material-icons text-sm">science</span>
@@ -602,7 +609,7 @@ export default async function TodayPage({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-5 space-y-4 sm:px-6 sm:pb-6">
+        <div className="px-4 pb-5 space-y-4 sm:px-6 sm:pb-6 xl:flex-1 xl:overflow-y-auto">
           {stockedSubstances.length === 0 ? (
             <EmptyState
               icon="inventory_2"

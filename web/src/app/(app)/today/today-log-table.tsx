@@ -215,7 +215,7 @@ export function TodayLogTable(props: {
               <th className="py-3">Compound / Vial</th>
               <th className="py-3 text-right">Input</th>
               <th className="py-3 pl-4 hidden md:table-cell">Route</th>
-              <th className="py-3 hidden lg:table-cell">Notes</th>
+              <th className="py-3">Notes</th>
               <th className="py-3 w-24 text-center">Action</th>
             </tr>
           </thead>
@@ -246,7 +246,7 @@ export function TodayLogTable(props: {
                       {e.route_name ?? '-'}
                     </span>
                   </td>
-                  <td className="py-3 hidden lg:table-cell text-gray-500 truncate max-w-[260px]">{e.notes ?? '-'}</td>
+                  <td className="py-3 text-gray-500 truncate max-w-[260px]">{e.notes ?? '-'}</td>
                   <td className="py-3 text-center">
                     {showDeleted && e.event_id ? (
                       <form action={restoreEventAction}>
@@ -364,7 +364,7 @@ export function TodayLogTable(props: {
                   <option>{routeName}</option>
                 </select>
               </td>
-              <td className="py-3 align-top hidden lg:table-cell">
+              <td className="py-3 align-top">
                 <input
                   className="bg-transparent border-0 p-0 w-full text-sm focus:ring-0 text-gray-900 dark:text-gray-100"
                   placeholder="Add notes…"
