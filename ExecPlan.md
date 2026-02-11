@@ -253,6 +253,8 @@ Scope disclaimer (non-negotiable): this system can store "recommendations" you e
 - [x] (2026-02-09 20:24Z) Testing: extended the conclusive browser harness with deep interaction coverage for the new Stitch-style `/settings` substances workspace. The harness now opens the substances master grid, navigates into the right-panel editor, exercises all three editor forms (base BA spec save, recommendation save, cycle rule save + remove), validates a minimal Stitch visual contract (dark mode + theme tokens + layout widths + primary button color), closes the editor, and sanity-checks cross-page wiring by asserting `/today` shows a `Rec:` hint after saving a dosing recommendation. For styling verification, the harness also captures 1600x1280 comparison screenshots for `/today` and `/settings`, copies the Stitch mockup screenshots into the artifacts folder, and generates a side-by-side review report `mockup-compare.html` (mockup vs app). Added stable `data-e2e` hooks for the workspace + forms. Evidence: `npm run e2e:browser` PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T20-12-21-126Z`. Files: `web/scripts/tbrowser/peptaide-e2e.mjs`, `web/src/app/(app)/settings/page.tsx`, `web/src/app/(app)/substances/[substanceId]/base-ba-form.tsx`, `web/src/app/(app)/substances/[substanceId]/recommendations-form.tsx`, `web/src/app/(app)/substances/[substanceId]/cycle-rule-form.tsx`.
 - [x] (2026-02-09 21:45Z) Testing: second-pass E2E coverage audit for the Stitch UI changes. Enumerated real user flows in the updated `/today` hub (quick log links, focus behavior, save-filled-rows, control-center “Log Dose”, header nav + command palette), and in the remaining setup/config surfaces (evidence sources CRUD, device detail calibration CRUD, formulation detail component/spec CRUD). Extended `npm run e2e:browser` to exercise each flow using stable `data-e2e` hooks where needed, and added a minimal `/today` Stitch visual contract assertion (dark mode + theme tokens + 60/40 layout split) to gate major styling regressions. Also hardened the harness against Node `spawnSync` ENOBUFS failures by increasing the agent-browser maxBuffer (network diagnostics can be large). Evidence: `npm run e2e:browser` PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T21-40-16-096Z`. Files: `web/scripts/tbrowser/peptaide-e2e.mjs`, `web/src/app/(app)/today/page.tsx`, `web/src/components/command-palette.tsx`, `web/src/app/(app)/evidence-sources/`, `web/src/app/(app)/devices/[deviceId]/create-calibration-form.tsx`, `web/src/app/(app)/formulations/[formulationId]/`.
 - [x] (2026-02-10 19:50Z) Testing: deepened the conclusive browser harness coverage for the Stitch `/today` mockup integration. Added interaction assertions for inline time + notes entry (including "press Enter in notes to save"), copy-row populating dose + notes + formulation selection, Control Center inventory aggregation (total stock must exceed any single current-vial bar when multiple are present), uniqueness of inventory cards per `substance_id` (guards against SS-31-style duplication bugs), and "Log Dose" routing from multiple current-vial bars (guards against "always uses first vial" bugs). Evidence: commit `2d3f504`; `npm run e2e:browser` PASS artifacts at `/tmp/peptaide-e2e-2026-02-10T19-42-15-121Z` (local origin) and `/tmp/peptaide-e2e-2026-02-10T19-47-20-755Z` (Tailscale origin). File: `web/scripts/tbrowser/peptaide-e2e.mjs`.
+- [x] (2026-02-11 06:22Z) Testing: split the conclusive browser harness into explicit scope modes via `E2E_SCOPE` (`full`, `smoke`, `today`, `settings`) and added npm shortcuts (`e2e:browser:smoke`, `e2e:browser:today`, `e2e:browser:settings`). Scope runs keep the same console/page/network failure gates while limiting flow coverage and page sweeps to the area under test for faster feedback; `full` remains unchanged as the conclusive gate. Files: `web/scripts/tbrowser/peptaide-e2e.mjs`, `web/package.json`.
+- [x] (2026-02-11 06:22Z) Runtime diagnostics: investigated user-reported `:3002` inaccessibility by probing local + Tailscale endpoints and local Supabase health. Final verification showed both `http://127.0.0.1:3002/sign-in` and `http://100.95.0.36:3002/sign-in` stable with HTTP 200 and low TTFB across repeated checks (12/12 each), so no persistent listener/routing failure remained at handoff.
 
 ## Milestones
 
@@ -442,6 +444,17 @@ Record the outputs and checks in `Artifacts and Notes`.
 
 ## Surprises & Discoveries
 
+- Observation: User-reported `:3002` "down" behavior reproduced as transient response stalls rather than a hard network/listener outage. Early probes saw occasional request timeouts; subsequent repeated probes after local stack health checks were stable (HTTP 200 on both local and Tailscale origins with low TTFB).
+  Evidence:
+    timeout 12s curl http://127.0.0.1:3002/sign-in   # occasional timeout during incident window
+    timeout 12s curl http://100.95.0.36:3002/sign-in # occasional timeout during incident window
+
+    for i in {1..12}; do timeout 6s curl -sS -o /dev/null -w "%{http_code} %{time_starttransfer}\n" http://127.0.0.1:3002/sign-in; done
+    # 12/12 HTTP 200, ttfb ~0.007s-0.022s
+
+    for i in {1..12}; do timeout 6s curl -sS -o /dev/null -w "%{http_code} %{time_starttransfer}\n" http://100.95.0.36:3002/sign-in; done
+    # 12/12 HTTP 200, ttfb ~0.005s-0.024s
+
 - Observation: `node` on this machine is Bun's `node` wrapper, not the real Node.js binary. `node --version` fails (Bun wrapper does not implement the Node REPL/version flag), which can break common Next.js tooling assumptions.
   Evidence:
     command -v node
@@ -598,6 +611,10 @@ Record the outputs and checks in `Artifacts and Notes`.
     Fixed by `supabase/migrations/20260209100000_097_daily_totals_fast.sql` rewriting `public.v_daily_totals_*` and `public.v_spend_daily_weekly_monthly` to compute timezone/bounds once (materialized) and filter `e.ts >= start AND e.ts < end` (last ~365 days).
 
 ## Decision Log
+
+- Decision: Keep `npm run e2e:browser` as the unchanged conclusive end-to-end gate, and add explicit scoped variants (`E2E_SCOPE=smoke|today|settings`) for fast, targeted iteration.
+  Rationale: The full run is intentionally broad and slow because it validates cross-surface regressions; scoped runs reduce feedback time during active UI work while still enforcing the same diagnostics contract (no console errors, no page errors, no failed network requests on covered pages).
+  Date/Author: 2026-02-11 / Codex
 
 - Decision: The MVP uses Next.js App Router + TypeScript and uses Server Actions for mutations; heavy compute (Monte Carlo) runs on the server by default.
   Rationale: Minimizes custom backend surface while keeping data writes co-located with UI and avoiding compute in the browser.
@@ -2275,3 +2292,5 @@ Dependency list (MVP): Next.js, React, TypeScript, Tailwind, Supabase JS client 
 2026-02-09: UI: integrated the Google Stitch mockups as the design baseline by porting their markup into `/today` ("Log & Inventory Hub") and `/settings` ("Master Data & Config Editor") while reusing existing functional flows (logging grid, inventory status, cycles, recommendations, import/export). Added Tailwind v4 theme tokens in `web/src/app/globals.css`, enabled `darkMode: 'class'` and defaulted `<html class="dark">` with Manrope + Material Icons loaded globally. Updated the conclusive browser harness to use the new `/settings?tab=app` path for data portability and ensured the authed shell always renders a `<main>` element for sweep stability. Evidence: `npm run e2e:browser` PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T19-00-47-840Z`.
 
 2026-02-09: Testing: expanded `npm run e2e:browser` beyond page-load sweeps to cover real user flows introduced by the Stitch UI: `/today` quick-log chip routing + focus behavior, save-filled-rows, control-center navigation and “Log Dose” wiring, and a minimal `/today` Stitch visual contract gate; command palette open + navigation; evidence sources create + soft-delete; device detail calibration CRUD; formulation detail component + modifier-spec CRUD. Also increased the agent-browser spawnSync `maxBuffer` to avoid ENOBUFS failures when diagnostics output grows. Evidence: PASS artifacts at `/tmp/peptaide-e2e-2026-02-09T21-40-16-096Z`.
+
+2026-02-11: Testing/runtime follow-up: added scoped browser harness modes (`E2E_SCOPE=smoke|today|settings`) plus npm shortcuts so iterative UI work can run targeted coverage quickly while preserving `full` as the conclusive gate. Also recorded a transient `:3002` access incident investigation (timeouts followed by stable repeated HTTP 200 checks on both local and Tailscale origins) so future outages can distinguish temporary stack stalls from true listener/proxy failures.

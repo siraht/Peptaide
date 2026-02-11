@@ -60,6 +60,13 @@ const RESET_DB = isTruthyEnv(process.env.E2E_RESET_DB)
 // Backwards-compat escape hatch: older runs set E2E_SKIP_DB_RESET=1. Default behavior is now "skip"
 // unless E2E_RESET_DB=1 is explicitly provided.
 const SKIP_DB_RESET = isTruthyEnv(process.env.E2E_SKIP_DB_RESET)
+const E2E_SCOPE = String(process.env.E2E_SCOPE || 'full')
+  .trim()
+  .toLowerCase()
+const VALID_E2E_SCOPES = new Set(['full', 'smoke', 'today', 'settings'])
+if (!VALID_E2E_SCOPES.has(E2E_SCOPE)) {
+  throw new Error(`Invalid E2E_SCOPE="${E2E_SCOPE}". Expected one of: ${Array.from(VALID_E2E_SCOPES).join(', ')}`)
+}
 
 const MOCKUP_TODAY_SCREEN = path.join(REPO_ROOT, 'mockups', 'logging_&_inventory_control_hub', 'screen.png')
 const MOCKUP_SETTINGS_SCREEN = path.join(REPO_ROOT, 'mockups', 'master_data_&_config_editor', 'screen.png')
@@ -2869,7 +2876,7 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
   }
 }
 
-async function sweepPages({ labelPrefix }) {
+async function sweepPages({ labelPrefix, onlyLabels } = {}) {
   const pages = [
     { label: 'today', path: '/today', expectHubSidebar: false },
     // Sweep the concrete first setup step to avoid transient redirect-shell hydration noise
@@ -2887,8 +2894,10 @@ async function sweepPages({ labelPrefix }) {
     { label: 'evidence-sources', path: '/evidence-sources', expectHubSidebar: true },
     { label: 'settings', path: '/settings', expectHubSidebar: true },
   ]
+  const labelFilter = Array.isArray(onlyLabels) && onlyLabels.length > 0 ? new Set(onlyLabels) : null
 
   for (const p of pages) {
+    if (labelFilter && !labelFilter.has(p.label)) continue
     const label = `${labelPrefix}-${p.label}`
     logLine(`sweep: ${p.path}`)
     open(`${BASE_URL}${p.path}`)
@@ -2901,11 +2910,12 @@ async function sweepPages({ labelPrefix }) {
   }
 }
 
-async function main() {
+async function initializeRun() {
   ensureDir(ARTIFACTS_DIR)
   logLine(`run_id: ${RUN_ID}`)
   logLine(`base_url: ${BASE_URL}`)
   logLine(`mailpit_url: ${MAILPIT_URL}`)
+  logLine(`scope: ${E2E_SCOPE}`)
   logLine(`session: ${SESSION}`)
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 
@@ -2923,6 +2933,113 @@ async function main() {
 
   await signInWithMagicLink(EMAIL_A)
   await seedDemoDataIfAvailable()
+}
+
+async function runSmokeScope() {
+  await initializeRun()
+  await setupWizardNavigationSmoke()
+  await commandPaletteDeepInteractions()
+  await hubSidebarClickthroughSweep()
+
+  await logEventInTodayTable({
+    formulationLabelIncludes: 'Demo formulation',
+    inputText: '0.2mL',
+    timeHHMM: '01:23',
+    notes: `e2e smoke ${RUN_ID}`,
+    via: 'click',
+  })
+
+  await notificationsDeepInteractions()
+
+  logLine('sweep: desktop viewport (smoke)')
+  setViewport(1280, 720)
+  await sweepPages({
+    labelPrefix: 'desktop-smoke',
+    onlyLabels: ['today', 'settings', 'analytics', 'inventory', 'orders', 'cycles'],
+  })
+
+  logLine('sweep: mobile viewport (smoke)')
+  setViewport(390, 844)
+  await sweepPages({ labelPrefix: 'mobile-smoke', onlyLabels: ['today', 'settings'] })
+
+  logLine('PASS: smoke browser verification completed')
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function runTodayScope() {
+  await initializeRun()
+
+  await logEventInTodayTable({
+    formulationLabelIncludes: 'Demo formulation',
+    inputText: '0.3mL',
+    timeHHMM: '01:23',
+    notes: `e2e note ${RUN_ID}`,
+    via: 'click',
+  })
+
+  await todayHubDeepInteractions()
+  await notificationsDeepInteractions()
+  await commandPaletteDeepInteractions()
+
+  logLine('sweep: desktop viewport (today)')
+  setViewport(1280, 720)
+  await sweepPages({
+    labelPrefix: 'desktop-today',
+    onlyLabels: ['today', 'analytics', 'inventory', 'orders'],
+  })
+
+  logLine('sweep: mobile viewport (today)')
+  setViewport(390, 844)
+  await sweepPages({ labelPrefix: 'mobile-today', onlyLabels: ['today'] })
+
+  logLine('PASS: today browser verification completed')
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function runSettingsScope() {
+  await initializeRun()
+
+  await setupWizardNavigationSmoke()
+  await hubSidebarClickthroughSweep()
+
+  const evidenceCitationKeep = `https://example.com/peptaide-e2e-evidence/${RUN_ID}`
+  await createEvidenceSourceViaUi({ citation: evidenceCitationKeep, notes: `e2e settings ${RUN_ID}` })
+  await createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 })
+  await createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' })
+  await bulkAddRoutes({
+    names: [E2E_ROUTE_INTRANA],
+    defaultKind: 'device_units',
+    defaultUnit: 'spray',
+    supportsCalibration: true,
+  })
+  await settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes: evidenceCitationKeep })
+  await logEventInTodayTable({
+    formulationLabelIncludes: 'Demo formulation',
+    inputText: '0.3mL',
+    timeHHMM: '01:23',
+    notes: `e2e settings notif ${RUN_ID}`,
+    via: 'click',
+  })
+  await notificationsDeepInteractions()
+  await deleteEvidenceSourceViaUi({ citation: evidenceCitationKeep })
+
+  logLine('sweep: desktop viewport (settings)')
+  setViewport(1280, 720)
+  await sweepPages({
+    labelPrefix: 'desktop-settings',
+    onlyLabels: ['setup', 'settings', 'substances', 'routes', 'devices', 'formulations', 'inventory', 'orders', 'cycles'],
+  })
+
+  logLine('sweep: mobile viewport (settings)')
+  setViewport(390, 844)
+  await sweepPages({ labelPrefix: 'mobile-settings', onlyLabels: ['settings', 'substances', 'inventory', 'orders'] })
+
+  logLine('PASS: settings browser verification completed')
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function runFullScope() {
+  await initializeRun()
 
   // Setup wizard should be a true step flow (not a long page).
   await setupWizardNavigationSmoke()
@@ -3160,6 +3277,22 @@ async function main() {
 
   logLine('PASS: conclusive browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function main() {
+  if (E2E_SCOPE === 'smoke') {
+    await runSmokeScope()
+    return
+  }
+  if (E2E_SCOPE === 'today') {
+    await runTodayScope()
+    return
+  }
+  if (E2E_SCOPE === 'settings') {
+    await runSettingsScope()
+    return
+  }
+  await runFullScope()
 }
 
 main()

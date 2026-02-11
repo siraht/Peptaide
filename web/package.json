@@ -10,7 +10,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e:browser": "node scripts/tbrowser/peptaide-e2e.mjs"
+    "e2e:browser": "node scripts/tbrowser/peptaide-e2e.mjs",
+    "e2e:browser:smoke": "E2E_SCOPE=smoke node scripts/tbrowser/peptaide-e2e.mjs",
+    "e2e:browser:today": "E2E_SCOPE=today node scripts/tbrowser/peptaide-e2e.mjs",
+    "e2e:browser:settings": "E2E_SCOPE=settings node scripts/tbrowser/peptaide-e2e.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
