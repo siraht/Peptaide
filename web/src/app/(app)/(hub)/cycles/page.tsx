@@ -7,7 +7,9 @@ import {
   buildCycleInsightCards,
 } from './substanceCycleInsight'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listCycleSummary } from '@/lib/repos/cycleSummaryRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
@@ -259,6 +261,18 @@ function CycleCard({ card }: { card: CycleInsightCard }) {
   )
 }
 
+function countActiveCycles(cards: CycleInsightCard[]): number {
+  return cards.filter((c) => c.statusBucket === 'active').length
+}
+
+function countCompletedCycles(cards: CycleInsightCard[]): number {
+  return cards.filter((c) => c.statusBucket === 'completed').length
+}
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
+
 export default async function CyclesPage() {
   const supabase = await createClient()
   const [cycles, substances] = await Promise.all([listCycleSummary(supabase), listSubstances(supabase)])
@@ -266,6 +280,9 @@ export default async function CyclesPage() {
   const cards = buildCycleInsightCards({ cycles, substances })
   const substanceOptions = substances.map((s) => ({ id: s.id, label: s.display_name }))
   const hasSubstances = substances.length > 0
+
+  const activeCount = countActiveCycles(cards)
+  const completedCount = countCompletedCycles(cards)
 
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
@@ -277,9 +294,44 @@ export default async function CyclesPage() {
         </p>
       </div>
 
-      <section id="start-cycle-manual">
+      <MetricsStrip
+        items={[
+          {
+            label: 'Substances',
+            value: fmtCount(substances.length),
+            tone: substances.length > 0 ? 'good' : 'neutral',
+          },
+          {
+            label: 'Active cycles',
+            value: fmtCount(activeCount),
+            tone: activeCount > 0 ? 'good' : 'neutral',
+          },
+          {
+            label: 'Completed cycles',
+            value: fmtCount(completedCount),
+            tone: completedCount > 0 ? 'good' : 'neutral',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="cycles-create-now"
+        title="Start cycle now"
+        description="Create a cycle instance manually when you want to seed cycle tracking before logging events."
+        summaryItems={[
+          { label: 'Substance options', value: fmtCount(substanceOptions.length), tone: substanceOptions.length > 0 ? 'good' : 'warn' },
+          { label: 'Active cycles', value: fmtCount(activeCount), tone: activeCount > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.cycles.create-now"
+        emptyCta={
+          substanceOptions.length === 0
+            ? { href: '/substances?focus=new', label: 'Add a substance first' }
+            : undefined
+        }
+      >
         <CreateCycleNowForm substances={substanceOptions} />
-      </section>
+      </CompactEntryModule>
 
       {!hasSubstances ? (
         <EmptyState
