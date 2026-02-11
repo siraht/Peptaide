@@ -3,16 +3,24 @@ import Link from 'next/link'
 import { CreateDeviceForm } from './create-device-form'
 import { deleteDeviceAction } from './actions'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function DevicesPage() {
   const supabase = await createClient()
   const devices = await listDevices(supabase)
 
+  const kindCount = new Set(devices.map((d) => d.device_kind).filter(Boolean)).size
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="devices-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Devices</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -20,7 +28,35 @@ export default async function DevicesPage() {
         </p>
       </div>
 
-      <CreateDeviceForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Saved devices',
+            value: fmtCount(devices.length),
+            detail: devices.length > 0 ? 'Reusable profiles for route calibration flows.' : 'Create devices for route-specific tooling.',
+            tone: devices.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Device kinds',
+            value: fmtCount(kindCount),
+            detail: 'Unique values in the device kind field.',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="devices-create"
+        title="Create device"
+        description="Add reusable hardware profiles for sprays, syringes, pens, and related delivery tools."
+        summaryItems={[
+          { label: 'Current devices', value: fmtCount(devices.length), tone: devices.length > 0 ? 'good' : 'neutral' },
+          { label: 'Kinds represented', value: fmtCount(kindCount) },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.devices.create"
+      >
+        <CreateDeviceForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>

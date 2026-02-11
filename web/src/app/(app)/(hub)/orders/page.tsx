@@ -5,7 +5,9 @@ import { GenerateVialsForm } from './generate-vials-form'
 import { ImportRetaPeptideOrdersForm } from './import-reta-peptide-orders-form'
 import { deleteOrderAction, deleteOrderItemAction, deleteVendorAction } from './actions'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listOrderItemVialCounts } from '@/lib/repos/orderItemVialCountsRepo'
 import { listOrders } from '@/lib/repos/ordersRepo'
@@ -31,6 +33,21 @@ function fmtMoney(x: number | string | null | undefined): string {
   }).format(n)
 }
 
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
+
+function fmtDate(x: string | null | undefined): string {
+  if (!x) return '-'
+  const t = Date.parse(x)
+  if (!Number.isFinite(t)) return x
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(t))
+}
+
 export default async function OrdersPage() {
   const supabase = await createClient()
 
@@ -44,6 +61,7 @@ export default async function OrdersPage() {
 
   const orderIds = new Set(orders.map((o) => o.id))
   const visibleItems = orderItems.filter((oi) => orderIds.has(oi.order_id))
+  const linkedOrderItems = visibleItems.filter((oi) => oi.formulation_id != null)
 
   const vendorIds = [...new Set(orders.map((o) => o.vendor_id))]
   const [counts, vendorsForOrders] = await Promise.all([
@@ -76,22 +94,50 @@ export default async function OrdersPage() {
     label: `${f.formulation.name} (${f.substance?.display_name ?? 'Unknown'} / ${f.route?.name ?? 'Unknown'})`,
   }))
 
-  const orderItemOptions = visibleItems
-    .filter((oi) => oi.formulation_id != null)
-    .map((oi) => {
-      const order = orderById.get(oi.order_id)
-      const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
-      const orderDay = order?.ordered_at ? order.ordered_at.slice(0, 10) : '(date)'
-      const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
-      const formulationName = oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'
-      return {
-        id: oi.id,
-        label: `${vendorName} / ${orderDay} - ${substanceName} - ${formulationName} (${oi.qty} ${oi.unit_label})`,
-      }
-    })
+  const orderItemOptions = linkedOrderItems.map((oi) => {
+    const order = orderById.get(oi.order_id)
+    const vendorName = order ? vendorById.get(order.vendor_id)?.name ?? '(vendor)' : '(order)'
+    const orderDay = order?.ordered_at ? order.ordered_at.slice(0, 10) : '(date)'
+    const substanceName = substanceById.get(oi.substance_id)?.display_name ?? '(substance)'
+    const formulationName = oi.formulation_id ? formulationById.get(oi.formulation_id)?.formulation.name ?? '(formulation)' : '(formulation)'
+    return {
+      id: oi.id,
+      label: `${vendorName} / ${orderDay} - ${substanceName} - ${formulationName} (${oi.qty} ${oi.unit_label})`,
+    }
+  })
+
+  let latestOrderAt: string | null = null
+  let latestOrderTs = Number.NEGATIVE_INFINITY
+  let knownOrderTotals = 0
+  let knownOrderTotalsSum = 0
+  let plannedVials = 0
+  let activeVials = 0
+  let closedVials = 0
+  let discardedVials = 0
+
+  for (const order of orders) {
+    const t = Date.parse(order.ordered_at ?? '')
+    if (Number.isFinite(t) && t > latestOrderTs) {
+      latestOrderTs = t
+      latestOrderAt = order.ordered_at
+    }
+
+    const totalUsd = toFiniteNumber(order.total_cost_usd)
+    if (totalUsd != null) {
+      knownOrderTotals += 1
+      knownOrderTotalsSum += totalUsd
+    }
+  }
+
+  for (const c of counts) {
+    plannedVials += (c.vial_count_planned ?? 0) || 0
+    activeVials += (c.vial_count_active ?? 0) || 0
+    closedVials += (c.vial_count_closed ?? 0) || 0
+    discardedVials += (c.vial_count_discarded ?? 0) || 0
+  }
 
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="orders-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Orders</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -99,47 +145,169 @@ export default async function OrdersPage() {
         </p>
       </div>
 
-      <ImportRetaPeptideOrdersForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Vendors',
+            value: fmtCount(vendors.length),
+            detail: vendors.length === 0 ? 'Add one to start entering orders.' : 'Reusable supplier profiles.',
+            tone: vendors.length === 0 ? 'warn' : 'neutral',
+          },
+          {
+            label: 'Orders',
+            value: fmtCount(orders.length),
+            detail: latestOrderAt ? `Latest ${fmtDate(latestOrderAt)}` : 'No orders recorded yet.',
+            tone: orders.length === 0 ? 'warn' : 'neutral',
+          },
+          {
+            label: 'Order Items',
+            value: fmtCount(visibleItems.length),
+            detail: `${fmtCount(linkedOrderItems.length)} linked to formulations`,
+            tone: linkedOrderItems.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Known Order Value',
+            value: knownOrderTotals > 0 ? fmtMoney(knownOrderTotalsSum) : '-',
+            detail:
+              knownOrderTotals > 0
+                ? `${fmtCount(knownOrderTotals)} order${knownOrderTotals === 1 ? '' : 's'} with total_cost_usd`
+                : 'Add total_cost_usd on orders for spend rollups.',
+            tone: knownOrderTotals > 0 ? 'good' : 'warn',
+          },
+        ]}
+      />
 
-      <CreateVendorForm />
+      <CompactEntryModule
+        id="orders-quick-import"
+        title="Quick import"
+        description="Seed the demo RETA-PEPTIDE orders and planned vials in one action."
+        summaryItems={[
+          { label: 'Current orders', value: fmtCount(orders.length), tone: orders.length > 0 ? 'good' : 'neutral' },
+          {
+            label: 'Planned vials',
+            value: fmtCount(plannedVials),
+            tone: plannedVials > 0 ? 'good' : 'neutral',
+          },
+          {
+            label: 'Active / closed / discarded',
+            value: `${fmtCount(activeVials)} / ${fmtCount(closedVials)} / ${fmtCount(discardedVials)}`,
+          },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.orders.quick-import"
+      >
+        <ImportRetaPeptideOrdersForm />
+      </CompactEntryModule>
 
-      {vendorOptions.length === 0 ? (
-        <EmptyState
-          icon="storefront"
-          title="Orders need vendors"
-          description="Create a vendor before creating orders."
-          actionHref="/orders?focus=new-vendor"
-          actionLabel="Create vendor"
-        />
-      ) : (
-        <CreateOrderForm vendors={vendorOptions} />
-      )}
+      <CompactEntryModule
+        id="orders-add-vendor"
+        title="Add vendor"
+        description="Save supplier records used by orders and cost tracking."
+        summaryItems={[
+          { label: 'Saved vendors', value: fmtCount(vendors.length), tone: vendors.length > 0 ? 'good' : 'warn' },
+          {
+            label: 'Orders with vendor links',
+            value: fmtCount(orders.length),
+            tone: orders.length > 0 ? 'good' : 'neutral',
+          },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.orders.add-vendor"
+      >
+        <CreateVendorForm />
+      </CompactEntryModule>
 
-      {orderOptions.length === 0 || substanceOptions.length === 0 ? (
-        <EmptyState
-          icon="receipt_long"
-          title="Order items need setup"
-          description="Create at least one order and one substance before adding order items."
-          actionHref="/orders"
-          actionLabel="Create order"
-          secondaryHref="/settings?tab=substances"
-          secondaryLabel="Open substances"
-        />
-      ) : (
-        <CreateOrderItemForm orders={orderOptions} substances={substanceOptions} formulations={formulationOptions} />
-      )}
+      <CompactEntryModule
+        id="orders-add-order"
+        title="Add order"
+        description="Create order headers with optional shipping and total cost information."
+        summaryItems={[
+          { label: 'Available vendors', value: fmtCount(vendorOptions.length), tone: vendorOptions.length > 0 ? 'good' : 'warn' },
+          { label: 'Saved orders', value: fmtCount(orders.length), tone: orders.length > 0 ? 'good' : 'neutral' },
+          { label: 'Latest order date', value: latestOrderAt ? fmtDate(latestOrderAt) : '-' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.orders.add-order"
+        emptyCta={
+          vendorOptions.length === 0
+            ? { href: '/orders?focus=new-vendor', label: 'Create a vendor first' }
+            : undefined
+        }
+      >
+        {vendorOptions.length === 0 ? (
+          <EmptyState
+            icon="storefront"
+            title="Orders need vendors"
+            description="Create a vendor before creating orders."
+            actionHref="/orders?focus=new-vendor"
+            actionLabel="Create vendor"
+          />
+        ) : (
+          <CreateOrderForm vendors={vendorOptions} />
+        )}
+      </CompactEntryModule>
 
-      {orderItemOptions.length === 0 ? (
-        <EmptyState
-          icon="medication_liquid"
-          title="No vial generation targets yet"
-          description="Create an order item linked to a formulation to generate planned vials."
-          actionHref="/orders"
-          actionLabel="Add order item"
-        />
-      ) : (
-        <GenerateVialsForm orderItems={orderItemOptions} />
-      )}
+      <CompactEntryModule
+        id="orders-add-order-item"
+        title="Add order item"
+        description="Capture purchased line items and optionally map them to formulations."
+        summaryItems={[
+          { label: 'Orders', value: fmtCount(orderOptions.length), tone: orderOptions.length > 0 ? 'good' : 'warn' },
+          { label: 'Substances', value: fmtCount(substanceOptions.length), tone: substanceOptions.length > 0 ? 'good' : 'warn' },
+          { label: 'Items linked to formulations', value: fmtCount(linkedOrderItems.length), tone: linkedOrderItems.length > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.orders.add-order-item"
+        emptyCta={
+          orderOptions.length === 0 || substanceOptions.length === 0
+            ? { href: '/orders', label: 'Complete order and substance setup first' }
+            : undefined
+        }
+      >
+        {orderOptions.length === 0 || substanceOptions.length === 0 ? (
+          <EmptyState
+            icon="receipt_long"
+            title="Order items need setup"
+            description="Create at least one order and one substance before adding order items."
+            actionHref="/orders"
+            actionLabel="Create order"
+            secondaryHref="/settings?tab=substances"
+            secondaryLabel="Open substances"
+          />
+        ) : (
+          <CreateOrderItemForm orders={orderOptions} substances={substanceOptions} formulations={formulationOptions} />
+        )}
+      </CompactEntryModule>
+
+      <CompactEntryModule
+        id="orders-generate-vials"
+        title="Generate vials"
+        description="Generate planned vials from formulation-linked order items."
+        summaryItems={[
+          { label: 'Eligible order items', value: fmtCount(orderItemOptions.length), tone: orderItemOptions.length > 0 ? 'good' : 'warn' },
+          { label: 'Planned vials', value: fmtCount(plannedVials), tone: plannedVials > 0 ? 'good' : 'neutral' },
+          { label: 'Active vials', value: fmtCount(activeVials), tone: activeVials > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.orders.generate-vials"
+        emptyCta={
+          orderItemOptions.length === 0
+            ? { href: '/orders', label: 'Create a formulation-linked order item' }
+            : undefined
+        }
+      >
+        {orderItemOptions.length === 0 ? (
+          <EmptyState
+            icon="medication_liquid"
+            title="No vial generation targets yet"
+            description="Create an order item linked to a formulation to generate planned vials."
+            actionHref="/orders"
+            actionLabel="Add order item"
+          />
+        ) : (
+          <GenerateVialsForm orderItems={orderItemOptions} />
+        )}
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Vendors</h2>

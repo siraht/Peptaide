@@ -4,6 +4,8 @@ import { SetupBaseBioavailabilitySpecForm } from '@/app/(app)/setup/base-ba-spec
 import { SetupDeviceCalibrationForm } from '@/app/(app)/setup/device-calibration-form'
 import { SetupFormulationModifierSpecForm } from '@/app/(app)/setup/formulation-modifier-form'
 import { SetupStepShell } from '@/app/(app)/setup/step-shell'
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
@@ -14,6 +16,10 @@ import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
 
 type TargetCompartment = 'systemic' | 'cns' | 'both'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function SetupModelPage() {
   const supabase = await createClient()
@@ -68,27 +74,33 @@ export default async function SetupModelPage() {
       nextDisabledReason={prereqMissing ? 'Add substances, routes, and formulations first.' : null}
     >
       <div className="grid grid-cols-1 gap-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Distributions</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{dists.length}</div>
-            <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              fraction {fractionDists.length}, volume {volumeDists.length}, multiplier {multiplierDists.length}
-            </div>
-          </div>
-          <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Coverage gaps</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{coverageGaps.length}</div>
-            <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">Based on current substances + routes.</div>
-          </div>
-          <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Evidence sources</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{evidenceSources.length}</div>
-            <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Use evidence sources to keep citations for model assumptions.
-            </div>
-          </div>
-        </div>
+        <MetricsStrip
+          items={[
+            {
+              label: 'Distributions',
+              value: fmtCount(dists.length),
+              detail: `fraction ${fractionDists.length}, volume ${volumeDists.length}, multiplier ${multiplierDists.length}`,
+              tone: dists.length > 0 ? 'good' : 'warn',
+            },
+            {
+              label: 'Coverage gaps',
+              value: fmtCount(coverageGaps.length),
+              detail: 'Computed from current substances and routes.',
+              tone: coverageGaps.length === 0 ? 'good' : 'warn',
+            },
+            {
+              label: 'Evidence sources',
+              value: fmtCount(evidenceSources.length),
+              detail: 'References for assumptions and recommendations.',
+              tone: evidenceSources.length > 0 ? 'good' : 'neutral',
+            },
+            {
+              label: 'Calibration-capable routes',
+              value: fmtCount(calibrationRoutes.length),
+              detail: `Devices: ${fmtCount(devices.length)}`,
+            },
+          ]}
+        />
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
           <div className="text-slate-600 dark:text-slate-400">
@@ -110,51 +122,109 @@ export default async function SetupModelPage() {
           </div>
         ) : (
           <>
-            {fractionDists.length === 0 ? (
-              <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-                Create at least one <span className="font-medium">fraction</span> distribution before adding base bioavailability.
-              </div>
-            ) : (
-              <SetupBaseBioavailabilitySpecForm
-                substances={substances}
-                routes={routes}
-                fractionDistributions={fractionDists}
-                evidenceSources={evidenceSources}
-              />
-            )}
-
-            {calibrationRoutes.length > 0 ? (
-              volumeDists.length === 0 ? (
+            <CompactEntryModule
+              id="setup-model-base-bioavailability"
+              title="Base bioavailability specs"
+              description="Map route-level systemic/CNS fractions by substance and evidence source."
+              summaryItems={[
+                { label: 'Fraction distributions', value: fmtCount(fractionDists.length), tone: fractionDists.length > 0 ? 'good' : 'warn' },
+                { label: 'Substances', value: fmtCount(substances.length), tone: substances.length > 0 ? 'good' : 'warn' },
+                { label: 'Routes', value: fmtCount(routes.length), tone: routes.length > 0 ? 'good' : 'warn' },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.setup.model.base-ba"
+              emptyCta={
+                fractionDists.length === 0
+                  ? { href: '/distributions', label: 'Create a fraction distribution first' }
+                  : undefined
+              }
+            >
+              {fractionDists.length === 0 ? (
                 <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-                  Create at least one <span className="font-medium">volume per unit</span> distribution before adding device calibrations.
+                  Create at least one <span className="font-medium">fraction</span> distribution before adding base bioavailability.
                 </div>
               ) : (
-                <SetupDeviceCalibrationForm
-                  routes={calibrationRoutes}
-                  devices={devices}
-                  volumeDistributions={volumeDists}
+                <SetupBaseBioavailabilitySpecForm
+                  substances={substances}
+                  routes={routes}
+                  fractionDistributions={fractionDists}
+                  evidenceSources={evidenceSources}
                 />
-              )
-            ) : (
-              <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-                No routes currently support device calibration. Enable it on a route if you want spray/syringe conversions.
-              </div>
-            )}
+              )}
+            </CompactEntryModule>
 
-            {multiplierDists.length === 0 ? (
-              <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-                Create at least one <span className="font-medium">multiplier</span> distribution before adding enhancers/modifiers.
-              </div>
-            ) : formulationOptions.length === 0 ? (
-              <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-                Create at least one formulation before adding formulation modifiers.
-              </div>
-            ) : (
-              <SetupFormulationModifierSpecForm
-                formulations={formulationOptions}
-                multiplierDistributions={multiplierDists}
-              />
-            )}
+            <CompactEntryModule
+              id="setup-model-device-calibration"
+              title="Device calibrations"
+              description="Add per-route and per-device conversion distributions for calibrated delivery inputs."
+              summaryItems={[
+                { label: 'Calibration routes', value: fmtCount(calibrationRoutes.length), tone: calibrationRoutes.length > 0 ? 'good' : 'warn' },
+                { label: 'Volume distributions', value: fmtCount(volumeDists.length), tone: volumeDists.length > 0 ? 'good' : 'warn' },
+                { label: 'Devices', value: fmtCount(devices.length), tone: devices.length > 0 ? 'good' : 'neutral' },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.setup.model.device-calibration"
+              emptyCta={
+                calibrationRoutes.length === 0
+                  ? { href: '/routes', label: 'Enable calibration on at least one route' }
+                  : volumeDists.length === 0
+                    ? { href: '/distributions', label: 'Create a volume-per-unit distribution first' }
+                    : undefined
+              }
+            >
+              {calibrationRoutes.length > 0 ? (
+                volumeDists.length === 0 ? (
+                  <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
+                    Create at least one <span className="font-medium">volume per unit</span> distribution before adding device calibrations.
+                  </div>
+                ) : (
+                  <SetupDeviceCalibrationForm
+                    routes={calibrationRoutes}
+                    devices={devices}
+                    volumeDistributions={volumeDists}
+                  />
+                )
+              ) : (
+                <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
+                  No routes currently support device calibration. Enable it on a route if you want spray/syringe conversions.
+                </div>
+              )}
+            </CompactEntryModule>
+
+            <CompactEntryModule
+              id="setup-model-formulation-modifiers"
+              title="Formulation modifiers"
+              description="Attach multiplier distributions for enhancers, timing effects, and route-specific adjustments."
+              summaryItems={[
+                { label: 'Multiplier distributions', value: fmtCount(multiplierDists.length), tone: multiplierDists.length > 0 ? 'good' : 'warn' },
+                { label: 'Formulations', value: fmtCount(formulationOptions.length), tone: formulationOptions.length > 0 ? 'good' : 'warn' },
+                { label: 'Coverage gaps', value: fmtCount(coverageGaps.length), tone: coverageGaps.length === 0 ? 'good' : 'neutral' },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.setup.model.formulation-modifiers"
+              emptyCta={
+                multiplierDists.length === 0
+                  ? { href: '/distributions', label: 'Create a multiplier distribution first' }
+                  : formulationOptions.length === 0
+                    ? { href: '/formulations', label: 'Create a formulation first' }
+                    : undefined
+              }
+            >
+              {multiplierDists.length === 0 ? (
+                <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
+                  Create at least one <span className="font-medium">multiplier</span> distribution before adding enhancers/modifiers.
+                </div>
+              ) : formulationOptions.length === 0 ? (
+                <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
+                  Create at least one formulation before adding formulation modifiers.
+                </div>
+              ) : (
+                <SetupFormulationModifierSpecForm
+                  formulations={formulationOptions}
+                  multiplierDistributions={multiplierDists}
+                />
+              )}
+            </CompactEntryModule>
           </>
         )}
 

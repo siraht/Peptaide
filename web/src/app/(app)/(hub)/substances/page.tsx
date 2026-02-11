@@ -4,16 +4,24 @@ import { BulkAddSubstancesForm } from './bulk-add-substances-form'
 import { CreateSubstanceForm } from './create-substance-form'
 import { deleteSubstanceAction } from './actions'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function SubstancesPage() {
   const supabase = await createClient()
   const substances = await listSubstances(supabase)
 
+  const familyCount = new Set(substances.map((s) => s.family).filter(Boolean)).size
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="substances-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Substances</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -21,9 +29,49 @@ export default async function SubstancesPage() {
         </p>
       </div>
 
-      <CreateSubstanceForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Tracked substances',
+            value: fmtCount(substances.length),
+            detail: substances.length > 0 ? 'Used across formulations and cycle modeling.' : 'Add your first substance to begin setup.',
+            tone: substances.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Named families',
+            value: fmtCount(familyCount),
+            detail: 'Optional taxonomy from the family column.',
+          },
+        ]}
+      />
 
-      <BulkAddSubstancesForm />
+      <CompactEntryModule
+        id="substances-create"
+        title="Create substance"
+        description="Add a single substance with canonical naming and default target compartment."
+        summaryItems={[
+          { label: 'Current records', value: fmtCount(substances.length), tone: substances.length > 0 ? 'good' : 'neutral' },
+          { label: 'Families used', value: fmtCount(familyCount) },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.substances.create"
+      >
+        <CreateSubstanceForm />
+      </CompactEntryModule>
+
+      <CompactEntryModule
+        id="substances-bulk-add"
+        title="Bulk add substances"
+        description="Insert multiple common substances quickly from curated presets."
+        summaryItems={[
+          { label: 'Current records', value: fmtCount(substances.length), tone: substances.length > 0 ? 'good' : 'neutral' },
+          { label: 'Tip', value: 'Use canonical IDs for imports' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.substances.bulk-add"
+      >
+        <BulkAddSubstancesForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>

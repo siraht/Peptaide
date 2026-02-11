@@ -3,16 +3,24 @@ import Link from 'next/link'
 import { deleteEvidenceSourceAction } from './actions'
 import { CreateEvidenceSourceForm } from './create-evidence-source-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function EvidenceSourcesPage() {
   const supabase = await createClient()
   const sources = await listEvidenceSources(supabase)
 
+  const sourceTypes = new Set(sources.map((s) => s.source_type).filter(Boolean)).size
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="evidence-sources-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Evidence sources</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -25,7 +33,35 @@ export default async function EvidenceSourcesPage() {
         </p>
       </div>
 
-      <CreateEvidenceSourceForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Saved citations',
+            value: fmtCount(sources.length),
+            detail: sources.length > 0 ? 'Reusable references for settings/spec forms.' : 'Add your first source to preserve research notes.',
+            tone: sources.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Source types',
+            value: fmtCount(sourceTypes),
+            detail: 'Unique source_type values.',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="evidence-create"
+        title="Add evidence source"
+        description="Save citation metadata and notes for later attachment in model recommendations and specs."
+        summaryItems={[
+          { label: 'Saved sources', value: fmtCount(sources.length), tone: sources.length > 0 ? 'good' : 'neutral' },
+          { label: 'Source types', value: fmtCount(sourceTypes) },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.evidence.create"
+      >
+        <CreateEvidenceSourceForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Saved evidence sources</h2>

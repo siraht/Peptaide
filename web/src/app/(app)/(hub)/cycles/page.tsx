@@ -2,7 +2,9 @@ import Link from 'next/link'
 
 import { CreateCycleNowForm } from './create-cycle-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listCycleSummary } from '@/lib/repos/cycleSummaryRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
@@ -22,13 +24,27 @@ function fmtRange(min: number | null | undefined, max: number | null | undefined
   return `<= ${fmt(max)}`
 }
 
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
+
 export default async function CyclesPage() {
   const supabase = await createClient()
   const [cycles, substances] = await Promise.all([listCycleSummary(supabase), listSubstances(supabase)])
   const substanceOptions = substances.map((s) => ({ id: s.id, label: s.display_name }))
 
+  let activeCycles = 0
+  let completedCycles = 0
+  let eventTotal = 0
+
+  for (const c of cycles) {
+    if (c.status === 'active') activeCycles += 1
+    if (c.status === 'completed') completedCycles += 1
+    eventTotal += c.event_count ?? 0
+  }
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="cycles-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Cycles</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -36,7 +52,47 @@ export default async function CyclesPage() {
         </p>
       </div>
 
-      <CreateCycleNowForm substances={substanceOptions} />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Cycle rows',
+            value: fmtCount(cycles.length),
+            detail: `${fmtCount(activeCycles)} active, ${fmtCount(completedCycles)} completed`,
+            tone: cycles.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Tracked substances',
+            value: fmtCount(substanceOptions.length),
+            detail: 'Used by manual cycle-start workflow.',
+            tone: substanceOptions.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Events represented',
+            value: fmtCount(eventTotal),
+            detail: 'Aggregate events across listed cycles.',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="cycles-create-now"
+        title="Start cycle now"
+        description="Create a cycle instance manually when you want to seed cycle tracking before logging events."
+        summaryItems={[
+          { label: 'Substance options', value: fmtCount(substanceOptions.length), tone: substanceOptions.length > 0 ? 'good' : 'warn' },
+          { label: 'Active cycles', value: fmtCount(activeCycles), tone: activeCycles > 0 ? 'good' : 'neutral' },
+          { label: 'Completed cycles', value: fmtCount(completedCycles) },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.cycles.create-now"
+        emptyCta={
+          substanceOptions.length === 0
+            ? { href: '/settings?tab=substances', label: 'Add a substance first' }
+            : undefined
+        }
+      >
+        <CreateCycleNowForm substances={substanceOptions} />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>

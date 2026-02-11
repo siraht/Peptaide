@@ -2,24 +2,72 @@ import { CreateRouteForm } from './create-route-form'
 import { BulkAddRoutesForm } from './bulk-add-routes-form'
 import { deleteRouteAction } from './actions'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function RoutesPage() {
   const supabase = await createClient()
   const routes = await listRoutes(supabase)
 
+  const withCalibrations = routes.filter((r) => r.supports_device_calibration).length
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="routes-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Routes</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Reference table for administration routes.</p>
       </div>
 
-      <CreateRouteForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Saved routes',
+            value: fmtCount(routes.length),
+            detail: routes.length > 0 ? 'Default input behavior for logging.' : 'Create at least one route to continue setup.',
+            tone: routes.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Calibration-enabled',
+            value: fmtCount(withCalibrations),
+            detail: `${fmtCount(routes.length - withCalibrations)} without device calibration`,
+          },
+        ]}
+      />
 
-      <BulkAddRoutesForm />
+      <CompactEntryModule
+        id="routes-create"
+        title="Create route"
+        description="Add a single route definition with defaults for input kind and units."
+        summaryItems={[
+          { label: 'Routes', value: fmtCount(routes.length), tone: routes.length > 0 ? 'good' : 'neutral' },
+          { label: 'Device calibration enabled', value: fmtCount(withCalibrations), tone: withCalibrations > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.routes.create"
+      >
+        <CreateRouteForm />
+      </CompactEntryModule>
+
+      <CompactEntryModule
+        id="routes-bulk-add"
+        title="Bulk add routes"
+        description="Insert common route templates quickly and refine details later."
+        summaryItems={[
+          { label: 'Current routes', value: fmtCount(routes.length), tone: routes.length > 0 ? 'good' : 'neutral' },
+          { label: 'Best for setup', value: 'Faster first-run onboarding' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.routes.bulk-add"
+      >
+        <BulkAddRoutesForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>

@@ -2,10 +2,16 @@ import { CreateVialForm } from './create-vial-form'
 import { activateVialAction, closeVialAction, discardVialAction } from './actions'
 import { ReconcileImportedVialsForm } from './reconcile-imported-vials-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listInventoryStatus } from '@/lib/repos/inventoryStatusRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function InventoryPage() {
   const supabase = await createClient()
@@ -21,26 +27,89 @@ export default async function InventoryPage() {
     return { id: f.formulation.id, label: `${substance} / ${route} / ${f.formulation.name}` }
   })
 
+  let planned = 0
+  let active = 0
+  let closed = 0
+  let discarded = 0
+
+  for (const v of inventory) {
+    if (v.status === 'planned') planned += 1
+    else if (v.status === 'active') active += 1
+    else if (v.status === 'closed') closed += 1
+    else if (v.status === 'discarded') discarded += 1
+  }
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="inventory-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Inventory</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Vials and basic runway estimates.</p>
       </div>
 
-      <ReconcileImportedVialsForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Total vials',
+            value: fmtCount(inventory.length),
+            detail: `${fmtCount(active)} active, ${fmtCount(planned)} planned`,
+            tone: inventory.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Closed / discarded',
+            value: `${fmtCount(closed)} / ${fmtCount(discarded)}`,
+            detail: 'Lifecycle outcomes from inventory operations.',
+          },
+          {
+            label: 'Formulations',
+            value: fmtCount(formulationOptions.length),
+            detail: formulationOptions.length > 0 ? 'Available for manual vial entry.' : 'Create formulations first.',
+            tone: formulationOptions.length > 0 ? 'good' : 'warn',
+          },
+        ]}
+      />
 
-      {formulationOptions.length === 0 ? (
-        <EmptyState
-          icon="inventory_2"
-          title="Vials need formulations"
-          description="Create at least one formulation before creating vials."
-          actionHref="/formulations"
-          actionLabel="Open formulations"
-        />
-      ) : (
-        <CreateVialForm formulations={formulationOptions} />
-      )}
+      <CompactEntryModule
+        id="inventory-reconcile-imported"
+        title="Reconcile imported vials"
+        description="Map imported vial records to existing formulations with a single submission."
+        summaryItems={[
+          { label: 'Current vials', value: fmtCount(inventory.length), tone: inventory.length > 0 ? 'good' : 'neutral' },
+          { label: 'Known formulations', value: fmtCount(formulationOptions.length), tone: formulationOptions.length > 0 ? 'good' : 'warn' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.inventory.reconcile"
+      >
+        <ReconcileImportedVialsForm />
+      </CompactEntryModule>
+
+      <CompactEntryModule
+        id="inventory-add-vial"
+        title="Add vial"
+        description="Create a new vial manually when it is not coming from order-item generation."
+        summaryItems={[
+          { label: 'Formulation options', value: fmtCount(formulationOptions.length), tone: formulationOptions.length > 0 ? 'good' : 'warn' },
+          { label: 'Active vials', value: fmtCount(active), tone: active > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.inventory.add-vial"
+        emptyCta={
+          formulationOptions.length === 0
+            ? { href: '/formulations', label: 'Create a formulation first' }
+            : undefined
+        }
+      >
+        {formulationOptions.length === 0 ? (
+          <EmptyState
+            icon="inventory_2"
+            title="Vials need formulations"
+            description="Create at least one formulation before creating vials."
+            actionHref="/formulations"
+            actionLabel="Open formulations"
+          />
+        ) : (
+          <CreateVialForm formulations={formulationOptions} />
+        )}
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Vials</h2>

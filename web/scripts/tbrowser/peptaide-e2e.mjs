@@ -623,6 +623,45 @@ async function waitUntil(fn, { timeoutMs = 30000, intervalMs = 250, label = 'con
   }
 }
 
+async function compactModuleExpanded(moduleId) {
+  const rootSel = `[data-e2e="compact-module"][data-module-id="${moduleId}"]`
+  const out = await evalJs(
+    `(() => {
+      const root = document.querySelector(${JSON.stringify(rootSel)})
+      if (!root) return null
+      const content = root.querySelector('[data-e2e="compact-module-content"]')
+      return content?.getAttribute('data-expanded') === '1'
+    })()`,
+  )
+  return out === true
+}
+
+async function setCompactModuleExpanded(moduleId, expanded, { timeoutMs = 30000 } = {}) {
+  const rootSel = `[data-e2e="compact-module"][data-module-id="${moduleId}"]`
+  await waitUntil(
+    async () => Boolean(await evalJs(`Boolean(document.querySelector(${JSON.stringify(rootSel)}))`)),
+    { label: `compact module present (${moduleId})`, timeoutMs },
+  )
+
+  const currentlyExpanded = await compactModuleExpanded(moduleId)
+  if (currentlyExpanded !== expanded) {
+    const btnSel = expanded
+      ? `${rootSel} [data-e2e="compact-module-open"]`
+      : `${rootSel} [data-e2e="compact-module-close"]`
+    scrollIntoView(btnSel)
+    click(btnSel)
+  }
+
+  await waitUntil(async () => (await compactModuleExpanded(moduleId)) === expanded, {
+    label: `compact module ${expanded ? 'open' : 'closed'} (${moduleId})`,
+    timeoutMs,
+  })
+}
+
+async function assertCompactModuleCollapsed(moduleId, { timeoutMs = 30000 } = {}) {
+  await setCompactModuleExpanded(moduleId, false, { timeoutMs })
+}
+
 async function mailpitFetchJson(pathname) {
   const url = new URL(pathname, MAILPIT_URL)
   const res = await fetch(url)
@@ -876,6 +915,7 @@ async function seedDemoDataIfAvailable() {
 async function createDistribution({ name, valueType, distType, p1 }) {
   logLine(`dist: creating ${name}`)
   open(`${BASE_URL}/distributions`)
+  await setCompactModuleExpanded('distributions-create', true)
   waitFor('input[name="name"]')
   fill('input[name="name"]', name)
   runAgentBrowser(['select', 'select[name="value_type"]', valueType])
@@ -919,6 +959,7 @@ async function tagSetupForms(requiredTags) {
 async function bulkAddRoutes({ names, defaultKind, defaultUnit, supportsCalibration }) {
   logLine('setup: bulk-adding routes')
   open(`${BASE_URL}/setup/routes`)
+  await setCompactModuleExpanded('setup-routes-bulk-add', true)
   waitFor('textarea[name="lines"]')
 
   await tagSetupForms(['routes'])
@@ -940,6 +981,7 @@ async function bulkAddRoutes({ names, defaultKind, defaultUnit, supportsCalibrat
 async function createDevice({ name, kind, defaultUnit }) {
   logLine(`device: creating ${name}`)
   open(`${BASE_URL}/devices`)
+  await setCompactModuleExpanded('devices-create', true)
   waitFor('input[name="name"]')
   fill('input[name="name"]', name)
   runAgentBrowser(['select', 'select[name="device_kind"]', kind])
@@ -965,6 +1007,7 @@ async function selectOptionValue(selectSelector, matchText) {
 async function bulkAddFormulation({ formulationName, substanceLabelIncludes, routeLabelIncludes, deviceLabelIncludes }) {
   logLine(`setup: creating formulation ${formulationName}`)
   open(`${BASE_URL}/setup/formulations`)
+  await setCompactModuleExpanded('setup-formulations-bulk-add', true)
   waitFor('textarea[name="lines"]')
 
   await tagSetupForms(['formulations'])
@@ -989,6 +1032,7 @@ async function bulkAddFormulation({ formulationName, substanceLabelIncludes, rou
 async function createVial({ formulationLabelIncludes, massValue, massUnit, volumeValue, volumeUnit, costUsd }) {
   logLine('setup: creating vial')
   open(`${BASE_URL}/setup/inventory`)
+  await setCompactModuleExpanded('setup-inventory-add-vial', true)
   waitFor('select[name="formulation_id"]')
 
   await tagSetupForms(['vial'])
@@ -1009,6 +1053,7 @@ async function createVial({ formulationLabelIncludes, massValue, massUnit, volum
 async function addBaseBaSpec({ substanceLabelIncludes, routeLabelIncludes, distLabelIncludes }) {
   logLine('setup: adding base bioavailability spec')
   open(`${BASE_URL}/setup/model`)
+  await setCompactModuleExpanded('setup-model-base-bioavailability', true)
   // Ensure the BA spec form is visible.
   waitFor('select[name="base_fraction_dist_id"]')
 
@@ -1030,6 +1075,7 @@ async function addBaseBaSpec({ substanceLabelIncludes, routeLabelIncludes, distL
 async function addDeviceCalibration({ deviceLabelIncludes, routeLabelIncludes, unitLabel, distLabelIncludes }) {
   logLine('setup: adding device calibration')
   open(`${BASE_URL}/setup/model`)
+  await setCompactModuleExpanded('setup-model-device-calibration', true)
   // The calibration form is only rendered if there is at least one calibration route and a volume dist.
   waitFor('select[name="volume_ml_per_unit_dist_id"]')
 
@@ -1051,6 +1097,7 @@ async function addDeviceCalibration({ deviceLabelIncludes, routeLabelIncludes, u
 async function addFormulationModifier({ formulationLabelIncludes, distLabelIncludes }) {
   logLine('setup: adding formulation modifier spec')
   open(`${BASE_URL}/setup/model`)
+  await setCompactModuleExpanded('setup-model-formulation-modifiers', true)
   waitFor('select[name="multiplier_dist_id"]')
 
   await tagSetupForms(['mod'])
@@ -1104,6 +1151,7 @@ async function saveNotificationPrefs({
   spendWindowDays,
 }) {
   open(`${BASE_URL}/settings?tab=app#notifications`)
+  await setCompactModuleExpanded('settings-app-notifications', true)
   waitFor('[data-e2e="settings-notifications-form"]')
 
   if (lowStockEnabled) check('input[data-e2e="notify-low-stock-enabled"]')
@@ -1812,41 +1860,55 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   open(`${BASE_URL}/orders`)
   await waitForBodyText('Orders', { label: 'orders page visible' })
 
-  // Verify the real-world import button works (idempotent).
-  const hasRetaImport = await evalJs('document.body.innerText.includes("Import RETA-PEPTIDE orders")')
-  if (hasRetaImport) {
-    clickButtonByName('Import RETA-PEPTIDE orders')
-    // The success message can be transient due to router.refresh(). Wait for stable, persisted evidence:
-    // the imported Order I ordered_at date should appear in the Orders table.
-    await waitForBodyText('2025-09-24', { label: 'reta import persisted order visible', timeoutMs: 120000 })
-  }
+  // Assert compact modules default to collapsed on /orders.
+  await assertCompactModuleCollapsed('orders-quick-import')
+  await assertCompactModuleCollapsed('orders-add-vendor')
+  await assertCompactModuleCollapsed('orders-add-order')
+  await assertCompactModuleCollapsed('orders-add-order-item')
+  await assertCompactModuleCollapsed('orders-generate-vials')
 
-  async function tagOrdersForm(headingText, tag) {
+  async function tagOrdersForm(moduleId, fieldSelector, tag) {
+    const rootSel = `[data-e2e="compact-module"][data-module-id="${moduleId}"]`
     const ok = await evalJs(
       `(() => {
-        const h = Array.from(document.querySelectorAll('h2'))
-          .find((el) => (el.textContent || '').trim() === ${JSON.stringify(headingText)})
-        const card = h ? h.closest('div') : null
-        const form = card ? card.querySelector('form') : null
+        const root = document.querySelector(${JSON.stringify(rootSel)})
+        if (!root) return false
+        const field = root.querySelector(${JSON.stringify(fieldSelector)})
+        const form = field ? field.closest('form') : null
         if (!form) return false
         form.setAttribute('data-e2e-form', ${JSON.stringify(tag)})
         return true
       })()`,
     )
-    if (!ok) fail(`Could not tag orders form: heading="${headingText}" tag="${tag}"`)
+    if (!ok) fail(`Could not tag orders form: module="${moduleId}" field="${fieldSelector}" tag="${tag}"`)
     return `form[data-e2e-form="${tag}"]`
   }
 
-  const vendorForm = await tagOrdersForm('Add vendor', 'vendor')
+  await setCompactModuleExpanded('orders-quick-import', true)
+  const hasRetaImport = await evalJs(
+    `Boolean(document.querySelector('[data-e2e="compact-module"][data-module-id="orders-quick-import"] button[type="submit"]'))`,
+  )
+  if (hasRetaImport) {
+    click('[data-e2e="compact-module"][data-module-id="orders-quick-import"] button[type="submit"]')
+    // The success message can be transient due to router.refresh(). Wait for stable, persisted evidence:
+    // the imported Order I ordered_at date should appear in the Orders table.
+    await waitForBodyText('2025-09-24', { label: 'reta import persisted order visible', timeoutMs: 120000 })
+  }
+  await setCompactModuleExpanded('orders-quick-import', false)
+
+  await setCompactModuleExpanded('orders-add-vendor', true)
+  const vendorForm = await tagOrdersForm('orders-add-vendor', 'input[name="name"]', 'vendor')
 
   // Vendor
   fill(`${vendorForm} input[name="name"]`, E2E_VENDOR_NAME)
   click(`${vendorForm} button[type="submit"]`)
   await waitForBodyText(E2E_VENDOR_NAME, { label: 'vendor created in UI' })
+  // Explicit expand -> submit -> collapse verification.
+  await setCompactModuleExpanded('orders-add-vendor', false)
 
   // Order form only appears after at least one vendor exists.
-  await waitForBodyText('Add order', { label: 'order form visible' })
-  const orderForm = await tagOrdersForm('Add order', 'order')
+  await setCompactModuleExpanded('orders-add-order', true)
+  const orderForm = await tagOrdersForm('orders-add-order', 'select[name="vendor_id"]', 'order')
 
   // Order
   const vendorId = await selectOptionValue(`${orderForm} select[name="vendor_id"]`, E2E_VENDOR_NAME)
@@ -1854,10 +1916,10 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   fill(`${orderForm} input[name="shipping_cost_usd"]`, '5')
   fill(`${orderForm} input[name="total_cost_usd"]`, '105')
   click(`${orderForm} button[type="submit"]`)
-  await waitForBodyText('Add order item', { label: 'order created (order item form visible)' })
 
   // Order item form only appears after at least one order exists.
-  const itemForm = await tagOrdersForm('Add order item', 'item')
+  await setCompactModuleExpanded('orders-add-order-item', true)
+  const itemForm = await tagOrdersForm('orders-add-order-item', 'select[name="order_id"]', 'item')
 
   // Order item
   const orderId = await selectOptionValue(`${itemForm} select[name="order_id"]`, E2E_VENDOR_NAME)
@@ -1871,9 +1933,9 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   fill(`${itemForm} input[name="price_total_usd"]`, '100')
   fill(`${itemForm} input[name="expected_vials"]`, '2')
   click(`${itemForm} button[type="submit"]`)
-  // Generate vials form only appears after at least one order item exists.
-  await waitForBodyText('Generate vials', { label: 'generate vials form visible', timeoutMs: 60000 })
-  const genForm = await tagOrdersForm('Generate vials', 'gen')
+
+  await setCompactModuleExpanded('orders-generate-vials', true)
+  const genForm = await tagOrdersForm('orders-generate-vials', 'select[name="order_item_id"]', 'gen')
 
   await waitUntil(
     async () => {
@@ -1922,6 +1984,7 @@ async function inventoryReconcileImportedVials() {
   logLine('inventory: reconcile imported vial tags (spreadsheet migration)')
   open(`${BASE_URL}/inventory`)
   await waitForBodyText('Inventory', { label: 'inventory page visible' })
+  await setCompactModuleExpanded('inventory-reconcile-imported', true)
 
   const hasCard = await evalJs('Boolean(document.querySelector(\'[data-e2e="reconcile-imported-vials"]\'))')
   if (!hasCard) {
@@ -1965,6 +2028,7 @@ async function createEvidenceSourceViaUi({ citation, notes }) {
   logLine('evidence: create evidence source')
   open(`${BASE_URL}/evidence-sources`)
   await waitForBodyText('Evidence sources', { label: 'evidence sources page visible' })
+  await setCompactModuleExpanded('evidence-create', true)
 
   const formSel = 'form[data-e2e="evidence-create-form"]'
   waitFor(formSel)
@@ -2680,6 +2744,7 @@ async function settingsDeleteMyData() {
   logLine('settings: delete-my-data via UI')
   open(`${BASE_URL}/settings?tab=app`)
   await waitForBodyText('Settings', { label: 'settings page visible' })
+  await setCompactModuleExpanded('settings-app-data-portability', true)
   await evalJs('window.confirm = () => true')
 
   // Type DELETE into the confirm input and click the delete button.
@@ -2721,6 +2786,7 @@ async function settingsDeleteMyData() {
 async function settingsImportZip({ zipPath, replaceExisting }) {
   logLine(`settings: import zip via UI (replace=${replaceExisting ? '1' : '0'})`)
   open(`${BASE_URL}/settings?tab=app`)
+  await setCompactModuleExpanded('settings-app-data-portability', true)
   await waitForBodyText('Import bundle', { label: 'settings import section visible' })
   await evalJs('window.confirm = () => true')
 
@@ -2771,6 +2837,7 @@ async function settingsImportZip({ zipPath, replaceExisting }) {
 async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCycles }) {
   logLine(`settings: simple events import via UI (replace=${replaceExisting ? '1' : '0'})`)
   open(`${BASE_URL}/settings?tab=app`)
+  await setCompactModuleExpanded('settings-app-data-portability', true)
   await waitForBodyText('Simple import: events CSV', { label: 'settings simple import section visible' })
   await evalJs('window.confirm = () => true')
 
@@ -2779,6 +2846,7 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
     const n = Number(cycleGapDaysRaw)
     if (Number.isFinite(n) && Number.isInteger(n) && n >= 0) {
       logLine(`settings: setting profile cycle_gap_default_days=${n}`)
+      await setCompactModuleExpanded('settings-app-profile-defaults', true)
       fill('input[name="cycle_gap_default_days"]', String(n))
       await evalJs(
         `(() => {

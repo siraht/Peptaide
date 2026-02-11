@@ -4,6 +4,8 @@ import { BaseBioavailabilitySpecForm } from '../substances/[substanceId]/base-ba
 import { CycleRuleForm } from '../substances/[substanceId]/cycle-rule-form'
 import { SubstanceRecommendationsForm } from '../substances/[substanceId]/recommendations-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listCycleRules } from '@/lib/repos/cyclesRepo'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
@@ -17,6 +19,10 @@ import { NotificationSettingsForm } from './notification-settings-form'
 import { SettingsForm } from './settings-form'
 
 type SettingsTab = 'substances' | 'app'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 function firstSearchParam(x: string | string[] | undefined): string | null {
   if (x == null) return null
@@ -193,17 +199,97 @@ export default async function SettingsPage({
             </div>
           </>
         ) : (
-          <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
+          <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6" data-e2e="settings-app-root">
             <div>
               <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Settings</h1>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Preferences, defaults, and data portability.</p>
             </div>
 
-            <SettingsForm profile={profile} />
+            <MetricsStrip
+              items={[
+                {
+                  label: 'Timezone',
+                  value: profile.timezone || '-',
+                  detail: 'Controls local-day grouping and daily rollups.',
+                },
+                {
+                  label: 'Default units',
+                  value: `${profile.default_mass_unit} / ${profile.default_volume_unit}`,
+                  detail: 'Applied in new entry defaults.',
+                },
+                {
+                  label: 'Notifications enabled',
+                  value: fmtCount(
+                    Number(Boolean(profile.notify_low_stock_enabled)) + Number(Boolean(profile.notify_spend_enabled)),
+                  ),
+                  detail: `Low stock: ${profile.notify_low_stock_enabled ? 'on' : 'off'} • Spend: ${
+                    profile.notify_spend_enabled ? 'on' : 'off'
+                  }`,
+                  tone: profile.notify_low_stock_enabled || profile.notify_spend_enabled ? 'good' : 'neutral',
+                },
+                {
+                  label: 'Model defaults',
+                  value: `${profile.default_simulation_n} runs`,
+                  detail: `Cycle gap default ${profile.cycle_gap_default_days} day(s)`,
+                },
+              ]}
+            />
 
-            <NotificationSettingsForm profile={profile} />
+            <CompactEntryModule
+              id="settings-app-profile-defaults"
+              title="Profile defaults"
+              description="Timezone and unit defaults that influence new entries and analytics grouping."
+              summaryItems={[
+                { label: 'Timezone', value: profile.timezone || '-' },
+                { label: 'Mass / volume unit', value: `${profile.default_mass_unit} / ${profile.default_volume_unit}` },
+                { label: 'Simulation default', value: String(profile.default_simulation_n) },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.settings.app.profile-defaults"
+            >
+              <SettingsForm profile={profile} />
+            </CompactEntryModule>
 
-            <DataPortabilitySection />
+            <CompactEntryModule
+              id="settings-app-notifications"
+              title="Notifications"
+              description="Configure in-app runway and spend alerts."
+              summaryItems={[
+                {
+                  label: 'Low stock alert',
+                  value: profile.notify_low_stock_enabled ? 'Enabled' : 'Disabled',
+                  tone: profile.notify_low_stock_enabled ? 'good' : 'neutral',
+                },
+                {
+                  label: 'Spend alert',
+                  value: profile.notify_spend_enabled ? 'Enabled' : 'Disabled',
+                  tone: profile.notify_spend_enabled ? 'good' : 'neutral',
+                },
+                {
+                  label: 'Low stock threshold',
+                  value: `${profile.notify_low_stock_runway_days_threshold ?? 7} day(s)`,
+                },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.settings.app.notifications"
+            >
+              <NotificationSettingsForm profile={profile} />
+            </CompactEntryModule>
+
+            <CompactEntryModule
+              id="settings-app-data-portability"
+              title="Data portability"
+              description="Export, import, and remove account data safely."
+              summaryItems={[
+                { label: 'Exports', value: 'CSV bundle and ZIP' },
+                { label: 'Imports', value: 'Bundle + simple events CSV' },
+                { label: 'Safety', value: 'Dry-run available before apply', tone: 'good' },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.settings.app.data-portability"
+            >
+              <DataPortabilitySection />
+            </CompactEntryModule>
           </div>
         )}
       </main>

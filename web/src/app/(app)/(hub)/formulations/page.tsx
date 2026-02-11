@@ -3,12 +3,18 @@ import Link from 'next/link'
 import { BulkAddFormulationsForm } from './bulk-add-formulations-form'
 import { CreateFormulationForm } from './create-formulation-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function FormulationsPage() {
   const supabase = await createClient()
@@ -20,8 +26,11 @@ export default async function FormulationsPage() {
     listFormulationsEnriched(supabase),
   ])
 
+  const prereqMissing = substances.length === 0 || routes.length === 0
+  const defaultForRouteCount = formulations.filter((f) => f.formulation.is_default_for_route).length
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="formulations-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Formulations</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -29,30 +38,105 @@ export default async function FormulationsPage() {
         </p>
       </div>
 
-      {substances.length === 0 || routes.length === 0 ? (
-        <EmptyState
-          icon="medication"
-          title="Formulations need prerequisites"
-          description="Create at least one substance and one route before creating formulations."
-          actionHref="/settings?tab=substances"
-          actionLabel="Open substances"
-          secondaryHref="/routes"
-          secondaryLabel="Open routes"
-        />
-      ) : (
-        <>
+      <MetricsStrip
+        items={[
+          {
+            label: 'Formulations',
+            value: fmtCount(formulations.length),
+            detail: `${fmtCount(defaultForRouteCount)} marked as default by route`,
+            tone: formulations.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Prerequisite substances',
+            value: fmtCount(substances.length),
+            detail: 'Required for new formulations.',
+            tone: substances.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Prerequisite routes',
+            value: fmtCount(routes.length),
+            detail: 'Required for new formulations.',
+            tone: routes.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Devices',
+            value: fmtCount(devices.length),
+            detail: 'Optional when creating formulations.',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="formulations-create"
+        title="Create formulation"
+        description="Create one formulation at a time for precise defaults and optional device linkage."
+        summaryItems={[
+          { label: 'Substances', value: fmtCount(substances.length), tone: substances.length > 0 ? 'good' : 'warn' },
+          { label: 'Routes', value: fmtCount(routes.length), tone: routes.length > 0 ? 'good' : 'warn' },
+          { label: 'Existing formulations', value: fmtCount(formulations.length), tone: formulations.length > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.formulations.create"
+        emptyCta={
+          prereqMissing
+            ? { href: '/settings?tab=substances', label: 'Create substances and routes first' }
+            : undefined
+        }
+      >
+        {prereqMissing ? (
+          <EmptyState
+            icon="medication"
+            title="Formulations need prerequisites"
+            description="Create at least one substance and one route before creating formulations."
+            actionHref="/settings?tab=substances"
+            actionLabel="Open substances"
+            secondaryHref="/routes"
+            secondaryLabel="Open routes"
+          />
+        ) : (
           <CreateFormulationForm
             substances={substances.map((s) => ({ id: s.id, label: s.display_name }))}
             routes={routes.map((r) => ({ id: r.id, label: r.name }))}
             devices={devices.map((d) => ({ id: d.id, label: d.name }))}
           />
+        )}
+      </CompactEntryModule>
+
+      <CompactEntryModule
+        id="formulations-bulk-add"
+        title="Bulk add formulations"
+        description="Seed a starter set quickly, then refine defaults and details from the list."
+        summaryItems={[
+          { label: 'Substances', value: fmtCount(substances.length), tone: substances.length > 0 ? 'good' : 'warn' },
+          { label: 'Routes', value: fmtCount(routes.length), tone: routes.length > 0 ? 'good' : 'warn' },
+          { label: 'Devices', value: fmtCount(devices.length) },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.formulations.bulk-add"
+        emptyCta={
+          prereqMissing
+            ? { href: '/settings?tab=substances', label: 'Create substances and routes first' }
+            : undefined
+        }
+      >
+        {prereqMissing ? (
+          <EmptyState
+            icon="medication"
+            title="Bulk add needs prerequisites"
+            description="Create at least one substance and one route before bulk adding formulations."
+            actionHref="/settings?tab=substances"
+            actionLabel="Open substances"
+            secondaryHref="/routes"
+            secondaryLabel="Open routes"
+          />
+        ) : (
           <BulkAddFormulationsForm
             substances={substances.map((s) => ({ id: s.id, label: s.display_name }))}
             routes={routes.map((r) => ({ id: r.id, label: r.name }))}
             devices={devices.map((d) => ({ id: d.id, label: d.name }))}
           />
-        </>
-      )}
+        )}
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>

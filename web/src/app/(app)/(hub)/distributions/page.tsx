@@ -1,15 +1,25 @@
 import { CreateDistributionForm } from './create-distribution-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function DistributionsPage() {
   const supabase = await createClient()
   const dists = await listDistributions(supabase)
 
+  const fraction = dists.filter((d) => d.value_type === 'fraction').length
+  const volume = dists.filter((d) => d.value_type === 'volume_ml_per_unit').length
+  const multiplier = dists.filter((d) => d.value_type === 'multiplier').length
+
   return (
-    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
+    <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar" data-e2e="distributions-root">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Distributions</h1>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -17,7 +27,36 @@ export default async function DistributionsPage() {
         </p>
       </div>
 
-      <CreateDistributionForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Total distributions',
+            value: fmtCount(dists.length),
+            detail: dists.length > 0 ? 'Model assumptions and uncertainty presets.' : 'Create your first uncertainty distribution.',
+            tone: dists.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Fraction / volume / multiplier',
+            value: `${fmtCount(fraction)} / ${fmtCount(volume)} / ${fmtCount(multiplier)}`,
+            detail: 'Coverage across key model categories.',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="distributions-create"
+        title="Create distribution"
+        description="Define reusable probability distributions for model inputs and calibration values."
+        summaryItems={[
+          { label: 'Saved distributions', value: fmtCount(dists.length), tone: dists.length > 0 ? 'good' : 'neutral' },
+          { label: 'Fraction distributions', value: fmtCount(fraction), tone: fraction > 0 ? 'good' : 'warn' },
+          { label: 'Volume/multiplier', value: `${fmtCount(volume)} / ${fmtCount(multiplier)}` },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.distributions.create"
+      >
+        <CreateDistributionForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
