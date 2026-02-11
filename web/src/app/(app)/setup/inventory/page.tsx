@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { CreateVialForm } from '@/app/(app)/(hub)/inventory/create-vial-form'
 import { GenerateVialsForm } from '@/app/(app)/(hub)/orders/generate-vials-form'
 import { SetupStepShell } from '@/app/(app)/setup/step-shell'
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { buildVialSelectorSubstances } from '@/lib/inventory/vialSelectorData'
 import { buildVialOrderItemLinkOptions } from '@/lib/inventory/vialOrderItemLinkOptions'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
@@ -12,6 +14,10 @@ import { listOrderItems } from '@/lib/repos/orderItemsRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { listVendors } from '@/lib/repos/vendorsRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function SetupInventoryPage() {
   const supabase = await createClient()
@@ -35,6 +41,8 @@ export default async function SetupInventoryPage() {
   })
 
   const orderItemOptions = orderItemLinkOptions.map((oi) => ({ id: oi.id, label: oi.selectorLabel }))
+
+  const totalFormulations = formulations.length
 
   const vialsByStatus = inventory.reduce(
     (acc, row) => {
@@ -62,6 +70,29 @@ export default async function SetupInventoryPage() {
       nextDisabledReason={prereqMissing ? 'Add at least one formulation first.' : null}
     >
       <div className="grid grid-cols-1 gap-4">
+        <MetricsStrip
+          items={[
+            {
+              label: 'Total vials',
+              value: fmtCount(inventory.length),
+              detail: `${fmtCount(vialsByStatus.active)} active, ${fmtCount(vialsByStatus.planned)} planned`,
+              tone: inventory.length > 0 ? 'good' : 'warn',
+            },
+            {
+              label: 'Formulations available',
+              value: fmtCount(totalFormulations),
+              detail: prereqMissing ? 'Add formulations before creating vials.' : 'Ready for manual vial creation.',
+              tone: prereqMissing ? 'warn' : 'good',
+            },
+            {
+              label: 'Order-item targets',
+              value: fmtCount(orderItemOptions.length),
+              detail: 'Eligible for planned vial generation.',
+              tone: orderItemOptions.length > 0 ? 'good' : 'neutral',
+            },
+          ]}
+        />
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-slate-600 dark:text-slate-400">
             Current vials: {inventory.length} total (active {vialsByStatus.active}, planned {vialsByStatus.planned}, closed{' '}
@@ -90,19 +121,48 @@ export default async function SetupInventoryPage() {
           </div>
         ) : (
           <>
-            <CreateVialForm substances={selectorSubstances} orderItemLinks={orderItemLinkOptions} />
+            <CompactEntryModule
+              id="setup-inventory-add-vial"
+              title="Add vial"
+              description="Create inventory records directly for formulations you already track."
+              summaryItems={[
+                { label: 'Formulation options', value: fmtCount(totalFormulations), tone: totalFormulations > 0 ? 'good' : 'warn' },
+                { label: 'Active vials', value: fmtCount(vialsByStatus.active), tone: vialsByStatus.active > 0 ? 'good' : 'neutral' },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.setup.inventory.add-vial"
+            >
+              <CreateVialForm substances={selectorSubstances} orderItemLinks={orderItemLinkOptions} />
+            </CompactEntryModule>
 
-            {orderItemOptions.length === 0 ? (
-              <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
-                To generate planned vials from orders, create an order item linked to a formulation (see{' '}
-                <Link className="underline hover:text-primary" href="/orders">
-                  Orders
-                </Link>
-                ).
-              </div>
-            ) : (
-              <GenerateVialsForm orderItems={orderItemOptions} />
-            )}
+            <CompactEntryModule
+              id="setup-inventory-generate-vials"
+              title="Generate planned vials from orders"
+              description="Use formulation-linked order items to pre-create planned inventory rows."
+              summaryItems={[
+                { label: 'Eligible order items', value: fmtCount(orderItemOptions.length), tone: orderItemOptions.length > 0 ? 'good' : 'warn' },
+                { label: 'Planned vials', value: fmtCount(vialsByStatus.planned), tone: vialsByStatus.planned > 0 ? 'good' : 'neutral' },
+              ]}
+              defaultCollapsed
+              storageKey="peptaide.module.setup.inventory.generate-vials"
+              emptyCta={
+                orderItemOptions.length === 0
+                  ? { href: '/orders', label: 'Create formulation-linked order items first' }
+                  : undefined
+              }
+            >
+              {orderItemOptions.length === 0 ? (
+                <div className="rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/40 p-4 text-sm text-slate-600 dark:text-slate-400">
+                  To generate planned vials from orders, create an order item linked to a formulation (see{' '}
+                  <Link className="underline hover:text-primary" href="/orders">
+                    Orders
+                  </Link>
+                  ).
+                </div>
+              ) : (
+                <GenerateVialsForm orderItems={orderItemOptions} />
+              )}
+            </CompactEntryModule>
           </>
         )}
 
