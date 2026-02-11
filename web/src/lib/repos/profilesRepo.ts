@@ -60,3 +60,35 @@ export async function updateMyProfile(
 
   return requireData(res.data, res.error, 'profiles.update')
 }
+
+export async function updateMyNotificationPrefs(
+  supabase: DbClient,
+  opts: {
+    notifyLowStockEnabled: boolean
+    notifyLowStockRunwayDaysThreshold: number
+    notifySpendEnabled: boolean
+    notifySpendUsdPerDayThreshold: number
+    notifySpendWindowDays: number
+  },
+): Promise<ProfileRow> {
+  const userRes = await supabase.auth.getUser()
+  const user = userRes.data.user
+  if (!user) {
+    throw new Error('Not authenticated (cannot update notification prefs).')
+  }
+
+  const res = await supabase
+    .from('profiles')
+    .update({
+      notify_low_stock_enabled: opts.notifyLowStockEnabled,
+      notify_low_stock_runway_days_threshold: opts.notifyLowStockRunwayDaysThreshold,
+      notify_spend_enabled: opts.notifySpendEnabled,
+      notify_spend_usd_per_day_threshold: opts.notifySpendUsdPerDayThreshold,
+      notify_spend_window_days: opts.notifySpendWindowDays,
+    })
+    .eq('user_id', user.id)
+    .select('*')
+    .maybeSingle()
+
+  return requireData(res.data, res.error, 'profiles.update_notify_prefs')
+}

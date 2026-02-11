@@ -13,6 +13,7 @@ import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
 
 import { DataPortabilitySection } from './data-portability'
+import { NotificationSettingsForm } from './notification-settings-form'
 import { SettingsForm } from './settings-form'
 
 type SettingsTab = 'substances' | 'app'
@@ -194,6 +195,8 @@ export default async function SettingsPage({
             </div>
 
             <SettingsForm profile={profile} />
+
+            <NotificationSettingsForm profile={profile} />
 
             <DataPortabilitySection />
           </div>

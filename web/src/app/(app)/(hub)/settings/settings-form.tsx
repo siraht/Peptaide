@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { useToast } from '@/components/toast/use-toast'
 import type { ProfileRow } from '@/lib/repos/profilesRepo'
 
 import type { UpdateProfileState } from './actions'
@@ -16,11 +17,13 @@ export function SettingsForm(props: { profile: ProfileRow }) {
   })
 
   const router = useRouter()
+  const { pushToast } = useToast()
 
   useEffect(() => {
     if (state.status !== 'success') return
+    pushToast({ kind: 'success', title: 'Saved', message: state.message })
     router.refresh()
-  }, [router, state.status])
+  }, [pushToast, router, state])
 
   return (
     <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
@@ -99,9 +102,6 @@ export function SettingsForm(props: { profile: ProfileRow }) {
 
       {state.status === 'error' ? (
         <p className="mt-3 text-sm text-red-700">{state.message}</p>
-      ) : null}
-      {state.status === 'success' ? (
-        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{state.message}</p>
       ) : null}
     </div>
   )

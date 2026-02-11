@@ -952,6 +952,11 @@ export type Database = {
           default_mass_unit: string
           default_simulation_n: number
           default_volume_unit: string
+          notify_low_stock_enabled: boolean
+          notify_low_stock_runway_days_threshold: number
+          notify_spend_enabled: boolean
+          notify_spend_usd_per_day_threshold: number
+          notify_spend_window_days: number
           timezone: string
           updated_at: string
           user_id: string
@@ -962,6 +967,11 @@ export type Database = {
           default_mass_unit?: string
           default_simulation_n?: number
           default_volume_unit?: string
+          notify_low_stock_enabled?: boolean
+          notify_low_stock_runway_days_threshold?: number
+          notify_spend_enabled?: boolean
+          notify_spend_usd_per_day_threshold?: number
+          notify_spend_window_days?: number
           timezone?: string
           updated_at?: string
           user_id: string
@@ -972,6 +982,11 @@ export type Database = {
           default_mass_unit?: string
           default_simulation_n?: number
           default_volume_unit?: string
+          notify_low_stock_enabled?: boolean
+          notify_low_stock_runway_days_threshold?: number
+          notify_spend_enabled?: boolean
+          notify_spend_usd_per_day_threshold?: number
+          notify_spend_window_days?: number
           timezone?: string
           updated_at?: string
           user_id?: string
