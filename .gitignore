@@ -37,6 +37,7 @@ supabase/.env
 
 # Local agent tooling
 .ntm/
+.firecrawl/
 
 # Local access notes (machine-specific; contains URLs/ports)
 ACCESS.md
