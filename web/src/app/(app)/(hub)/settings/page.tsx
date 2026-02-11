@@ -77,7 +77,12 @@ export default async function SettingsPage({
                 <h2 className="text-xl font-bold hidden md:block">Substances</h2>
                 <div className="h-8 w-px bg-border-light dark:bg-border-dark mx-2 hidden md:block"></div>
                 <div className="relative max-w-md w-full">
-                  <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                  <span
+                    className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"
+                    aria-hidden="true"
+                  >
+                    search
+                  </span>
                   <input
                     className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-primary focus-visible:ring-1 focus-visible:ring-primary rounded text-sm transition-colors outline-none text-slate-900 dark:text-slate-100 placeholder-slate-500"
                     placeholder="Search by name…"
@@ -93,14 +98,18 @@ export default async function SettingsPage({
                   className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   href="/api/export"
                 >
-                  <span className="material-icons-outlined text-lg">file_download</span>
+                  <span className="material-icons-outlined text-lg" aria-hidden="true">
+                    file_download
+                  </span>
                   Export CSV bundle
                 </a>
                 <Link
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
                   href="/substances?focus=new"
                 >
-                  <span className="material-icons-outlined text-lg">add</span>
+                  <span className="material-icons-outlined text-lg" aria-hidden="true">
+                    add
+                  </span>
                   New Substance
                 </Link>
               </div>
