@@ -84,11 +84,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
+    const map = timeouts.current
     return () => {
-      for (const h of timeouts.current.values()) {
+      for (const h of map.values()) {
         window.clearTimeout(h)
       }
-      timeouts.current.clear()
+      map.clear()
     }
   }, [])
 
@@ -142,4 +143,3 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     </ToastContext.Provider>
   )
 }
-

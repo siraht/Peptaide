@@ -483,6 +483,18 @@ async function waitForBodyText(needle, { timeoutMs = 30000, label } = {}) {
   )
 }
 
+async function waitForToastText(needle, { timeoutMs = 30000, label } = {}) {
+  await waitUntil(
+    async () => {
+      const text = await evalJs(
+        `Array.from(document.querySelectorAll('[data-e2e="toast"]')).map(t => (t.textContent || '')).join('\\n')`,
+      )
+      return typeof text === 'string' && text.includes(needle)
+    },
+    { label: label || `toast includes "${needle}"`, timeoutMs },
+  )
+}
+
 function click(sel) {
   runAgentBrowser(['click', sel])
 }
@@ -865,7 +877,7 @@ async function tagSetupForms(requiredTags) {
 
 async function bulkAddRoutes({ names, defaultKind, defaultUnit, supportsCalibration }) {
   logLine('setup: bulk-adding routes')
-  open(`${BASE_URL}/setup`)
+  open(`${BASE_URL}/setup/routes`)
   waitFor('textarea[name="lines"]')
 
   await tagSetupForms(['routes'])
@@ -911,7 +923,7 @@ async function selectOptionValue(selectSelector, matchText) {
 
 async function bulkAddFormulation({ formulationName, substanceLabelIncludes, routeLabelIncludes, deviceLabelIncludes }) {
   logLine(`setup: creating formulation ${formulationName}`)
-  open(`${BASE_URL}/setup`)
+  open(`${BASE_URL}/setup/formulations`)
   waitFor('textarea[name="lines"]')
 
   await tagSetupForms(['formulations'])
@@ -935,7 +947,7 @@ async function bulkAddFormulation({ formulationName, substanceLabelIncludes, rou
 
 async function createVial({ formulationLabelIncludes, massValue, massUnit, volumeValue, volumeUnit, costUsd }) {
   logLine('setup: creating vial')
-  open(`${BASE_URL}/setup`)
+  open(`${BASE_URL}/setup/inventory`)
   waitFor('select[name="formulation_id"]')
 
   await tagSetupForms(['vial'])
@@ -955,7 +967,7 @@ async function createVial({ formulationLabelIncludes, massValue, massUnit, volum
 
 async function addBaseBaSpec({ substanceLabelIncludes, routeLabelIncludes, distLabelIncludes }) {
   logLine('setup: adding base bioavailability spec')
-  open(`${BASE_URL}/setup`)
+  open(`${BASE_URL}/setup/model`)
   // Ensure the BA spec form is visible.
   waitFor('select[name="base_fraction_dist_id"]')
 
@@ -976,7 +988,7 @@ async function addBaseBaSpec({ substanceLabelIncludes, routeLabelIncludes, distL
 
 async function addDeviceCalibration({ deviceLabelIncludes, routeLabelIncludes, unitLabel, distLabelIncludes }) {
   logLine('setup: adding device calibration')
-  open(`${BASE_URL}/setup`)
+  open(`${BASE_URL}/setup/model`)
   // The calibration form is only rendered if there is at least one calibration route and a volume dist.
   waitFor('select[name="volume_ml_per_unit_dist_id"]')
 
@@ -997,7 +1009,7 @@ async function addDeviceCalibration({ deviceLabelIncludes, routeLabelIncludes, u
 
 async function addFormulationModifier({ formulationLabelIncludes, distLabelIncludes }) {
   logLine('setup: adding formulation modifier spec')
-  open(`${BASE_URL}/setup`)
+  open(`${BASE_URL}/setup/model`)
   waitFor('select[name="multiplier_dist_id"]')
 
   await tagSetupForms(['mod'])
@@ -1010,6 +1022,122 @@ async function addFormulationModifier({ formulationLabelIncludes, distLabelInclu
   runAgentBrowser(['select', `${formSel} select[name="multiplier_dist_id"]`, distId])
   click(`${formSel} button[type="submit"]`)
   await waitForBodyText('Saved', { label: 'modifier saved' })
+}
+
+async function setupWizardNavigationSmoke() {
+  logLine('setup: wizard navigation smoke')
+  open(`${BASE_URL}/setup`)
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      return typeof url === 'string' && url.includes('/setup/profile')
+    },
+    { label: 'setup redirect to /setup/profile', timeoutMs: 60000 },
+  )
+
+  waitFor('[data-e2e="setup-sidebar"]')
+  waitFor('[data-e2e="setup-step"]')
+  click('[data-e2e="setup-next"]')
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      return typeof url === 'string' && url.includes('/setup/substances')
+    },
+    { label: 'setup next -> substances', timeoutMs: 60000 },
+  )
+  click('[data-e2e="setup-back"]')
+  await waitUntil(
+    async () => {
+      const url = await evalJs('window.location.href')
+      return typeof url === 'string' && url.includes('/setup/profile')
+    },
+    { label: 'setup back -> profile', timeoutMs: 60000 },
+  )
+}
+
+async function saveNotificationPrefs({
+  lowStockEnabled,
+  lowStockDays,
+  spendEnabled,
+  spendUsdPerDay,
+  spendWindowDays,
+}) {
+  open(`${BASE_URL}/settings?tab=app#notifications`)
+  waitFor('[data-e2e="settings-notifications-form"]')
+
+  if (lowStockEnabled) check('input[data-e2e="notify-low-stock-enabled"]')
+  else uncheck('input[data-e2e="notify-low-stock-enabled"]')
+  fill('input[data-e2e="notify-low-stock-threshold"]', String(lowStockDays))
+
+  if (spendEnabled) check('input[data-e2e="notify-spend-enabled"]')
+  else uncheck('input[data-e2e="notify-spend-enabled"]')
+  fill('input[data-e2e="notify-spend-threshold"]', String(spendUsdPerDay))
+  fill('input[data-e2e="notify-spend-window"]', String(spendWindowDays))
+
+  click('button[data-e2e="settings-notifications-save"]')
+  await waitForToastText('Notification settings saved.', { label: 'notification prefs saved', timeoutMs: 60000 })
+}
+
+async function notificationsDeepInteractions() {
+  logLine('notifications: deep interactions')
+
+  // Force "all clear" by setting runway threshold to 0 and disabling spend alerts.
+  await saveNotificationPrefs({
+    lowStockEnabled: true,
+    lowStockDays: 0,
+    spendEnabled: false,
+    spendUsdPerDay: 50,
+    spendWindowDays: 7,
+  })
+
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="today-root"]')
+  await waitUntil(
+    async () => {
+      const hasBadge = await evalJs('Boolean(document.querySelector(\'[data-e2e="notifications-badge"]\'))')
+      return !hasBadge
+    },
+    { label: 'notifications badge absent (all clear)', timeoutMs: 60000 },
+  )
+
+  click('[data-e2e="notifications-button"]')
+  waitFor('[data-e2e="notifications-panel"]')
+  await waitForBodyText('All clear', { label: 'notifications panel all clear', timeoutMs: 60000 })
+  press('Escape')
+  await waitUntil(
+    async () => {
+      const hasPanel = await evalJs('Boolean(document.querySelector(\'[data-e2e="notifications-panel"]\'))')
+      return !hasPanel
+    },
+    { label: 'notifications panel closed', timeoutMs: 10000 },
+  )
+
+  // Force alerts by setting an extremely high threshold (any finite runway should trigger).
+  await saveNotificationPrefs({
+    lowStockEnabled: true,
+    lowStockDays: 999,
+    spendEnabled: false,
+    spendUsdPerDay: 50,
+    spendWindowDays: 7,
+  })
+
+  open(`${BASE_URL}/today`)
+  waitFor('[data-e2e="today-root"]')
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="notifications-badge"]\'))')),
+    { label: 'notifications badge present', timeoutMs: 60000 },
+  )
+
+  click('[data-e2e="notifications-button"]')
+  waitFor('[data-e2e="notifications-panel"]')
+  await waitUntil(
+    async () => {
+      const n = await evalJs('document.querySelectorAll(\'[data-e2e="notification-item"]\').length')
+      return Number(n) > 0
+    },
+    { label: 'notifications list has items', timeoutMs: 60000 },
+  )
+  press('Escape')
 }
 
 async function logEventInTodayTable({ formulationLabelIncludes, inputText, timeHHMM, notes, via = 'enter' } = {}) {
@@ -2591,13 +2719,7 @@ async function settingsImportSimpleEventsCsv({ csvPath, replaceExisting, inferCy
           return true
         })()`,
       )
-      await waitUntil(
-        async () => {
-          const body = await evalJs('document.body.innerText')
-          return typeof body === 'string' && body.includes('Updated.')
-        },
-        { label: 'profile save (cycle gap days)', timeoutMs: 60000 },
-      )
+      await waitForToastText('Updated.', { label: 'profile save (cycle gap days)', timeoutMs: 60000 })
     } else {
       fail(`Invalid E2E_SIMPLE_EVENTS_PROFILE_CYCLE_GAP_DAYS value: ${cycleGapDaysRaw}`)
     }
@@ -2735,6 +2857,9 @@ async function main() {
   await signInWithMagicLink(EMAIL_A)
   await seedDemoDataIfAvailable()
 
+  // Setup wizard should be a true step flow (not a long page).
+  await setupWizardNavigationSmoke()
+
   // Verify shell navigation UX (cmd palette + focus=log routing) against the current UI.
   await commandPaletteDeepInteractions()
   await hubSidebarClickthroughSweep()
@@ -2824,6 +2949,7 @@ async function main() {
 
   // Deep coverage for the Stitch /today hub (quick log, control center, focus behavior).
   await todayHubDeepInteractions()
+  await notificationsDeepInteractions()
 
   await deleteAndRestoreFirstTodayEvent()
   await cycleSplitAndEnd()
