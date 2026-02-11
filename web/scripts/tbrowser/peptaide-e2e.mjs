@@ -1970,17 +1970,57 @@ async function deleteAndRestoreFirstTodayEvent() {
 }
 
 async function cycleSplitAndEnd() {
-  logLine('cycles: open first cycle, split, end')
+  logLine('cycles: verify card rendering, navigate from card, split, end')
   open(`${BASE_URL}/cycles`)
   await waitForBodyText('Cycles', { label: 'cycles page visible' })
+  await waitUntil(
+    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="cycles-card-grid"]\'))')),
+    { label: 'cycles card grid visible', timeoutMs: 60000 },
+  )
 
-  const cycleHref = await evalJs('document.querySelector(\'a[href^="/cycles/"]\')?.getAttribute("href")')
+  let cardCount = await evalJs('document.querySelectorAll(\'[data-e2e="cycle-substance-card"]\').length')
+  if (typeof cardCount !== 'number' || cardCount < 2) {
+    const suffix = Date.now()
+    const canonical = `e2e_cycle_${suffix}`
+    const display = `E2E Cycle ${suffix}`
+
+    open(`${BASE_URL}/substances?focus=new`)
+    await waitForBodyText('Substances', { label: 'substances page visible for cycle-card setup', timeoutMs: 60000 })
+    waitFor('input[name="canonical_name"]')
+    fill('input[name="canonical_name"]', canonical)
+    fill('input[name="display_name"]', display)
+    clickButtonByName('Create')
+    await waitForBodyText(display, { label: 'second substance created for cycle cards', timeoutMs: 60000 })
+
+    open(`${BASE_URL}/cycles`)
+    await waitForBodyText('Cycles', { label: 'cycles page visible after second substance', timeoutMs: 60000 })
+    await waitUntil(
+      async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="cycles-card-grid"]\'))')),
+      { label: 'cycles card grid visible after second substance', timeoutMs: 60000 },
+    )
+    cardCount = await evalJs('document.querySelectorAll(\'[data-e2e="cycle-substance-card"]\').length')
+  }
+
+  if (typeof cardCount !== 'number' || cardCount < 2) {
+    takeScreenshot('cycles-card-count-too-low')
+    fail(`Expected at least 2 cycle substance cards, found ${String(cardCount)}`)
+  }
+
+  const cardOpenCount = await evalJs('document.querySelectorAll(\'[data-e2e-card-open="true"]\').length')
+  if (typeof cardOpenCount !== 'number' || cardOpenCount < 1) {
+    takeScreenshot('cycles-card-open-link-missing')
+    fail('Could not find a cycle card with an open-detail link on /cycles')
+  }
+  assertHealthy('cycles-cards-render')
+
+  const cycleHref = await evalJs('document.querySelector(\'[data-e2e-card-open="true"]\')?.getAttribute("href")')
   if (typeof cycleHref !== 'string' || !cycleHref.startsWith('/cycles/')) {
-    fail('Could not find a cycle link on /cycles')
+    fail('Could not resolve a cycle detail link from a cycle card')
   }
 
   open(`${BASE_URL}${cycleHref}`)
   await waitForBodyText('Summary', { label: 'cycle detail visible' })
+  assertHealthy('cycles-card-navigation')
 
   // Split at the first event (if available).
   const hasSplit = await evalJs('document.body.innerText.includes("Split cycle here")')
@@ -2002,6 +2042,8 @@ async function cycleSplitAndEnd() {
     clickButtonByName('End cycle now')
     await waitForBodyText('Summary', { label: 'cycle detail visible after end' })
   }
+
+  assertHealthy('cycles-detail-actions')
 }
 
 async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulationLabelIncludes }) {
