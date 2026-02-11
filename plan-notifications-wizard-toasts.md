@@ -17,15 +17,15 @@ You can see it working by starting the web app, signing in, clicking the bell ic
 
 ## Progress
 
-- [ ] (2026-02-11) Write and land DB migration extending `public.profiles` with notification preferences (defaults included), apply migration locally without wiping data, and regenerate `web/src/lib/supabase/database.types.ts`.
-- [ ] (2026-02-11) Implement server-side “notification evaluation” that derives active alerts from `v_inventory_summary` (low stock runway) and `v_spend_daily_weekly_monthly` (spend burn rate), driven by profile preferences.
-- [ ] (2026-02-11) Replace the header’s static bell with a real `NotificationsBell` UI: count badge, popover panel, empty state, and links to relevant pages.
-- [ ] (2026-02-11) Add “Notifications” configuration UI under Settings (App tab): toggles + thresholds + validation + saved toast.
-- [ ] (2026-02-11) Build a global toast system (`ToastProvider`, `useToast`) and wire it into Settings + wizard actions (success/error).
-- [ ] (2026-02-11) Convert `/setup` from a single long page to a step wizard with a consistent layout, progress sidebar, and back/next navigation.
-- [ ] (2026-02-11) Restyle remaining “old zinc” setup subforms to match Stitch tokens so the wizard is visually cohesive.
-- [ ] (2026-02-11) Add skeleton loading UI for `/today`, `/settings`, and `/setup` (route-level `loading.tsx`) plus a reusable `Skeleton` component.
-- [ ] (2026-02-11) Improve empty states for key list surfaces touched by the wizard/notifications (no inventory, no spend data, no substances, no alerts).
+- [x] (2026-02-11 01:56Z) Write and land DB migration extending `public.profiles` with notification preferences (defaults included), apply migration locally without wiping data, and regenerate `web/src/lib/supabase/database.types.ts`.
+- [x] (2026-02-11 01:56Z) Implement server-side “notification evaluation” that derives active alerts from `v_inventory_summary` (low stock runway) and `v_spend_daily_weekly_monthly` (spend burn rate), driven by profile preferences.
+- [x] (2026-02-11 01:56Z) Replace the header’s static bell with a real `NotificationsBell` UI: count badge, popover panel, empty state, and links to relevant pages.
+- [x] (2026-02-11 01:56Z) Add “Notifications” configuration UI under Settings (App tab): toggles + thresholds + validation + saved toast.
+- [x] (2026-02-11 01:56Z) Build a global toast system (`ToastProvider`, `useToast`) and wire it into Settings + wizard actions (success/error).
+- [x] (2026-02-11 01:56Z) Convert `/setup` from a single long page to a step wizard with a consistent layout, progress sidebar, and back/next navigation.
+- [x] (2026-02-11 01:56Z) Restyle remaining “old zinc” setup subforms to match Stitch tokens so the wizard is visually cohesive.
+- [x] (2026-02-11 01:56Z) Add skeleton loading UI for `/today`, `/settings`, and `/setup` (route-level `loading.tsx`) plus a reusable `Skeleton` component.
+- [x] (2026-02-11 01:56Z) Improve empty states for key list surfaces touched by the wizard/notifications (no inventory, no spend data, no substances, no alerts).
 - [ ] (2026-02-11) Extend the browser E2E harness (`web/scripts/tbrowser/peptaide-e2e.mjs`) to cover:
   - opening/closing the notifications panel
   - asserting “all clear” vs “has alerts” states
@@ -300,4 +300,3 @@ New/updated interfaces:
       export type ToastKind = 'success' | 'error' | 'info'
       export type ToastInput = { kind: ToastKind; title: string; message?: string }
       export function useToast(): { pushToast: (t: ToastInput) => void }
-
