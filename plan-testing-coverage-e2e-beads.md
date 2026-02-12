@@ -1,516 +1,435 @@
-# Test Coverage and E2E Quality Beads
+# Test Coverage and E2E Bead Graph (v2, Risk-Driven)
 
-This document is a granular bead graph for getting Peptaide to:
+This version replaces the prior bead set with a stricter plan optimized for user outcomes, measurable quality gates, and faster execution.
 
-1. Near-complete unit and integration coverage with explicit avoidance of mock-heavy test doubles.
-2. Complete, production-like end-to-end coverage with detailed, forensic logging artifacts.
+## First Principles (Reality Check)
 
-It is written as a dependency-aware backlog so work can be parallelized safely.
+It is not mathematically possible to prove software is bug-free. No acceptance checklist can make bugs impossible.
 
-## Current State Snapshot (2026-02-12)
+What we can do is make critical bug classes extremely unlikely to ship, and make any escaped bugs fast to detect, diagnose, and contain.
 
-- Unit tests exist for selected pure-domain modules and selected import logic.
-- Coverage tooling is not configured. Running `npm run test -- --coverage` fails due to missing `@vitest/coverage-v8`.
-- Some tests currently use fakes:
-  - Fake timers in `web/src/lib/import/simpleEvents.test.ts`.
-  - A fake DB/query layer in `web/src/lib/import/csvBundle.test.ts`.
-- Browser E2E harness (`web/scripts/tbrowser/peptaide-e2e.mjs`) has strong logging and diagnostics (console, network, screenshots, per-page diag files), but it is still not complete against all negative paths, recovery paths, and mutation permutations.
+This bead graph is therefore built around:
 
-## Bead Legend
+1. User-critical workflow protection.
+2. Real-system testing (minimal mocks/fakes).
+3. Quantitative, enforceable acceptance gates.
+4. Fast failure forensics and low-flake execution.
 
-- `B###` = top-level bead (task cluster).
-- `B###.x` = subtask.
-- `Depends on` = hard dependency edges.
-- `Comment` = rationale and implementation detail.
-- `Done when` = acceptance criteria for that bead.
+## User-Critical Workflows (Must Be Protected End-to-End)
+
+These workflow IDs are the anchor for all test criteria.
+
+- `U1` New user onboarding: sign-in -> setup wizard -> first usable `/today`.
+- `U2` Daily logging: log event -> inventory/runway/cycle effects visible.
+- `U3` Master data maintenance: substances/routes/devices/formulations CRUD.
+- `U4` Procurement chain: vendor/order/order-item -> generated vials -> cost propagation.
+- `U5` Inventory operations: planned/active/closed/discarded transitions and reconciliation.
+- `U6` Evidence/distributions/settings operations with persisted edits.
+- `U7` Data portability: export -> delete-my-data -> import -> integrity restoration.
+- `U8` Security isolation: user A data inaccessible by user B (RLS/ownership boundaries).
+
+## Program-Level Acceptance Contract (Global Exit Criteria)
+
+All beads complete is not enough. The program is complete only when all conditions below are true.
+
+- `G1 Traceability`: every workflow (`U1`..`U8`) is mapped to automated tests for happy path and at least one meaningful failure path.
+- `G2 Coverage`: line/branch thresholds by risk tier:
+  - Tier A (`lib/domain`, safety-critical transforms): line >= 97%, branch >= 95%.
+  - Tier B (`lib/repos`, `app/api`, server actions): line >= 90%, branch >= 85%.
+  - Tier C (UI helpers/components): line >= 80%, branch >= 75%.
+- `G3 Mutation`: mutation score >= 80% for Tier A and >= 70% for Tier B.
+- `G4 No-Fake Policy`: no fake DB/query layer in integration tests; no new banned patterns introduced.
+- `G5 E2E Matrix`: every workflow has browser-level tests for happy + negative/recovery variants.
+- `G6 E2E Reliability`: critical lane flake rate < 1.5% rolling 14 days; no unresolved critical flaky test older than 7 days.
+- `G7 Runtime Budget`:
+  - PR smoke <= 8 min.
+  - PR critical <= 20 min.
+  - Nightly exhaustive <= 75 min.
+- `G8 Security`: security/RLS regression suite has zero critical failures.
+- `G9 Portability`: round-trip data integrity suite has zero critical mismatches.
+- `G10 Forensics`: all failing E2E runs produce machine-readable step logs and artifact pointers sufficient for one-pass diagnosis.
 
 ## Dependency Overlay (Top-Level DAG)
 
-- `B001 -> B002, B003, B004`
-- `B002 -> B010, B020, B030`
-- `B003 -> B020, B021, B022`
-- `B004 -> B021, B022, B030`
-- `B010 -> B011, B012, B013`
-- `B020 -> B023, B024`
-- `B021 -> B025, B026, B027`
-- `B022 -> B028, B029`
-- `B023 -> B040`
-- `B024 -> B040`
-- `B025 -> B040`
-- `B026 -> B040`
-- `B027 -> B040`
-- `B028 -> B041`
-- `B029 -> B041`
-- `B030 -> B031, B032, B033, B034`
-- `B031 -> B035`
-- `B032 -> B035`
-- `B033 -> B035`
-- `B034 -> B035`
-- `B035 -> B040, B041, B042`
-- `B040 -> B050`
-- `B041 -> B050`
-- `B042 -> B050`
+- `B000 -> B010, B020, B030`
+- `B010 -> B040, B050`
+- `B020 -> B060, B070, B080`
+- `B030 -> B090, B100, B110, B120, B130, B140`
+- `B040 -> B090, B100`
+- `B050 -> B150`
+- `B060 -> B150`
+- `B070 -> B150`
+- `B080 -> B150`
+- `B090 -> B160`
+- `B100 -> B160`
+- `B110 -> B160`
+- `B120 -> B170`
+- `B130 -> B170`
+- `B140 -> B170`
+- `B150 -> B180`
+- `B160 -> B180`
+- `B170 -> B180`
+
+Parallelization note: after `B000/B010/B020/B030`, most work can run in parallel lanes (domain, integration, E2E, security/portability), reducing total cycle time.
 
 ## Bead Catalog
 
-### B001 - Establish Measurement Baseline
+### B000 - Quality Contract and Traceability Matrix
 
 Depends on: none
 
-Comment: Do not start writing more tests before measurement is reproducible; otherwise effort gets diffused and regressions stay invisible.
+Why this matters for users:
+
+Without explicit traceability, teams can hit high coverage numbers while still missing real user workflows.
 
 Subtasks:
 
-- `B001.1` Add Vitest coverage provider and scripts in `web/package.json`.
-  Comment: Add `@vitest/coverage-v8`, `test:coverage`, and `test:coverage:open` scripts.
-- `B001.2` Add baseline coverage config to `web/vitest.config.ts`.
-  Comment: Start with text + lcov output and fail thresholds set to informational (not blocking) for first pass.
-- `B001.3` Add `web/docs/testing/coverage-baseline.md` with first recorded numbers.
-  Comment: Persist a dated baseline so improvements are measurable over time.
+- `B000.1` Create `web/docs/testing/traceability-matrix.md` mapping `U1`..`U8` to test IDs.
+- `B000.2` Define risk tiers (A/B/C) per module/file path.
+- `B000.3` Define allowed exceptions policy (temporary, owner, expiry date required).
 
 Done when:
 
-- `npm run test:coverage` executes successfully and emits lcov + summary.
+- Every workflow has at least one planned happy and negative test entry, and every high-risk module has an assigned tier.
 
-### B002 - Build Coverage Heatmap and Gap Matrix
+### B010 - Coverage Instrumentation Baseline
 
-Depends on: B001
+Depends on: B000
 
-Comment: The repo has many files and only a small tested subset. A heatmap prevents random test writing and forces risk-first ordering.
+Why this matters for users:
+
+You cannot improve what you cannot measure.
 
 Subtasks:
 
-- `B002.1` Generate file-level coverage report grouped by domain (`lib/domain`, `lib/import`, `lib/repos`, `app`, `components`, `api`).
-- `B002.2` Create `web/docs/testing/coverage-gap-matrix.md` mapping critical flows to tested/untested status.
-- `B002.3` Mark high-risk untested paths (auth, import/apply, delete-my-data, server actions, repo writes, setup flow transitions).
+- `B010.1` Add `@vitest/coverage-v8`, `test:coverage`, and reporting scripts.
+- `B010.2` Configure `web/vitest.config.ts` coverage include/exclude and outputs.
+- `B010.3` Publish initial baseline in `web/docs/testing/coverage-baseline.md`.
 
 Done when:
 
-- There is a checked-in matrix with explicit priority tiers P0/P1/P2.
+- Coverage runs in CI and generates reproducible reports.
 
-### B003 - Define “No Mocks/Fakes” Testing Policy
+### B020 - Real Integration Test Platform (Supabase Local)
 
-Depends on: B001
+Depends on: B000
 
-Comment: “No mocks” must be explicit; otherwise contributors reintroduce fake DB clients and fragile stubs.
+Why this matters for users:
+
+Fake DB behavior can hide real persistence bugs users hit in production.
 
 Subtasks:
 
-- `B003.1` Add `web/docs/testing/no-fakes-policy.md` with allowed vs disallowed test doubles.
-  Comment: Allow deterministic clock control only where unavoidable; disallow fake repo/query clients for integration behavior.
-- `B003.2` Add lint/check script that flags new `Fake*` classes and `as unknown as DbClient` in tests.
-  Comment: Use a lightweight grep guard in CI first; evolve later to custom lint rule if needed.
-- `B003.3` Document migration plan for existing fake-based tests.
+- `B020.1` Add deterministic DB reset/seed harness for test runs.
+- `B020.2` Add fixture builders for valid cross-table graphs.
+- `B020.3` Add data cleanup/retry guards for idempotent repeated runs.
 
 Done when:
 
-- Policy file exists and CI fails on newly introduced banned patterns.
+- Integration tests run repeatedly with stable state and no manual cleanup.
 
-### B004 - Build Real Test Data Harness (Supabase Local)
+### B030 - No-Fake Policy and Enforcement
 
-Depends on: B001
+Depends on: B000
 
-Comment: Removing fake DB behavior requires a reliable local integration harness with idempotent setup/teardown.
+Why this matters for users:
+
+Prevents drift back to mock-heavy tests that miss real failures.
 
 Subtasks:
 
-- `B004.1` Add test schema reset helpers under `web/src/lib/testHarness/`.
-- `B004.2` Add seed fixtures for minimal valid graph (profile, substance, route, formulation, vial, distribution).
-- `B004.3` Add transaction-safe cleanup/reset command script in `web/scripts/test-db-reset.mjs`.
+- `B030.1` Add `web/docs/testing/no-fakes-policy.md`.
+- `B030.2` Add CI guard for banned patterns (`Fake*` DB/query test classes, `as unknown as DbClient` in integration tests).
+- `B030.3` Add waiver mechanism with owner + expiry metadata.
 
 Done when:
 
-- Integration tests can run repeatedly without manual DB cleanup.
+- CI fails on new banned patterns; exceptions are explicit and time-bound.
 
-### B010 - Expand Pure Domain Unit Coverage to 95%+
-
-Depends on: B002
-
-Comment: Domain modules are easiest to harden and should reach near-total branch coverage before broader integration work.
-
-Subtasks:
-
-- `B010.1` Add branch-complete tests for units conversions and parsing edge cases.
-- `B010.2` Add edge tests for cycle inference boundaries (same-day, DST boundaries, sparse events).
-- `B010.3` Add uncertainty/cost combinator edge tests (zero, NaN defense, rounding boundaries).
-
-Done when:
-
-- Domain folders show >=95% line and branch coverage.
-
-### B011 - Remove Nonessential Fake Timers
+### B040 - Contract Surface Locks (Selectors + API Shapes)
 
 Depends on: B010
 
-Comment: Fake timers are acceptable for deterministic time travel but should be minimized; prefer explicit timestamp input APIs where possible.
+Why this matters for users:
+
+Prevents silent breakage where flows exist but automation or integrations stop working.
 
 Subtasks:
 
-- `B011.1` Refactor parser entry points to accept explicit `now` parameter where needed.
-- `B011.2` Replace timer virtualization tests with direct timestamp injection.
+- `B040.1` Add selector contract tests for critical `data-e2e` hooks.
+- `B040.2` Add API request/response contract tests for import/export/auth endpoints.
+- `B040.3` Add compact-module behavior contract tests (focus query, open/close persistence).
 
 Done when:
 
-- Existing fake timer usage is eliminated or justified in policy exceptions.
+- Contract changes fail tests unless explicitly updated.
 
-### B012 - Add Fuzz/Property Tests for CSV Parsing
+### B050 - Domain Correctness Hardening
 
 Depends on: B010
 
-Comment: CSV import is user-input heavy; fuzz-like tests catch malformed edge cases missed by examples.
+Why this matters for users:
+
+Math/transform bugs silently corrupt dose/cycle/cost behavior.
 
 Subtasks:
 
-- `B012.1` Add randomized numeric formatting cases (locale separators, whitespace, quoted fields).
-- `B012.2` Add malformed header permutations and duplicate header tests.
-- `B012.3` Add invalid encoding and truncation tests.
+- `B050.1` Fill branch gaps in `lib/domain/*` and parser edge logic.
+- `B050.2` Add property-based/fuzz tests for CSV numeric and header permutations.
+- `B050.3` Add mutation testing for Tier A modules and close surviving mutants.
 
 Done when:
 
-- Parser tests include randomized/property-like cases with deterministic seeds.
+- Tier A meets `G2` and `G3` thresholds.
 
-### B013 - Mutation Guard for Domain Contracts
-
-Depends on: B010
-
-Comment: Mutation testing reveals false confidence in assertions.
-
-Subtasks:
-
-- `B013.1` Add mutation runner for `web/src/lib/domain` modules.
-- `B013.2` Triage surviving mutants and add missing assertions.
-
-Done when:
-
-- Mutation score target for domain modules is defined and met.
-
-### B020 - Convert CSV Bundle Tests from Fake DB to Real Integration
-
-Depends on: B002, B003
-
-Comment: Current CSV bundle tests use a fake query layer, which can diverge from actual Supabase/PostgREST behavior.
-
-Subtasks:
-
-- `B020.1` Replace fake DB harness in `web/src/lib/import/csvBundle.test.ts` with real local DB calls.
-- `B020.2` Validate rollback semantics against actual failed insert/upsert paths.
-- `B020.3` Validate profile merge behavior with real existing profile rows.
-
-Done when:
-
-- `csvBundle` tests run against local Supabase without fake query classes.
-
-### B021 - Repository Layer Integration Test Suite
-
-Depends on: B002, B003, B004
-
-Comment: `web/src/lib/repos/*` currently lacks broad integration assertions; this is a major correctness blind spot.
-
-Subtasks:
-
-- `B021.1` Add CRUD integration tests for each repo module under `web/src/lib/repos/`.
-- `B021.2` Assert soft-delete semantics and list filters include/exclude deleted rows correctly.
-- `B021.3` Assert cross-table joins/derived views (`inventoryStatus`, `orderItemVialCounts`, etc.) for real data.
-
-Done when:
-
-- Every repo module has at least one integration test file and core behaviors are asserted.
-
-### B022 - Server Actions + API Route Integration Tests
-
-Depends on: B002, B003, B004
-
-Comment: App Router server actions and API endpoints carry mutation risk and must be exercised end-to-end with real persistence.
-
-Subtasks:
-
-- `B022.1` Add tests for `/api/import`, `/api/import-simple-events`, `/api/export`, `/api/delete-my-data`.
-- `B022.2` Add tests for critical server actions in hub pages (create/delete flows).
-- `B022.3` Assert auth boundary behavior (unauthorized, malformed request, ownership mismatch).
-
-Done when:
-
-- API and server-action mutation paths are covered by integration tests using real DB behavior.
-
-### B023 - UI Unit Tests for Deterministic Utilities
+### B060 - Repository Integration Suite
 
 Depends on: B020
 
-Comment: Keep UI unit scope narrow to deterministic behavior (formatters/selectors), not fake-heavy rendering.
+Why this matters for users:
+
+CRUD and joins are core to nearly every screen.
 
 Subtasks:
 
-- `B023.1` Add tests for selector/data-shaping helpers used by UI.
-- `B023.2` Add tests for shared UI utility functions.
+- `B060.1` Add integration tests for each repo module in `web/src/lib/repos`.
+- `B060.2` Assert soft-delete/list filtering semantics.
+- `B060.3` Assert derived view correctness (`inventoryStatus`, order/vial aggregates).
 
 Done when:
 
-- Deterministic UI utilities are covered and stable.
+- Tier B repository modules meet coverage thresholds and workflow matrix references.
 
-### B024 - Add Contract Tests for Component Data Attributes
+### B070 - Server Actions and API Integration Suite
 
 Depends on: B020
 
-Comment: E2E depends heavily on `data-e2e` selectors; contract tests prevent accidental selector drift.
+Why this matters for users:
+
+Most user mutations go through server actions and API routes.
 
 Subtasks:
 
-- `B024.1` Add tests asserting required `data-e2e` hooks exist for critical forms/buttons.
-- `B024.2` Add tests for compact-entry module open/close and focus query behavior.
+- `B070.1` Add integration tests for critical API routes (`import`, `import-simple-events`, `export`, `delete-my-data`).
+- `B070.2` Add integration tests for critical hub server actions (create/delete/transition operations).
+- `B070.3` Assert authorization, validation, and ownership failures.
 
 Done when:
 
-- Critical selector contracts fail fast in unit/integration tests before E2E breaks.
+- Tier B action/API modules meet coverage and negative-path criteria.
 
-### B025 - Hub CRUD Integration Scenarios (DB-backed)
+### B080 - Workflow Integration Suite (Non-Browser)
 
-Depends on: B021
+Depends on: B020
 
-Comment: Each hub page has multi-step dependencies (substance -> formulation -> vial -> order link). Test these flows as integration scenarios.
+Why this matters for users:
+
+End-to-end business logic should be validated even outside browser flake surface.
 
 Subtasks:
 
-- `B025.1` Substances/routes/devices/formulations creation chains.
-- `B025.2` Orders/items/vial generation flows with cost propagation.
-- `B025.3` Inventory lifecycle transitions (planned->active->closed/discarded).
+- `B080.1` Add workflow tests for `U2/U4/U5/U7` using real persistence and service entry points.
+- `B080.2` Add invariant assertions (cost totals, cycle boundaries, inventory state consistency).
+- `B080.3` Add rollback/error recovery checks for import/reconcile and delete/restore flows.
 
 Done when:
 
-- Core CRUD chains pass as deterministic integration tests.
+- Core workflow invariants hold under happy and failure permutations.
 
-### B026 - Setup Wizard Integration Scenarios
+### B090 - E2E Observability Upgrade (Structured Forensics)
 
-Depends on: B021
+Depends on: B030, B040
 
-Comment: Setup is a workflow boundary and common onboarding failure point.
+Why this matters for users:
+
+When failures happen, fast diagnosis shortens time to fix user-visible issues.
 
 Subtasks:
 
-- `B026.1` Route transitions from `/setup/profile` through finish.
-- `B026.2` Validation and error handling for incomplete steps.
-- `B026.3` Resume behavior after partial completion.
+- `B090.1` Add JSONL step logs with step IDs, status, duration, and scenario ID.
+- `B090.2` Emit run summary JSON with pass/fail counts by workflow ID.
+- `B090.3` Include artifact pointers (screenshots, diagnostics, network snapshots) per failed step.
+- `B090.4` Add optional HAR capture in failure mode.
 
 Done when:
 
-- Setup flow has explicit integration coverage for happy + validation paths.
+- A failed run is diagnosable from artifacts without rerunning locally.
 
-### B027 - Notification and Analytics Integration Scenarios
+### B100 - E2E Happy-Path Matrix (Workflow Complete)
 
-Depends on: B021
+Depends on: B030, B040
 
-Comment: Notifications and analytics are derived-data heavy and prone to silent regressions.
+Why this matters for users:
+
+Ensures core value-delivery paths always work in real browser execution.
 
 Subtasks:
 
-- `B027.1` Notification threshold behavior coverage with real persisted events.
-- `B027.2` Analytics spend/non-spend branch coverage after reconciliation.
+- `B100.1` Implement/verify explicit scenario coverage for each `U1`..`U8` happy path.
+- `B100.2` Add assertions for user-visible success indicators, not only navigation.
+- `B100.3` Add cross-role checks where relevant (user A vs user B).
 
 Done when:
 
-- Derived metrics and notification triggers are asserted end-to-end at integration level.
+- All workflows have at least one stable E2E happy-path scenario in PR-critical or nightly lanes.
 
-### B028 - API Security Regression Suite
-
-Depends on: B022
-
-Comment: Security regressions are high impact; guard with explicit negative-path tests.
-
-Subtasks:
-
-- `B028.1` Auth-required endpoint checks.
-- `B028.2` RLS ownership denial checks.
-- `B028.3` Input validation and malformed payload checks.
-
-Done when:
-
-- Negative API/security tests are in CI and deterministic.
-
-### B029 - Data Portability Integrity Suite
-
-Depends on: B022
-
-Comment: Export/import/delete is a critical trust boundary; needs integrity checks beyond happy path.
-
-Subtasks:
-
-- `B029.1` Round-trip row-count and key integrity checks.
-- `B029.2` Partial bundle and invalid bundle resilience tests.
-- `B029.3` Idempotency checks for repeated import.
-
-Done when:
-
-- Portability workflows are validated with strict integrity assertions.
-
-### B030 - E2E Logging and Observability Upgrade
-
-Depends on: B002, B004
-
-Comment: Current logs are good but mostly plaintext. Add structured logs to make failures queryable and triage faster.
-
-Subtasks:
-
-- `B030.1` Emit JSONL per-step logs (start, end, duration, status).
-- `B030.2` Attach screenshot and diag file references to each failed step.
-- `B030.3` Emit per-run summary JSON with flow coverage checklist.
-- `B030.4` Add optional HAR export for network debugging in failure mode.
-
-Done when:
-
-- Each E2E run outputs machine-readable artifacts suitable for automatic triage.
-
-### B031 - E2E Auth and Session Resilience Matrix
+### B110 - E2E Negative and Recovery Matrix
 
 Depends on: B030
 
-Comment: Auth/session failures are common in local infra; must be explicitly covered.
+Why this matters for users:
+
+Users encounter failures, bad input, and partial operations; product must recover safely.
 
 Subtasks:
 
-- `B031.1` OTP success/failure/retry cases.
-- `B031.2` Session loss detection and recovery path checks.
-- `B031.3` Multi-user sign-out/sign-in boundary checks.
+- `B110.1` Add validation failure scenarios for each hub domain.
+- `B110.2` Add transient backend/network failure scenarios with recovery assertions.
+- `B110.3` Add import/reconcile failure and retry paths.
 
 Done when:
 
-- Auth/session edge scenarios have explicit scripted coverage.
+- Every workflow has at least one negative and one recovery scenario.
 
-### B032 - E2E Hub CRUD Complete Matrix
+### B120 - Security and RLS Adversarial Suite
 
 Depends on: B030
 
-Comment: Full CRUD should include create, edit, delete, and failure branches for each hub domain.
+Why this matters for users:
+
+Data isolation failures are critical incidents.
 
 Subtasks:
 
-- `B032.1` Substances/routes/devices/formulations full CRUD.
-- `B032.2` Orders/items/vials generation and reconciliation branches.
-- `B032.3` Evidence/distributions/settings CRUD branches.
+- `B120.1` Add cross-user unauthorized access attempts for direct URLs and API endpoints.
+- `B120.2` Add malformed/forged request cases for ownership-protected actions.
+- `B120.3` Add regression checks for deletion visibility and soft-delete boundaries.
 
 Done when:
 
-- E2E matrix documents and executes all hub CRUD permutations.
+- Security suite has zero critical findings and is CI-required.
 
-### B033 - E2E Negative and Recovery Paths
+### B130 - Data Portability Integrity Suite
 
 Depends on: B030
 
-Comment: “Complete” requires failure-path verification, not just happy paths.
+Why this matters for users:
+
+Backups and restores must be trustworthy.
 
 Subtasks:
 
-- `B033.1` Invalid forms and inline validation assertions.
-- `B033.2` Network/API failure injection and graceful UI handling assertions.
-- `B033.3` Recovery flows after failed import/reconcile attempts.
+- `B130.1` Add strict row-count and key-consistency round-trip checks.
+- `B130.2` Add corrupted/partial bundle and schema-mismatch tests.
+- `B130.3` Add idempotent re-import checks and conflict handling assertions.
 
 Done when:
 
-- Negative-path scenarios are included in default or nightly E2E runs.
+- Portability suite passes with deterministic integrity checks and no critical mismatches.
 
-### B034 - E2E Cross-Device and Responsive Parity
+### B140 - Cross-Device, Accessibility, and Performance Gate
 
 Depends on: B030
 
-Comment: Current mobile sweeps are narrow; expand to core actions and interaction parity.
+Why this matters for users:
+
+Desktop-only correctness is insufficient; users need reliable behavior across devices.
 
 Subtasks:
 
-- `B034.1` Mobile interaction flows for today, inventory, orders, settings substances workspace.
-- `B034.2` Tablet viewport suite for layout overflow/regression checks.
-- `B034.3` Keyboard navigation and accessibility smoke assertions.
+- `B140.1` Expand mobile and tablet workflow actions beyond route sweeps.
+- `B140.2` Add keyboard-accessibility smoke checks for critical controls.
+- `B140.3` Add coarse performance guards (scenario timing budgets; fail on large regressions).
 
 Done when:
 
-- Desktop/mobile/tablet parity checks run with concrete assertions, not just navigation sweeps.
+- Critical workflows pass on desktop/mobile/tablet with defined timing bounds.
 
-### B035 - E2E Scope Recomposition and Runtime Budgeting
+### B150 - CI Lane Architecture and Enforcement
 
-Depends on: B031, B032, B033, B034
+Depends on: B050, B060, B070, B080
 
-Comment: As coverage grows, scope partitioning must keep feedback loops practical.
+Why this matters for users:
+
+Quality only protects users when it blocks bad merges.
 
 Subtasks:
 
-- `B035.1` Define tiered lanes: PR smoke, PR critical, nightly exhaustive.
-- `B035.2` Assign scenarios to lanes with target runtime budgets.
-- `B035.3` Add lane-specific pass/fail summaries to artifacts.
+- `B150.1` Define lanes: `pr-smoke`, `pr-critical`, `nightly-exhaustive`.
+- `B150.2` Place tests into lanes based on workflow/risk.
+- `B150.3` Enforce coverage thresholds and no-fake policy in required lanes.
 
 Done when:
 
-- Coverage is broad while PR runtime remains bounded.
+- CI enforces `G2`, `G4`, and runtime budgets in required jobs.
 
-### B040 - CI Gates for Unit/Integration Quality
+### B160 - Flake Governance and Triage System
 
-Depends on: B023, B024, B025, B026, B027, B035
+Depends on: B090, B100, B110
 
-Comment: Results must be enforced; otherwise backlog completion does not protect future regressions.
+Why this matters for users:
+
+High flake hides real regressions and slows fixes.
 
 Subtasks:
 
-- `B040.1` Add required CI jobs for typecheck/lint/unit/integration/e2e-critical.
-- `B040.2` Add incremental coverage thresholds by module tier.
-- `B040.3` Add forbidden-pattern checks for fake/mocked DB behavior.
+- `B160.1` Track per-scenario flake rate from JSONL outputs.
+- `B160.2` Add bounded auto-rerun policy for known transient classes only.
+- `B160.3` Add quarantine protocol requiring owner, reason, and expiry.
 
 Done when:
 
-- CI blocks merges on quality regressions and policy violations.
+- Flake remains below `G6` targets and quarantines are time-bounded.
 
-### B041 - CI Gates for Security and Portability
+### B170 - Security/Portability/Device Required Gates
 
-Depends on: B028, B029, B035
+Depends on: B120, B130, B140
 
-Comment: Security and data portability should be first-class merge gates.
+Why this matters for users:
+
+High-impact risk classes must be explicitly enforced before release.
 
 Subtasks:
 
-- `B041.1` Add mandatory API security regression job.
-- `B041.2` Add mandatory data portability integrity job.
+- `B170.1` Mark security and portability suites as merge-required.
+- `B170.2` Mark cross-device/accessibility suite as nightly-required (or PR-required for touched areas).
 
 Done when:
 
-- Security and portability suites are merge-required.
+- CI policy reflects mandatory high-impact risk gates.
 
-### B042 - Flake Management and Failure Forensics
+### B180 - Final Audit and Sign-Off
 
-Depends on: B035
+Depends on: B150, B160, B170
 
-Comment: Larger suites fail unless flake is measured and controlled.
+Why this matters for users:
+
+Provides a single auditable proof that quality gates are real, not aspirational.
 
 Subtasks:
 
-- `B042.1` Track flake rate per scenario from JSONL artifacts.
-- `B042.2` Add automatic rerun-once policy for known transient categories only.
-- `B042.3` Add quarantining workflow with explicit expiry and owner fields.
+- `B180.1` Publish `web/docs/testing/final-quality-report.md` with evidence for `G1`..`G10`.
+- `B180.2` Verify all traceability matrix entries map to passing tests.
+- `B180.3` Verify no active expired waivers/quarantines remain.
 
 Done when:
 
-- Flake is observable and controlled without hiding deterministic failures.
+- All global acceptance criteria `G1`..`G10` are satisfied and evidenced.
 
-### B050 - Exit Criteria: “Complete and Trusted”
+## Why This Version Is Better Than v1
 
-Depends on: B040, B041, B042
+- Starts from user workflows (`U1`..`U8`) instead of module activity lists.
+- Adds hard quantitative gates (`G1`..`G10`) rather than broad “done” language.
+- Separates coverage numbers from actual workflow protection.
+- Makes no-fake enforcement operational in CI.
+- Bakes in forensics and flake governance as first-class quality work.
+- Optimizes parallel execution after early foundations.
 
-Comment: This is the terminal bead defining objective completion conditions.
+## Practical First Wave (Highest ROI)
 
-Subtasks:
+1. `B000`, `B010`, `B020`, `B030`.
+2. `B060`, `B070`, `B090`.
+3. `B100`, `B110`, `B120`, `B130`.
+4. `B150`, `B160`, `B170`, `B180`.
 
-- `B050.1` Verify no fake DB/query classes remain in test suites.
-- `B050.2` Verify coverage targets met for domain/repo/api/app layers.
-- `B050.3` Verify e2e lane matrix passes with structured artifacts and zero unresolved critical flakes.
-- `B050.4` Publish final quality report in `web/docs/testing/final-quality-report.md`.
-
-Done when:
-
-- Project can demonstrate high-confidence correctness with enforced, measurable, and observable automated quality gates.
-
-## Suggested Initial Execution Order (First 2 Weeks)
-
-1. `B001`, `B002`, `B003`, `B004` (foundation).
-2. `B020`, `B021`, `B022` (remove fake-db blind spots).
-3. `B030`, `B031`, `B032` (upgrade E2E logging + core completeness).
-4. `B040` partial enablement with non-blocking thresholds, then ratchet up weekly.
-
-## Notes
-
-- This bead set is intentionally strict about fake DB layers because they create false confidence against real Supabase/PostgREST behavior.
-- The fastest risk reduction is replacing fake-based import/repo tests with real local integration tests.
-- E2E already has strong foundations; the main gap is matrix completeness and machine-readable forensic logging.
+This ordering prioritizes real-system correctness and gate enforcement before widening long-tail coverage.
