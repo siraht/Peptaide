@@ -4379,19 +4379,23 @@ async function runFullScope() {
   })
 
   await runStep('full-delete-my-data', { workflowId: 'U7' }, async () => settingsDeleteMyData())
-  // Confirm empty-state surfaces return.
-  open(`${BASE_URL}/today`)
-  await waitUntil(
-    async () => Boolean(await evalJs('document.body.innerText.includes("No formulations exist yet")')),
-    { label: 'today empty state after delete', timeoutMs: 60000 },
-  )
+  await runStep('full-verify-empty-after-delete', { workflowId: 'U7' }, async () => {
+    // Confirm empty-state surfaces return.
+    open(`${BASE_URL}/today`)
+    await waitUntil(
+      async () => Boolean(await evalJs('document.body.innerText.includes("No formulations exist yet")')),
+      { label: 'today empty state after delete', timeoutMs: 60000 },
+    )
+  })
 
   await runStep('full-import-zip', { workflowId: 'U7' }, async () => settingsImportZip({ zipPath: exportPath, replaceExisting: false }))
-  open(`${BASE_URL}/today`)
-  await waitUntil(
-    async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-log-table"]\'))')),
-    { label: 'today log table after import', timeoutMs: 60000 },
-  )
+  await runStep('full-verify-restore-after-import', { workflowId: 'U7' }, async () => {
+    open(`${BASE_URL}/today`)
+    await waitUntil(
+      async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-log-table"]\'))')),
+      { label: 'today log table after import', timeoutMs: 60000 },
+    )
+  })
 
   // Page sweep (desktop).
   await runStep('full-desktop-sweep', { workflowId: 'U1' }, async () => {
@@ -4411,11 +4415,13 @@ async function runFullScope() {
   await runStep('full-signout', { workflowId: 'U8' }, async () => signOut())
   await runStep('full-signin-user-b', { workflowId: 'U8' }, async () => signInWithCodePreferDevUi(EMAIL_B))
 
-  // User B should see empty state on /today.
-  await waitUntil(
-    async () => Boolean(await evalJs('document.body.innerText.includes("No formulations exist yet")')),
-    { label: 'userB today empty state', timeoutMs: 60000 },
-  )
+  await runStep('full-rls-user-b-empty-today', { workflowId: 'U8' }, async () => {
+    // User B should see empty state on /today.
+    await waitUntil(
+      async () => Boolean(await evalJs('document.body.innerText.includes("No formulations exist yet")')),
+      { label: 'userB today empty state', timeoutMs: 60000 },
+    )
+  })
 
   const deepLinks = [substanceHref, deviceHref, formulationHref, cycleHref].filter((h) => typeof h === 'string')
   await runStep('full-rls-deeplink-denial-checks', { workflowId: 'U8' }, async () => {
@@ -4450,24 +4456,28 @@ async function runFullScope() {
   } else if (!fs.existsSync(simpleCsvPath)) {
     fail(`E2E_SIMPLE_EVENTS_CSV_PATH does not exist: ${simpleCsvPath}`)
   }
-  await settingsImportSimpleEventsCsv({ csvPath: simpleCsvPath, replaceExisting: false, inferCycles: true })
-  await inventoryReconcileImportedVials()
+  await runStep('full-simple-events-import', { workflowId: 'U7' }, async () =>
+    settingsImportSimpleEventsCsv({ csvPath: simpleCsvPath, replaceExisting: false, inferCycles: true }),
+  )
+  await runStep('full-simple-events-reconcile', { workflowId: 'U5' }, async () => inventoryReconcileImportedVials())
 
-  // After reconciliation, spend should exist because events are now linked to costed vials.
-  open(`${BASE_URL}/analytics`)
-  await waitForBodyText('Spend', { label: 'analytics page visible (spend section)' })
-  const spendNoData = await evalJs(`(() => {
-    const h = Array.from(document.querySelectorAll('h2')).find((el) => (el.textContent || '').trim() === 'Spend')
-    const card = h ? h.closest('section') : null
-    if (!card) return null
-    return (card.textContent || '').includes('No data yet.')
-  })()`)
-  if (spendNoData) {
-    takeScreenshot('analytics-spend-empty-after-reconcile')
-    fail('After reconciliation, Spend still shows "No data yet." (event costs were not backfilled).')
-  }
-  open(`${BASE_URL}/cycles`)
-  await waitForBodyText('Cycles', { label: 'cycles page visible after simple import' })
+  await runStep('full-simple-events-spend-verification', { workflowId: 'U7' }, async () => {
+    // After reconciliation, spend should exist because events are now linked to costed vials.
+    open(`${BASE_URL}/analytics`)
+    await waitForBodyText('Spend', { label: 'analytics page visible (spend section)' })
+    const spendNoData = await evalJs(`(() => {
+      const h = Array.from(document.querySelectorAll('h2')).find((el) => (el.textContent || '').trim() === 'Spend')
+      const card = h ? h.closest('section') : null
+      if (!card) return null
+      return (card.textContent || '').includes('No data yet.')
+    })()`)
+    if (spendNoData) {
+      takeScreenshot('analytics-spend-empty-after-reconcile')
+      fail('After reconciliation, Spend still shows "No data yet." (event costs were not backfilled).')
+    }
+    open(`${BASE_URL}/cycles`)
+    await waitForBodyText('Cycles', { label: 'cycles page visible after simple import' })
+  })
 
   logLine('PASS: conclusive browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)

@@ -55,9 +55,19 @@ function parseChangedLines(diffText) {
   let currentFile = null
 
   for (const line of String(diffText || '').split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      currentFile = null
+      continue
+    }
+
     if (line.startsWith('+++ b/')) {
       currentFile = line.slice('+++ b/'.length).trim()
       if (!fileToLines.has(currentFile)) fileToLines.set(currentFile, new Set())
+      continue
+    }
+    if (line.startsWith('+++ ')) {
+      // Deleted files are emitted as "+++ /dev/null"; they have no new-file lines to cover.
+      currentFile = null
       continue
     }
 
@@ -71,9 +81,10 @@ function parseChangedLines(diffText) {
     const start = Number(match[1])
     const count = Number(match[2] || '1')
     if (!Number.isFinite(start) || !Number.isFinite(count)) continue
+    if (count === 0) continue
 
     const lines = fileToLines.get(currentFile)
-    for (let i = 0; i < Math.max(count, 1); i += 1) {
+    for (let i = 0; i < count; i += 1) {
       lines.add(start + i)
     }
   }
@@ -85,6 +96,27 @@ function resolveLcovPath(cwd) {
   const explicit = process.env.COVERAGE_LCOV_PATH
   if (explicit) return path.resolve(cwd, explicit)
   return path.resolve(cwd, 'coverage/lcov.info')
+}
+
+function readSourceLines(absPath) {
+  if (!fs.existsSync(absPath)) return null
+  return fs.readFileSync(absPath, 'utf8').split('\n')
+}
+
+function isIgnorableChangedLine(lineText) {
+  const s = String(lineText || '').trim()
+  if (!s) return true
+  if (s.startsWith('//')) return true
+  if (s.startsWith('/*') || s.startsWith('*') || s.startsWith('*/')) return true
+  if (s.startsWith('import ')) return true
+  if (s.startsWith('export type ')) return true
+  if (s.startsWith('type ')) return true
+  if (s.startsWith('interface ')) return true
+  if (s.startsWith('export interface ')) return true
+  // Common barrel-only lines.
+  if (/^export\s*\{[^}]*\}\s*(from\s+['"][^'"]+['"])?\s*;?$/.test(s)) return true
+  if (/^[{}()[\];,]+$/.test(s)) return true
+  return false
 }
 
 function findCoverageHitsForFile(changedFile, lcovByFile, cwd, repoRoot) {
@@ -154,17 +186,29 @@ function main() {
     if (!normalizedFile.endsWith('.ts') && !normalizedFile.endsWith('.tsx')) continue
     if (normalizedFile.endsWith('.test.ts') || normalizedFile.endsWith('.test.tsx')) continue
 
+    const absFile = path.resolve(cwd, normalizedFile)
+    const sourceLines = readSourceLines(absFile)
     const lineHits = findCoverageHitsForFile(normalizedFile, lcovByFile, cwd, repoRoot)
+
     if (!lineHits) {
-      missing.push(normalizedFile)
-      totalChanged += changedLines.size
+      let counted = 0
+      for (const n of changedLines) {
+        const src = sourceLines ? sourceLines[n - 1] : ''
+        if (isIgnorableChangedLine(src)) continue
+        totalChanged += 1
+        counted += 1
+      }
+      if (counted > 0) {
+        missing.push(normalizedFile)
+      }
       continue
     }
 
     for (const n of changedLines) {
-      totalChanged += 1
       const hits = lineHits.get(n)
-      if (typeof hits === 'number' && hits > 0) totalCovered += 1
+      if (typeof hits !== 'number') continue
+      totalChanged += 1
+      if (hits > 0) totalCovered += 1
     }
   }
 
