@@ -815,6 +815,7 @@ function writeFailureForensicsArtifacts(stepId, diag) {
     consoleWarnings: diag.consoleWarnings,
     pageErrors: diag.pageErrors,
     failedRequests: diag.failedRequests,
+    diagnosticCommandFailures: diag.diagnosticCommandFailures ?? [],
   })
   if (CAPTURE_HAR_ON_FAILURE) {
     out.har = writeHarLikeArtifact(label, diag)

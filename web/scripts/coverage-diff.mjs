@@ -46,7 +46,11 @@ function parseLcov(lcovText) {
       const lineNo = Number(raw[0])
       const hits = Number(raw[1])
       if (Number.isFinite(lineNo) && Number.isFinite(hits)) {
-        map.get(current).set(lineNo, hits)
+        const fileMap = map.get(current)
+        const prevHits = fileMap.get(lineNo) ?? 0
+        // LCOV files can contain duplicate SF/DA records when tracefiles are merged.
+        // Aggregate hit counts so we do not lose earlier coverage samples.
+        fileMap.set(lineNo, prevHits + hits)
       }
     }
   }
