@@ -735,10 +735,16 @@ async function hasCompactModule(moduleId) {
 
 async function ensureCompactModuleOpen(moduleId, { required = false } = {}) {
   if (!(await hasCompactModule(moduleId))) {
-    if (required) {
+    if (!required) return false
+
+    await waitUntil(async () => Boolean(await hasCompactModule(moduleId)), {
+      label: `compact module present (${moduleId})`,
+      timeoutMs: 30000,
+    })
+
+    if (!(await hasCompactModule(moduleId))) {
       fail(`Expected compact module "${moduleId}" but it was not found.`)
     }
-    return false
   }
 
   const isOpen = await evalJs(
