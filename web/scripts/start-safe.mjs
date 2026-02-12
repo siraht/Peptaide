@@ -53,6 +53,13 @@ function parsePidFromSsOutput(output, port) {
   return null
 }
 
+function parseFirstPid(output) {
+  const match = String(output || '').match(/\b(\d+)\b/)
+  if (!match) return null
+  const pid = Number(match[1])
+  return Number.isFinite(pid) && pid > 0 ? pid : null
+}
+
 function findPidOnPort(port) {
   const cmd = `ss -ltnpH 'sport = :${port}'`
   const res = spawnSync('bash', ['-lc', cmd], { encoding: 'utf8' })
@@ -60,10 +67,10 @@ function findPidOnPort(port) {
   const pidFromSs = parsePidFromSsOutput(res.stdout, port)
   if (pidFromSs) return pidFromSs
 
-  const fuser = spawnSync('bash', ['-lc', `fuser ${port}/tcp 2>/dev/null | awk '{print $1}'`], { encoding: 'utf8' })
+  const fuser = spawnSync('bash', ['-lc', `fuser ${port}/tcp 2>/dev/null`], { encoding: 'utf8' })
   if (fuser.error) throw fuser.error
-  const pidFromFuser = Number(String(fuser.stdout || '').trim())
-  if (Number.isFinite(pidFromFuser) && pidFromFuser > 0) return pidFromFuser
+  const pidFromFuser = parseFirstPid(fuser.stdout)
+  if (pidFromFuser) return pidFromFuser
 
   return null
 }

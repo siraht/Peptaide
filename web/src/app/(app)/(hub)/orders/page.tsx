@@ -207,7 +207,7 @@ export default async function OrdersPage() {
             description="Create at least one order and one substance before adding order items."
             actionHref="/orders?focus=new-order"
             actionLabel="Create order"
-            secondaryHref="/settings?tab=substances"
+            secondaryHref="/substances?focus=new"
             secondaryLabel="Open substances"
           />
         ) : (

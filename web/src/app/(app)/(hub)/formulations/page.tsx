@@ -103,9 +103,9 @@ export default async function FormulationsPage() {
           icon="medication"
           title="Formulations need prerequisites"
           description="Create at least one substance and one route before creating formulations."
-          actionHref="/settings?tab=substances"
+          actionHref="/substances?focus=new"
           actionLabel="Open substances"
-          secondaryHref="/routes"
+          secondaryHref="/routes?focus=new"
           secondaryLabel="Open routes"
         />
       )}
