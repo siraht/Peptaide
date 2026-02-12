@@ -53,11 +53,17 @@ function parsePidFromSsOutput(output, port) {
   return null
 }
 
-function parseFirstPid(output) {
-  const match = String(output || '').match(/\b(\d+)\b/)
-  if (!match) return null
-  const pid = Number(match[1])
-  return Number.isFinite(pid) && pid > 0 ? pid : null
+function parsePidFromFuserOutput(output, port) {
+  const matches = String(output || '').match(/\b\d+\b/g)
+  if (!matches || matches.length === 0) return null
+
+  const parsed = matches
+    .map((x) => Number(x))
+    .filter((n) => Number.isFinite(n) && n > 0)
+
+  // Some fuser variants include "<port>/tcp:" in output; skip that token when present.
+  const pid = parsed.find((n) => n !== port) ?? parsed[0] ?? null
+  return pid != null && Number.isFinite(pid) && pid > 0 ? pid : null
 }
 
 function findPidOnPort(port) {
@@ -69,7 +75,7 @@ function findPidOnPort(port) {
 
   const fuser = spawnSync('bash', ['-lc', `fuser ${port}/tcp 2>/dev/null`], { encoding: 'utf8' })
   if (fuser.error) throw fuser.error
-  const pidFromFuser = parseFirstPid(fuser.stdout)
+  const pidFromFuser = parsePidFromFuserOutput(fuser.stdout, port)
   if (pidFromFuser) return pidFromFuser
 
   return null
