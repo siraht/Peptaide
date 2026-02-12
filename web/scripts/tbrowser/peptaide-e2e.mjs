@@ -736,11 +736,14 @@ function writeDiagSummary(label, diag) {
     const r = diag.failedRequests[0]
     lines.push(`failed_requests_sample: ${r.method} ${r.status} ${r.url}`)
   }
-  fs.writeFileSync(path.join(ARTIFACTS_DIR, `${label}.diag.txt`), `${lines.join('\n')}\n`)
+  const outPath = path.join(ARTIFACTS_DIR, `${label}.diag.txt`)
+  ensureDir(path.dirname(outPath))
+  fs.writeFileSync(outPath, `${lines.join('\n')}\n`)
 }
 
 function writeJsonArtifact(fileName, payload) {
   const outPath = path.join(ARTIFACTS_DIR, fileName)
+  ensureDir(path.dirname(outPath))
   fs.writeFileSync(outPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
   return outPath
 }
