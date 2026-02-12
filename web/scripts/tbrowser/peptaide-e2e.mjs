@@ -406,6 +406,7 @@ function screenshotPath(label) {
 
 function takeScreenshot(label) {
   const outPath = screenshotPath(label)
+  ensureDir(path.dirname(outPath))
   const args = ['screenshot', outPath]
   if (FULL_SCREENSHOT) args.push('--full')
   runAgentBrowser(args)
