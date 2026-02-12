@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { parseSimpleEventsCsvText } from './simpleEvents'
 
@@ -63,9 +63,6 @@ describe('parseSimpleEventsCsvText', () => {
   })
 
   it('infers cycles based on gapDays', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-02-01T00:00:00Z'))
-
     const csv =
       [
         'substance,ts,dose_mg',
@@ -74,14 +71,18 @@ describe('parseSimpleEventsCsvText', () => {
         'X,2026-01-20T10:00:00Z,1',
       ].join('\n') + '\n'
 
-    const res = parseSimpleEventsCsvText({ csvText: csv, timezone: 'UTC', gapDays: 7, inferCycles: true })
+    const res = parseSimpleEventsCsvText({
+      csvText: csv,
+      timezone: 'UTC',
+      gapDays: 7,
+      inferCycles: true,
+      nowMs: new Date('2026-02-01T00:00:00Z').getTime(),
+    })
     expect(res.ok).toBe(true)
     expect(res.inferredCycles).toHaveLength(2)
 
     const keys = Array.from(res.eventToCycleKey.values()).sort()
     expect(keys[0]).toBe('x#1')
     expect(keys[keys.length - 1]).toBe('x#2')
-
-    vi.useRealTimers()
   })
 })

@@ -111,7 +111,7 @@ async function assertEmptyForImport(
 }
 
 export async function importCsvBundleZip(
-  supabase: DbClient,
+  supabase: DbClient | null,
   opts: {
     userId: string
     zipData: ArrayBuffer
@@ -301,6 +301,17 @@ export async function importCsvBundleZip(
   }
 
   // mode === 'apply' and parsing/validation succeeded
+  if (!supabase) {
+    return {
+      ok: false,
+      mode,
+      format,
+      exported_at: exportedAt,
+      tables: tableReports,
+      errors: ['Import apply failed: database client is required for mode=apply.'],
+    }
+  }
+
   let existingProfile: ProfileRow | null = null
   if (replaceExisting) {
     await deleteAllMyData(supabase, { userId })

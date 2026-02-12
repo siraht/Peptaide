@@ -386,7 +386,11 @@ function defaultFormulationName(substanceDisplay: string, routeName: string): st
   return `${s} - ${r}`
 }
 
-function inferCyclesFromEvents(events: ParsedEvent[], gapDays: number): { cycles: InferredCycle[]; eventToCycleKey: Map<number, string> } {
+function inferCyclesFromEvents(
+  events: ParsedEvent[],
+  gapDays: number,
+  nowMs: number = Date.now(),
+): { cycles: InferredCycle[]; eventToCycleKey: Map<number, string> } {
   const bySubstance = new Map<string, ParsedEvent[]>()
   for (const e of events) {
     const arr = bySubstance.get(e.substanceKey) ?? []
@@ -428,7 +432,7 @@ function inferCyclesFromEvents(events: ParsedEvent[], gapDays: number): { cycles
     const startTsIso = list[cycleStartIdx]!.tsIso
     const endTsIso = list[list.length - 1]!.tsIso
     const lastEventMs = new Date(endTsIso).getTime()
-    const shouldBeActive = Number.isFinite(lastEventMs) ? Date.now() - lastEventMs < gapMs : true
+    const shouldBeActive = Number.isFinite(lastEventMs) ? nowMs - lastEventMs < gapMs : true
     const status: Database['public']['Enums']['cycle_status_t'] = shouldBeActive ? 'active' : 'completed'
     const key = `${subKey}#${cycleNumber}`
     cycles.push({ substanceKey: subKey, cycleNumber, startTsIso, endTsIso, status })
@@ -448,6 +452,7 @@ export function parseSimpleEventsCsvText(opts: {
   timezone: string
   gapDays: number
   inferCycles: boolean
+  nowMs?: number
 }): {
   ok: boolean
   parsedRowCount: number
@@ -643,7 +648,9 @@ export function parseSimpleEventsCsvText(opts: {
   }
 
   const ok = errors.length === 0 && rowErrors.length === 0
-  const inferred = opts.inferCycles ? inferCyclesFromEvents(events, opts.gapDays) : { cycles: [], eventToCycleKey: new Map<number, string>() }
+  const inferred = opts.inferCycles
+    ? inferCyclesFromEvents(events, opts.gapDays, opts.nowMs)
+    : { cycles: [], eventToCycleKey: new Map<number, string>() }
 
   return {
     ok,
@@ -678,6 +685,7 @@ export async function importSimpleEventsCsv(
     timezone,
     gapDays,
     inferCycles,
+    nowMs: Date.now(),
   })
 
   const substances = new Set(parsed.events.map((e) => e.substanceKey))

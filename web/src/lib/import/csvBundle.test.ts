@@ -1,9 +1,8 @@
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 
-import type { DbClient } from '@/lib/repos/types'
-
 import { EXPORT_COLUMNS, type ExportTableName } from '@/lib/export/exportColumns'
+import { asDbClientForUnitTest } from '@/lib/testHarness/asDbClientForUnitTest'
 
 import { importCsvBundleZip } from './csvBundle'
 
@@ -36,7 +35,7 @@ describe('importCsvBundleZip (dry-run)', () => {
     }
 
     const buf = await zip.generateAsync({ type: 'arraybuffer' })
-    const res = await importCsvBundleZip({} as unknown as DbClient, {
+    const res = await importCsvBundleZip(null, {
       userId: '11111111-1111-1111-1111-111111111111',
       zipData: buf,
       mode: 'dry-run',
@@ -85,7 +84,7 @@ describe('importCsvBundleZip (dry-run)', () => {
     }
 
     const buf = await zip.generateAsync({ type: 'arraybuffer' })
-    const res = await importCsvBundleZip({} as unknown as DbClient, {
+    const res = await importCsvBundleZip(null, {
       userId: '11111111-1111-1111-1111-111111111111',
       zipData: buf,
       mode: 'dry-run',
@@ -98,7 +97,7 @@ describe('importCsvBundleZip (dry-run)', () => {
 
   it('returns a structured error for invalid ZIP data', async () => {
     const buf = new TextEncoder().encode('not a zip').buffer
-    const res = await importCsvBundleZip({} as unknown as DbClient, {
+    const res = await importCsvBundleZip(null, {
       userId: '11111111-1111-1111-1111-111111111111',
       zipData: buf,
       mode: 'dry-run',
@@ -121,7 +120,7 @@ describe('importCsvBundleZip (dry-run)', () => {
     )
 
     const buf = await zip.generateAsync({ type: 'arraybuffer' })
-    const res = await importCsvBundleZip({} as unknown as DbClient, {
+    const res = await importCsvBundleZip(null, {
       userId: '11111111-1111-1111-1111-111111111111',
       zipData: buf,
       mode: 'dry-run',
@@ -139,7 +138,7 @@ type FakeCall = {
 
 type FakePostgrestError = { message: string; details?: string | null; hint?: string | null; code?: string }
 
-class FakeQuery {
+class MemoryQuery {
   private op: FakeCall['op'] | null = null
   private table: string
   private filters: Record<string, unknown> = {}
@@ -148,7 +147,7 @@ class FakeQuery {
   private maybeSingleMode = false
   private selectColumns: string | null = null
 
-  constructor(private db: FakeDb, table: string) {
+  constructor(private db: MemoryDb, table: string) {
     this.table = table
   }
 
@@ -200,7 +199,7 @@ class FakeQuery {
 
   private async execute(): Promise<{ data: unknown; error: FakePostgrestError | null }> {
     if (!this.op) {
-      throw new Error('FakeQuery used without an operation')
+      throw new Error('MemoryQuery used without an operation')
     }
 
     this.db.calls.push({ table: this.table, op: this.op })
@@ -234,7 +233,7 @@ class FakeQuery {
   }
 }
 
-class FakeDb {
+class MemoryDb {
   public calls: FakeCall[] = []
   public upserts: Array<{ table: string; payload: unknown }> = []
 
@@ -254,7 +253,7 @@ class FakeDb {
   }
 
   from(table: string) {
-    return new FakeQuery(this, table)
+    return new MemoryQuery(this, table)
   }
 }
 
@@ -338,9 +337,9 @@ describe('importCsvBundleZip (apply rollback)', () => {
     const userId = '11111111-1111-1111-1111-111111111111'
     const zipData = await makeBundle({ includeSubstance: true, includeRoute: true })
 
-    const db = new FakeDb({ existingProfile: null, failOnInsertTable: 'routes' })
+    const db = new MemoryDb({ existingProfile: null, failOnInsertTable: 'routes' })
 
-    const res = await importCsvBundleZip(db as unknown as DbClient, {
+    const res = await importCsvBundleZip(asDbClientForUnitTest(db), {
       userId,
       zipData,
       mode: 'apply',
@@ -372,9 +371,9 @@ describe('importCsvBundleZip (apply rollback)', () => {
       updated_at: '2026-02-07T00:00:00.000Z',
     }
 
-    const db = new FakeDb({ existingProfile, failOnInsertTable: 'routes' })
+    const db = new MemoryDb({ existingProfile, failOnInsertTable: 'routes' })
 
-    const res = await importCsvBundleZip(db as unknown as DbClient, {
+    const res = await importCsvBundleZip(asDbClientForUnitTest(db), {
       userId,
       zipData,
       mode: 'apply',

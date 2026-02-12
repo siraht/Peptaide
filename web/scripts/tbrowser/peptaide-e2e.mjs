@@ -79,6 +79,22 @@ const localAgentBrowser = path.join(WEB_DIR, 'node_modules', '.bin', 'agent-brow
 const AGENT_BROWSER_BIN =
   process.env.AGENT_BROWSER_BIN || (fs.existsSync(localAgentBrowser) ? localAgentBrowser : 'agent-browser')
 
+const STEP_JSONL_PATH = path.join(ARTIFACTS_DIR, 'steps.jsonl')
+const RUN_SUMMARY_PATH = path.join(ARTIFACTS_DIR, 'run.summary.json')
+const STEP_RESULTS = []
+let currentStep = null
+let runStartedAtMs = Date.now()
+const CAPTURE_HAR_ON_FAILURE = isTruthyEnv(process.env.E2E_CAPTURE_HAR_ON_FAILURE)
+
+const STEP_FAULT_CLASS_RULES = [
+  { rx: /(runtime|preflight|sign-in|signin)/i, faults: ['F6'] },
+  { rx: /(rls|user-b|deeplink-denial|signout)/i, faults: ['F2'] },
+  { rx: /(inventory|orders|reconcile|import|export|delete-my-data|portability)/i, faults: ['F3', 'F5'] },
+  { rx: /(today|cycle|dose|recommendation|distribution|calibration|modifier)/i, faults: ['F4', 'F7'] },
+  { rx: /(mobile|tablet|a11y|accessibility)/i, faults: ['F8'] },
+  { rx: /(sweep|desktop|performance|timing)/i, faults: ['F9'] },
+]
+
 function sleepSync(ms) {
   const n = Number(ms) || 0
   if (n <= 0) return
@@ -208,14 +224,175 @@ function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true })
 }
 
+function appendJsonl(filePath, payload) {
+  try {
+    ensureDir(path.dirname(filePath))
+    fs.appendFileSync(filePath, `${JSON.stringify(payload)}\n`, 'utf8')
+  } catch {
+    // Best effort only; do not fail the run because of logging artifacts.
+  }
+}
+
+function appendStepEvent(kind, fields = {}) {
+  appendJsonl(STEP_JSONL_PATH, {
+    ts: new Date().toISOString(),
+    run_id: RUN_ID,
+    scope: E2E_SCOPE,
+    kind,
+    ...fields,
+  })
+}
+
+function uniq(values) {
+  const out = []
+  const seen = new Set()
+  for (const v of values) {
+    if (!v || seen.has(v)) continue
+    seen.add(v)
+    out.push(v)
+  }
+  return out
+}
+
+function inferFaultClassesForStep(stepId) {
+  const id = String(stepId || '')
+  const faults = []
+  for (const rule of STEP_FAULT_CLASS_RULES) {
+    if (!rule.rx.test(id)) continue
+    faults.push(...rule.faults)
+  }
+  return uniq(faults)
+}
+
 function logLine(msg) {
   process.stdout.write(`${msg}\n`)
+  appendStepEvent('log', { message: String(msg) })
 }
 
 function fail(msg) {
+  appendStepEvent('fail', {
+    message: String(msg),
+    step_id: currentStep?.id || null,
+    workflow_id: currentStep?.workflowId || null,
+  })
   const err = new Error(msg)
   err.name = 'E2EFailure'
   throw err
+}
+
+async function runStep(stepId, { workflowId = null } = {}, fn) {
+  const faultClasses = inferFaultClassesForStep(stepId)
+  const startedAt = Date.now()
+  currentStep = { id: stepId, workflowId, startedAt }
+  appendStepEvent('step_start', {
+    step_id: stepId,
+    workflow_id: workflowId,
+    fault_classes: faultClasses,
+  })
+
+  try {
+    const result = await fn()
+    const durationMs = Date.now() - startedAt
+    STEP_RESULTS.push({
+      step_id: stepId,
+      workflow_id: workflowId,
+      fault_classes: faultClasses,
+      status: 'passed',
+      duration_ms: durationMs,
+    })
+    appendStepEvent('step_end', {
+      step_id: stepId,
+      workflow_id: workflowId,
+      fault_classes: faultClasses,
+      status: 'passed',
+      duration_ms: durationMs,
+    })
+    return result
+  } catch (err) {
+    const durationMs = Date.now() - startedAt
+    const message = err instanceof Error ? err.message : String(err)
+
+    let screenshot = null
+    let artifacts = null
+    try {
+      screenshot = takeScreenshot(`failed-step-${stepId}`)
+    } catch {
+      // ignore screenshot failures for forensic logging
+    }
+
+    try {
+      const diag = collectDiagnostics()
+      writeDiagSummary(`failed-step-${stepId}`, diag)
+      artifacts = writeFailureForensicsArtifacts(stepId, diag)
+    } catch {
+      // ignore diagnostic capture failures
+    }
+
+    STEP_RESULTS.push({
+      step_id: stepId,
+      workflow_id: workflowId,
+      fault_classes: faultClasses,
+      status: 'failed',
+      duration_ms: durationMs,
+      error: message,
+      artifact_screenshot: screenshot,
+      artifacts,
+    })
+    appendStepEvent('step_end', {
+      step_id: stepId,
+      workflow_id: workflowId,
+      fault_classes: faultClasses,
+      status: 'failed',
+      duration_ms: durationMs,
+      error: message,
+      artifact_screenshot: screenshot,
+      artifacts,
+    })
+    throw err
+  } finally {
+    currentStep = null
+  }
+}
+
+function writeRunSummary(status, err = null) {
+  try {
+    ensureDir(ARTIFACTS_DIR)
+    const endedAtMs = Date.now()
+    const workflowCoverage = uniq(STEP_RESULTS.map((s) => s.workflow_id))
+    const faultCoverage = uniq(
+      STEP_RESULTS.flatMap((s) => (Array.isArray(s.fault_classes) ? s.fault_classes : [])),
+    )
+    const failedSteps = STEP_RESULTS.filter((s) => s.status === 'failed')
+    const payload = {
+      run_id: RUN_ID,
+      scope: E2E_SCOPE,
+      status,
+      started_at: new Date(runStartedAtMs).toISOString(),
+      ended_at: new Date(endedAtMs).toISOString(),
+      duration_ms: endedAtMs - runStartedAtMs,
+      base_url: BASE_URL,
+      artifacts_dir: ARTIFACTS_DIR,
+      steps_total: STEP_RESULTS.length,
+      steps_passed: STEP_RESULTS.filter((s) => s.status === 'passed').length,
+      steps_failed: failedSteps.length,
+      workflow_ids_observed: workflowCoverage,
+      workflow_coverage_count: workflowCoverage.length,
+      fault_classes_observed: faultCoverage,
+      fault_class_coverage_count: faultCoverage.length,
+      failed_step_ids: failedSteps.map((s) => s.step_id),
+      steps: STEP_RESULTS,
+      error: err
+        ? {
+            name: err && typeof err === 'object' && 'name' in err ? String(err.name) : 'Error',
+            message: err instanceof Error ? err.message : String(err),
+          }
+        : null,
+    }
+    fs.writeFileSync(RUN_SUMMARY_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+    appendStepEvent('run_summary', { path: RUN_SUMMARY_PATH, status })
+  } catch {
+    // ignore summary-writing failures
+  }
 }
 
 async function sleep(ms) {
@@ -511,6 +688,9 @@ function collectDiagnostics() {
     consoleWarnings,
     pageErrors: errorTexts,
     failedRequests,
+    rawConsoleMessages: consoleMsgs,
+    rawPageErrors: pageErrors,
+    rawNetworkRequests: requests,
   }
 }
 
@@ -530,6 +710,90 @@ function writeDiagSummary(label, diag) {
     lines.push(`failed_requests_sample: ${r.method} ${r.status} ${r.url}`)
   }
   fs.writeFileSync(path.join(ARTIFACTS_DIR, `${label}.diag.txt`), `${lines.join('\n')}\n`)
+}
+
+function writeJsonArtifact(fileName, payload) {
+  const outPath = path.join(ARTIFACTS_DIR, fileName)
+  fs.writeFileSync(outPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+  return outPath
+}
+
+function writeHarLikeArtifact(label, diag) {
+  const entries = Array.isArray(diag.rawNetworkRequests)
+    ? diag.rawNetworkRequests.map((r) => ({
+        startedDateTime: new Date().toISOString(),
+        time: typeof r?.duration === 'number' ? r.duration : -1,
+        request: {
+          method: String(r?.method || r?.requestMethod || 'GET'),
+          url: String(r?.url || ''),
+          headers: [],
+          queryString: [],
+          headersSize: -1,
+          bodySize: -1,
+        },
+        response: {
+          status: Number(r?.status ?? r?.statusCode ?? 0),
+          statusText: '',
+          headers: [],
+          content: {
+            size: Number(r?.encodedDataLength ?? 0) || 0,
+            mimeType: String(r?.mimeType || ''),
+            text: '',
+          },
+          redirectURL: '',
+          headersSize: -1,
+          bodySize: -1,
+        },
+        cache: {},
+        timings: {
+          send: -1,
+          wait: -1,
+          receive: -1,
+        },
+      }))
+    : []
+
+  const har = {
+    log: {
+      version: '1.2',
+      creator: {
+        name: 'peptaide-e2e',
+        version: '1',
+      },
+      entries,
+    },
+  }
+
+  return writeJsonArtifact(`${label}.network.har.json`, har)
+}
+
+function writeFailureForensicsArtifacts(stepId, diag) {
+  const label = `failed-step-${stepId}`
+  const out = {
+    diagSummary: path.join(ARTIFACTS_DIR, `${label}.diag.txt`),
+    console: null,
+    errors: null,
+    network: null,
+    combined: null,
+    har: null,
+  }
+
+  out.console = writeJsonArtifact(`${label}.console.json`, diag.rawConsoleMessages ?? [])
+  out.errors = writeJsonArtifact(`${label}.errors.json`, diag.rawPageErrors ?? [])
+  out.network = writeJsonArtifact(`${label}.network.json`, diag.rawNetworkRequests ?? [])
+  out.combined = writeJsonArtifact(`${label}.diagnostics.json`, {
+    pageTitle: diag.pageTitle,
+    pageUrl: diag.pageUrl,
+    consoleErrors: diag.consoleErrors,
+    consoleWarnings: diag.consoleWarnings,
+    pageErrors: diag.pageErrors,
+    failedRequests: diag.failedRequests,
+  })
+  if (CAPTURE_HAR_ON_FAILURE) {
+    out.har = writeHarLikeArtifact(label, diag)
+  }
+
+  return out
 }
 
 function assertHealthy(label, { allowWarnings = true } = {}) {
@@ -3663,172 +3927,227 @@ async function initializeRuntimeOnlyRun() {
 }
 
 async function runSmokeScope() {
-  await initializeRun()
-  await setupWizardNavigationSmoke()
-  await commandPaletteDeepInteractions()
-  await hubSidebarClickthroughSweep()
+  await runStep('smoke-initialize', { workflowId: 'U1' }, async () => initializeRun())
+  await runStep('smoke-setup-wizard-navigation', { workflowId: 'U1' }, async () => setupWizardNavigationSmoke())
+  await runStep('smoke-command-palette', { workflowId: 'U1' }, async () => commandPaletteDeepInteractions())
+  await runStep('smoke-hub-sidebar-sweep', { workflowId: 'U1' }, async () => hubSidebarClickthroughSweep())
 
-  await logEventInTodayTable({
-    formulationLabelIncludes: 'Demo formulation',
-    inputText: '0.2mL',
-    timeHHMM: '01:23',
-    notes: `e2e smoke ${RUN_ID}`,
-    via: 'click',
+  await runStep('smoke-log-event', { workflowId: 'U2' }, async () =>
+    logEventInTodayTable({
+      formulationLabelIncludes: 'Demo formulation',
+      inputText: '0.2mL',
+      timeHHMM: '01:23',
+      notes: `e2e smoke ${RUN_ID}`,
+      via: 'click',
+    }),
+  )
+
+  await runStep('smoke-notifications', { workflowId: 'U2' }, async () => notificationsDeepInteractions())
+
+  await runStep('smoke-desktop-sweep', { workflowId: 'U1' }, async () => {
+    logLine('sweep: desktop viewport (smoke)')
+    setViewport(1280, 720)
+    await sweepPages({
+      labelPrefix: 'desktop-smoke',
+      onlyLabels: ['today', 'settings', 'analytics', 'inventory', 'orders', 'cycles'],
+    })
   })
 
-  await notificationsDeepInteractions()
-
-  logLine('sweep: desktop viewport (smoke)')
-  setViewport(1280, 720)
-  await sweepPages({
-    labelPrefix: 'desktop-smoke',
-    onlyLabels: ['today', 'settings', 'analytics', 'inventory', 'orders', 'cycles'],
+  await runStep('smoke-mobile-sweep', { workflowId: 'U1' }, async () => {
+    logLine('sweep: mobile viewport (smoke)')
+    setViewport(390, 844)
+    await sweepPages({ labelPrefix: 'mobile-smoke', onlyLabels: ['today', 'settings'] })
   })
-
-  logLine('sweep: mobile viewport (smoke)')
-  setViewport(390, 844)
-  await sweepPages({ labelPrefix: 'mobile-smoke', onlyLabels: ['today', 'settings'] })
 
   logLine('PASS: smoke browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 }
 
 async function runTodayScope() {
-  await initializeRun()
+  await runStep('today-initialize', { workflowId: 'U1' }, async () => initializeRun())
 
-  await logEventInTodayTable({
-    formulationLabelIncludes: 'Demo formulation',
-    inputText: '0.3mL',
-    timeHHMM: '01:23',
-    notes: `e2e note ${RUN_ID}`,
-    via: 'click',
+  await runStep('today-log-event', { workflowId: 'U2' }, async () =>
+    logEventInTodayTable({
+      formulationLabelIncludes: 'Demo formulation',
+      inputText: '0.3mL',
+      timeHHMM: '01:23',
+      notes: `e2e note ${RUN_ID}`,
+      via: 'click',
+    }),
+  )
+
+  await runStep('today-hub-deep-interactions', { workflowId: 'U2' }, async () => todayHubDeepInteractions())
+  await runStep('today-notifications', { workflowId: 'U2' }, async () => notificationsDeepInteractions())
+  await runStep('today-command-palette', { workflowId: 'U2' }, async () => commandPaletteDeepInteractions())
+
+  await runStep('today-desktop-sweep', { workflowId: 'U2' }, async () => {
+    logLine('sweep: desktop viewport (today)')
+    setViewport(1280, 720)
+    await sweepPages({
+      labelPrefix: 'desktop-today',
+      onlyLabels: ['today', 'analytics', 'inventory', 'orders'],
+    })
   })
 
-  await todayHubDeepInteractions()
-  await notificationsDeepInteractions()
-  await commandPaletteDeepInteractions()
-
-  logLine('sweep: desktop viewport (today)')
-  setViewport(1280, 720)
-  await sweepPages({
-    labelPrefix: 'desktop-today',
-    onlyLabels: ['today', 'analytics', 'inventory', 'orders'],
+  await runStep('today-mobile-sweep', { workflowId: 'U2' }, async () => {
+    logLine('sweep: mobile viewport (today)')
+    setViewport(390, 844)
+    await sweepPages({ labelPrefix: 'mobile-today', onlyLabels: ['today'] })
   })
-
-  logLine('sweep: mobile viewport (today)')
-  setViewport(390, 844)
-  await sweepPages({ labelPrefix: 'mobile-today', onlyLabels: ['today'] })
 
   logLine('PASS: today browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 }
 
 async function runSettingsScope() {
-  await initializeRun()
+  await runStep('settings-initialize', { workflowId: 'U1' }, async () => initializeRun())
 
-  await setupWizardNavigationSmoke()
-  await hubSidebarClickthroughSweep()
+  await runStep('settings-setup-wizard', { workflowId: 'U1' }, async () => setupWizardNavigationSmoke())
+  await runStep('settings-sidebar-sweep', { workflowId: 'U1' }, async () => hubSidebarClickthroughSweep())
 
   const evidenceCitationKeep = `https://example.com/peptaide-e2e-evidence/${RUN_ID}`
-  await createEvidenceSourceViaUi({ citation: evidenceCitationKeep, notes: `e2e settings ${RUN_ID}` })
-  await createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 })
-  await createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' })
-  await bulkAddRoutes({
-    names: [E2E_ROUTE_INTRANA],
-    defaultKind: 'device_units',
-    defaultUnit: 'spray',
-    supportsCalibration: true,
-  })
-  await settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes: evidenceCitationKeep })
-  await logEventInTodayTable({
-    formulationLabelIncludes: 'Demo formulation',
-    inputText: '0.3mL',
-    timeHHMM: '01:23',
-    notes: `e2e settings notif ${RUN_ID}`,
-    via: 'click',
-  })
-  await notificationsDeepInteractions()
-  await deleteEvidenceSourceViaUi({ citation: evidenceCitationKeep })
+  await runStep('settings-evidence-create', { workflowId: 'U6' }, async () =>
+    createEvidenceSourceViaUi({ citation: evidenceCitationKeep, notes: `e2e settings ${RUN_ID}` }),
+  )
+  await runStep('settings-distribution-create', { workflowId: 'U6' }, async () =>
+    createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 }),
+  )
+  await runStep('settings-device-create', { workflowId: 'U3' }, async () =>
+    createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' }),
+  )
+  await runStep('settings-routes-bulk-add', { workflowId: 'U3' }, async () =>
+    bulkAddRoutes({
+      names: [E2E_ROUTE_INTRANA],
+      defaultKind: 'device_units',
+      defaultUnit: 'spray',
+      supportsCalibration: true,
+    }),
+  )
+  await runStep('settings-substances-workspace', { workflowId: 'U6' }, async () =>
+    settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes: evidenceCitationKeep }),
+  )
+  await runStep('settings-log-event', { workflowId: 'U2' }, async () =>
+    logEventInTodayTable({
+      formulationLabelIncludes: 'Demo formulation',
+      inputText: '0.3mL',
+      timeHHMM: '01:23',
+      notes: `e2e settings notif ${RUN_ID}`,
+      via: 'click',
+    }),
+  )
+  await runStep('settings-notifications', { workflowId: 'U2' }, async () => notificationsDeepInteractions())
+  await runStep('settings-evidence-delete', { workflowId: 'U6' }, async () =>
+    deleteEvidenceSourceViaUi({ citation: evidenceCitationKeep }),
+  )
 
-  logLine('sweep: desktop viewport (settings)')
-  setViewport(1280, 720)
-  await sweepPages({
-    labelPrefix: 'desktop-settings',
-    onlyLabels: ['setup', 'settings', 'substances', 'routes', 'devices', 'formulations', 'inventory', 'orders', 'cycles'],
+  await runStep('settings-desktop-sweep', { workflowId: 'U6' }, async () => {
+    logLine('sweep: desktop viewport (settings)')
+    setViewport(1280, 720)
+    await sweepPages({
+      labelPrefix: 'desktop-settings',
+      onlyLabels: ['setup', 'settings', 'substances', 'routes', 'devices', 'formulations', 'inventory', 'orders', 'cycles'],
+    })
   })
 
-  logLine('sweep: mobile viewport (settings)')
-  setViewport(390, 844)
-  await sweepPages({ labelPrefix: 'mobile-settings', onlyLabels: ['settings', 'substances', 'inventory', 'orders'] })
+  await runStep('settings-mobile-sweep', { workflowId: 'U6' }, async () => {
+    logLine('sweep: mobile viewport (settings)')
+    setViewport(390, 844)
+    await sweepPages({ labelPrefix: 'mobile-settings', onlyLabels: ['settings', 'substances', 'inventory', 'orders'] })
+  })
 
   logLine('PASS: settings browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 }
 
 async function runInventoryScope() {
-  await initializeRun()
+  await runStep('inventory-initialize', { workflowId: 'U1' }, async () => initializeRun())
 
-  await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'Demo formulation' })
-  await inventoryOrderLinkingDeepInteractions({ formulationLabelIncludes: 'Demo formulation' })
-  await inventoryActivateCloseOneVial()
-  await inventoryReconcileImportedVials()
-  await verifyVialSelectorMobileSanity({ formulationLabelIncludes: 'Demo formulation' })
+  await runStep('inventory-seed-orders-and-vials', { workflowId: 'U4' }, async () =>
+    ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'Demo formulation' }),
+  )
+  await runStep('inventory-order-linking', { workflowId: 'U5' }, async () =>
+    inventoryOrderLinkingDeepInteractions({ formulationLabelIncludes: 'Demo formulation' }),
+  )
+  await runStep('inventory-lifecycle-transitions', { workflowId: 'U5' }, async () => inventoryActivateCloseOneVial())
+  await runStep('inventory-reconcile-imported', { workflowId: 'U5' }, async () => inventoryReconcileImportedVials())
+  await runStep('inventory-mobile-selector-sanity', { workflowId: 'U5' }, async () =>
+    verifyVialSelectorMobileSanity({ formulationLabelIncludes: 'Demo formulation' }),
+  )
 
-  logLine('sweep: desktop viewport (inventory)')
-  setViewport(1280, 720)
-  await sweepPages({
-    labelPrefix: 'desktop-inventory',
-    onlyLabels: ['inventory', 'orders', 'today', 'analytics'],
+  await runStep('inventory-desktop-sweep', { workflowId: 'U5' }, async () => {
+    logLine('sweep: desktop viewport (inventory)')
+    setViewport(1280, 720)
+    await sweepPages({
+      labelPrefix: 'desktop-inventory',
+      onlyLabels: ['inventory', 'orders', 'today', 'analytics'],
+    })
   })
 
-  logLine('sweep: mobile viewport (inventory)')
-  setViewport(390, 844)
-  await sweepPages({ labelPrefix: 'mobile-inventory', onlyLabels: ['inventory', 'orders', 'today'] })
+  await runStep('inventory-mobile-sweep', { workflowId: 'U5' }, async () => {
+    logLine('sweep: mobile viewport (inventory)')
+    setViewport(390, 844)
+    await sweepPages({ labelPrefix: 'mobile-inventory', onlyLabels: ['inventory', 'orders', 'today'] })
+  })
 
   logLine('PASS: inventory browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 }
 
 async function runOrdersScope() {
-  await initializeRun()
+  await runStep('orders-initialize', { workflowId: 'U1' }, async () => initializeRun())
 
-  await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'Demo formulation' })
+  await runStep('orders-procurement-chain', { workflowId: 'U4' }, async () =>
+    ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'Demo formulation' }),
+  )
 
-  logLine('sweep: desktop viewport (orders)')
-  setViewport(1280, 720)
-  await sweepPages({
-    labelPrefix: 'desktop-orders',
-    onlyLabels: ['orders', 'inventory'],
+  await runStep('orders-desktop-sweep', { workflowId: 'U4' }, async () => {
+    logLine('sweep: desktop viewport (orders)')
+    setViewport(1280, 720)
+    await sweepPages({
+      labelPrefix: 'desktop-orders',
+      onlyLabels: ['orders', 'inventory'],
+    })
   })
 
-  logLine('sweep: mobile viewport (orders)')
-  setViewport(390, 844)
-  await sweepPages({ labelPrefix: 'mobile-orders', onlyLabels: ['orders'] })
+  await runStep('orders-mobile-sweep', { workflowId: 'U4' }, async () => {
+    logLine('sweep: mobile viewport (orders)')
+    setViewport(390, 844)
+    await sweepPages({ labelPrefix: 'mobile-orders', onlyLabels: ['orders'] })
+  })
 
   logLine('PASS: orders browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 }
 
 async function runReferenceScope() {
-  await initializeRun()
+  await runStep('reference-initialize', { workflowId: 'U1' }, async () => initializeRun())
 
   const evidenceCitation = `https://example.com/peptaide-e2e-reference/${RUN_ID}`
-  await createEvidenceSourceViaUi({ citation: evidenceCitation, notes: `e2e reference ${RUN_ID}` })
-  await createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 })
-  await createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' })
+  await runStep('reference-evidence-create', { workflowId: 'U6' }, async () =>
+    createEvidenceSourceViaUi({ citation: evidenceCitation, notes: `e2e reference ${RUN_ID}` }),
+  )
+  await runStep('reference-distribution-create', { workflowId: 'U6' }, async () =>
+    createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 }),
+  )
+  await runStep('reference-device-create', { workflowId: 'U3' }, async () =>
+    createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' }),
+  )
 
-  logLine('sweep: desktop viewport (reference)')
-  setViewport(1280, 720)
-  await sweepPages({
-    labelPrefix: 'desktop-reference',
-    onlyLabels: ['settings', 'substances', 'routes', 'formulations', 'devices', 'distributions', 'evidence-sources'],
+  await runStep('reference-desktop-sweep', { workflowId: 'U6' }, async () => {
+    logLine('sweep: desktop viewport (reference)')
+    setViewport(1280, 720)
+    await sweepPages({
+      labelPrefix: 'desktop-reference',
+      onlyLabels: ['settings', 'substances', 'routes', 'formulations', 'devices', 'distributions', 'evidence-sources'],
+    })
   })
-
-  logLine('sweep: mobile viewport (reference)')
-  setViewport(390, 844)
-  await sweepPages({
-    labelPrefix: 'mobile-reference',
-    onlyLabels: ['settings', 'substances', 'routes', 'formulations', 'devices', 'distributions', 'evidence-sources'],
+  await runStep('reference-mobile-sweep', { workflowId: 'U6' }, async () => {
+    logLine('sweep: mobile viewport (reference)')
+    setViewport(390, 844)
+    await sweepPages({
+      labelPrefix: 'mobile-reference',
+      onlyLabels: ['settings', 'substances', 'routes', 'formulations', 'devices', 'distributions', 'evidence-sources'],
+    })
   })
 
   logLine('PASS: reference browser verification completed')
@@ -3836,127 +4155,171 @@ async function runReferenceScope() {
 }
 
 async function runRuntimeScope() {
-  await initializeRuntimeOnlyRun()
-  await assertRuntimePreflight()
-  takeScreenshot('runtime-sign-in')
+  await runStep('runtime-initialize', { workflowId: 'U1' }, async () => initializeRuntimeOnlyRun())
+  await runStep('runtime-preflight', { workflowId: 'U1' }, async () => assertRuntimePreflight())
+  await runStep('runtime-screenshot', { workflowId: 'U1' }, async () => {
+    takeScreenshot('runtime-sign-in')
+  })
   logLine('PASS: runtime browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 }
 
 async function runFullScope() {
-  await initializeRun()
+  await runStep('full-initialize', { workflowId: 'U1' }, async () => initializeRun())
 
   // Setup wizard should be a true step flow (not a long page).
-  await setupWizardNavigationSmoke()
+  await runStep('full-setup-wizard-navigation', { workflowId: 'U1' }, async () => setupWizardNavigationSmoke())
 
   // Verify shell navigation UX (cmd palette + focus=log routing) against the current UI.
-  await commandPaletteDeepInteractions()
-  await hubSidebarClickthroughSweep()
+  await runStep('full-command-palette', { workflowId: 'U1' }, async () => commandPaletteDeepInteractions())
+  await runStep('full-sidebar-clickthrough', { workflowId: 'U1' }, async () => hubSidebarClickthroughSweep())
 
   // Evidence sources are used as optional citations in the settings/substance editor. Create one that we
   // keep (to attach), and a second one that we delete (to cover soft-delete UX).
   const evidenceCitationKeep = `https://example.com/peptaide-e2e-evidence/${RUN_ID}`
   const evidenceCitationDelete = `https://example.com/peptaide-e2e-evidence-delete/${RUN_ID}`
-  await createEvidenceSourceViaUi({ citation: evidenceCitationKeep, notes: `e2e keep ${RUN_ID}` })
-  await createEvidenceSourceViaUi({ citation: evidenceCitationDelete, notes: `e2e delete ${RUN_ID}` })
+  await runStep('full-evidence-create-keep', { workflowId: 'U6' }, async () =>
+    createEvidenceSourceViaUi({ citation: evidenceCitationKeep, notes: `e2e keep ${RUN_ID}` }),
+  )
+  await runStep('full-evidence-create-delete', { workflowId: 'U6' }, async () =>
+    createEvidenceSourceViaUi({ citation: evidenceCitationDelete, notes: `e2e delete ${RUN_ID}` }),
+  )
 
   // Create a small set of distributions for setup/calibration/modifiers.
-  await createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 })
-  await createDistribution({ name: E2E_DIST_MULTIPLIER, valueType: 'multiplier', distType: 'point', p1: 2.0 })
-  await createDistribution({
-    name: E2E_DIST_VOL_PER_SPRAY,
-    valueType: 'volume_ml_per_unit',
-    distType: 'point',
-    p1: 0.1,
-  })
+  await runStep('full-distribution-fraction', { workflowId: 'U6' }, async () =>
+    createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 }),
+  )
+  await runStep('full-distribution-multiplier', { workflowId: 'U6' }, async () =>
+    createDistribution({ name: E2E_DIST_MULTIPLIER, valueType: 'multiplier', distType: 'point', p1: 2.0 }),
+  )
+  await runStep('full-distribution-volume-per-spray', { workflowId: 'U6' }, async () =>
+    createDistribution({
+      name: E2E_DIST_VOL_PER_SPRAY,
+      valueType: 'volume_ml_per_unit',
+      distType: 'point',
+      p1: 0.1,
+    }),
+  )
 
   // Add a device + calibration route + formulation + vial + specs, then log with device units.
-  await createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' })
-  await bulkAddRoutes({
-    names: [E2E_ROUTE_INTRANA],
-    defaultKind: 'device_units',
-    defaultUnit: 'spray',
-    supportsCalibration: true,
-  })
+  await runStep('full-device-create', { workflowId: 'U3' }, async () =>
+    createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' }),
+  )
+  await runStep('full-routes-bulk-add', { workflowId: 'U3' }, async () =>
+    bulkAddRoutes({
+      names: [E2E_ROUTE_INTRANA],
+      defaultKind: 'device_units',
+      defaultUnit: 'spray',
+      supportsCalibration: true,
+    }),
+  )
 
   // Deep coverage for the Stitch-style /settings substances workspace.
-  await settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes: evidenceCitationKeep })
+  await runStep('full-settings-substances-workspace', { workflowId: 'U6' }, async () =>
+    settingsSubstancesWorkspaceDeepInteractions({ evidenceCitationIncludes: evidenceCitationKeep }),
+  )
 
-  await bulkAddFormulation({
-    formulationName: E2E_FORMULATION_IN,
-    substanceLabelIncludes: 'Demo substance',
-    routeLabelIncludes: E2E_ROUTE_INTRANA,
-    deviceLabelIncludes: E2E_DEVICE_SPRAY,
-  })
-  await createFormulationFromVialFlow({
-    substanceLabelIncludes: 'Demo substance',
-    routeLabelIncludes: E2E_ROUTE_INTRANA,
-    formulationName: E2E_FORMULATION_IN_FROM_VIAL_CTA,
-  })
-  await createVial({
-    formulationLabelIncludes: E2E_FORMULATION_IN_FROM_VIAL_CTA,
-    massValue: 10,
-    massUnit: 'mg',
-    volumeValue: 10,
-    volumeUnit: 'mL',
-    costUsd: 50,
-  })
-  await verifyVialSelectorMobileSanity({ formulationLabelIncludes: E2E_FORMULATION_IN_FROM_VIAL_CTA })
-  await addBaseBaSpec({
-    substanceLabelIncludes: 'Demo substance',
-    routeLabelIncludes: E2E_ROUTE_INTRANA,
-    distLabelIncludes: E2E_DIST_FRACTION,
-  })
-  await addDeviceCalibration({
-    deviceLabelIncludes: E2E_DEVICE_SPRAY,
-    routeLabelIncludes: E2E_ROUTE_INTRANA,
-    unitLabel: 'spray',
-    distLabelIncludes: E2E_DIST_VOL_PER_SPRAY,
-  })
-  await addFormulationModifier({
-    formulationLabelIncludes: E2E_FORMULATION_IN,
-    distLabelIncludes: E2E_DIST_MULTIPLIER,
-  })
+  await runStep('full-formulations-bulk-add', { workflowId: 'U3' }, async () =>
+    bulkAddFormulation({
+      formulationName: E2E_FORMULATION_IN,
+      substanceLabelIncludes: 'Demo substance',
+      routeLabelIncludes: E2E_ROUTE_INTRANA,
+      deviceLabelIncludes: E2E_DEVICE_SPRAY,
+    }),
+  )
+  await runStep('full-formulation-from-vial-flow', { workflowId: 'U3' }, async () =>
+    createFormulationFromVialFlow({
+      substanceLabelIncludes: 'Demo substance',
+      routeLabelIncludes: E2E_ROUTE_INTRANA,
+      formulationName: E2E_FORMULATION_IN_FROM_VIAL_CTA,
+    }),
+  )
+  await runStep('full-vial-create', { workflowId: 'U5' }, async () =>
+    createVial({
+      formulationLabelIncludes: E2E_FORMULATION_IN_FROM_VIAL_CTA,
+      massValue: 10,
+      massUnit: 'mg',
+      volumeValue: 10,
+      volumeUnit: 'mL',
+      costUsd: 50,
+    }),
+  )
+  await runStep('full-mobile-vial-selector-sanity', { workflowId: 'U5' }, async () =>
+    verifyVialSelectorMobileSanity({ formulationLabelIncludes: E2E_FORMULATION_IN_FROM_VIAL_CTA }),
+  )
+  await runStep('full-base-ba-spec', { workflowId: 'U6' }, async () =>
+    addBaseBaSpec({
+      substanceLabelIncludes: 'Demo substance',
+      routeLabelIncludes: E2E_ROUTE_INTRANA,
+      distLabelIncludes: E2E_DIST_FRACTION,
+    }),
+  )
+  await runStep('full-device-calibration', { workflowId: 'U6' }, async () =>
+    addDeviceCalibration({
+      deviceLabelIncludes: E2E_DEVICE_SPRAY,
+      routeLabelIncludes: E2E_ROUTE_INTRANA,
+      unitLabel: 'spray',
+      distLabelIncludes: E2E_DIST_VOL_PER_SPRAY,
+    }),
+  )
+  await runStep('full-formulation-modifier', { workflowId: 'U6' }, async () =>
+    addFormulationModifier({
+      formulationLabelIncludes: E2E_FORMULATION_IN,
+      distLabelIncludes: E2E_DIST_MULTIPLIER,
+    }),
+  )
 
   // CRUD coverage for deep-link setup pages (not the Stitch workspace): device detail and formulation detail.
-  await deviceDetailCalibrationCrudViaUi({
-    deviceNameIncludes: E2E_DEVICE_SPRAY,
-    routeLabelIncludes: E2E_ROUTE_INTRANA,
-    distLabelIncludes: E2E_DIST_VOL_PER_SPRAY,
-    unitLabel: 'spray2',
-  })
-  await formulationDetailComponentSpecCrudViaUi({
-    formulationNameIncludes: E2E_FORMULATION_IN,
-    componentName: `E2E component ${RUN_ID}`,
-    multiplierDistLabelIncludes: E2E_DIST_MULTIPLIER,
-  })
+  await runStep('full-device-detail-calibration-crud', { workflowId: 'U3' }, async () =>
+    deviceDetailCalibrationCrudViaUi({
+      deviceNameIncludes: E2E_DEVICE_SPRAY,
+      routeLabelIncludes: E2E_ROUTE_INTRANA,
+      distLabelIncludes: E2E_DIST_VOL_PER_SPRAY,
+      unitLabel: 'spray2',
+    }),
+  )
+  await runStep('full-formulation-detail-component-crud', { workflowId: 'U3' }, async () =>
+    formulationDetailComponentSpecCrudViaUi({
+      formulationNameIncludes: E2E_FORMULATION_IN,
+      componentName: `E2E component ${RUN_ID}`,
+      multiplierDistLabelIncludes: E2E_DIST_MULTIPLIER,
+    }),
+  )
 
   // Seed one deterministic event used by downstream today/copy-row assertions.
-  await logEventInTodayTable({
-    formulationLabelIncludes: 'Demo formulation',
-    inputText: '0.3mL',
-    timeHHMM: '01:23',
-    notes: `e2e note ${RUN_ID}`,
-    via: 'click',
-  })
+  await runStep('full-log-event', { workflowId: 'U2' }, async () =>
+    logEventInTodayTable({
+      formulationLabelIncludes: 'Demo formulation',
+      inputText: '0.3mL',
+      timeHHMM: '01:23',
+      notes: `e2e note ${RUN_ID}`,
+      via: 'click',
+    }),
+  )
 
   // Deep coverage for the Stitch /today hub (quick log, control center, focus behavior).
-  await todayHubDeepInteractions()
-  await notificationsDeepInteractions()
+  await runStep('full-today-hub-deep-interactions', { workflowId: 'U2' }, async () => todayHubDeepInteractions())
+  await runStep('full-notifications-deep-interactions', { workflowId: 'U2' }, async () => notificationsDeepInteractions())
 
-  await deleteAndRestoreFirstTodayEvent()
-  await cycleSplitAndEnd()
+  await runStep('full-today-delete-restore', { workflowId: 'U2' }, async () => deleteAndRestoreFirstTodayEvent())
+  await runStep('full-cycle-split-end', { workflowId: 'U2' }, async () => cycleSplitAndEnd())
 
   // Delete the evidence source we marked for deletion (soft-delete coverage) after the settings interactions.
-  await deleteEvidenceSourceViaUi({ citation: evidenceCitationDelete })
+  await runStep('full-evidence-delete', { workflowId: 'U6' }, async () =>
+    deleteEvidenceSourceViaUi({ citation: evidenceCitationDelete }),
+  )
 
-  await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: E2E_FORMULATION_IN })
-  await inventoryOrderLinkingDeepInteractions({ formulationLabelIncludes: E2E_FORMULATION_IN })
-  await inventoryActivateCloseOneVial()
+  await runStep('full-orders-generate-vials', { workflowId: 'U4' }, async () =>
+    ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: E2E_FORMULATION_IN }),
+  )
+  await runStep('full-inventory-order-linking', { workflowId: 'U5' }, async () =>
+    inventoryOrderLinkingDeepInteractions({ formulationLabelIncludes: E2E_FORMULATION_IN }),
+  )
+  await runStep('full-inventory-activate-close', { workflowId: 'U5' }, async () => inventoryActivateCloseOneVial())
 
   // Capture a /today screenshot at the same viewport size as the Stitch mockup artifact (1600x1280) so
   // the run output can be visually compared side-by-side (see mockup-compare.html).
-  {
+  await runStep('full-capture-today-compare-screenshot', { workflowId: 'U2' }, async () => {
     const prevW = 1280
     const prevH = 720
     setViewport(1600, 1280)
@@ -3965,20 +4328,29 @@ async function runFullScope() {
     waitFor(300)
     mockCompareTodayPath = takeScreenshot('compare-today-1600x1280')
     setViewport(prevW, prevH)
-  }
+  })
 
-  const compareReportPath = writeMockupCompareReport()
+  const compareReportPath = await runStep('full-write-mockup-compare-report', { workflowId: 'U2' }, async () =>
+    writeMockupCompareReport(),
+  )
   if (compareReportPath) {
     logLine(`mockup_compare_report: ${compareReportPath}`)
   }
 
   // Capture one deep-link for RLS cross-user checks.
-  open(`${BASE_URL}/substances`)
-  waitFor('text=Substances')
-  const substanceHref = await evalJs('document.querySelector(\'a[href^="/substances/"]\')?.getAttribute("href")')
-  const deviceHref = await evalJs('document.querySelector(\'a[href^="/devices/"]\')?.getAttribute("href")')
-  const formulationHref = await evalJs('document.querySelector(\'a[href^="/formulations/"]\')?.getAttribute("href")')
-  const cycleHref = await evalJs('document.querySelector(\'a[href^="/cycles/"]\')?.getAttribute("href")')
+  const [substanceHref, deviceHref, formulationHref, cycleHref] = await runStep(
+    'full-capture-deeplinks',
+    { workflowId: 'U8' },
+    async () => {
+      open(`${BASE_URL}/substances`)
+      waitFor('text=Substances')
+      const a = await evalJs('document.querySelector(\'a[href^="/substances/"]\')?.getAttribute("href")')
+      const b = await evalJs('document.querySelector(\'a[href^="/devices/"]\')?.getAttribute("href")')
+      const c = await evalJs('document.querySelector(\'a[href^="/formulations/"]\')?.getAttribute("href")')
+      const d = await evalJs('document.querySelector(\'a[href^="/cycles/"]\')?.getAttribute("href")')
+      return [a, b, c, d]
+    },
+  )
 
   // Sanity: the hub sidebar should persist on detail pages too (not just list pages).
   const detailLinks = [
@@ -3988,21 +4360,25 @@ async function runFullScope() {
     { label: 'cycle-detail', href: cycleHref },
   ].filter((x) => typeof x.href === 'string' && x.href.startsWith('/'))
 
-  for (const x of detailLinks) {
-    open(`${BASE_URL}${x.href}`)
-    waitFor('main')
-    waitFor(300)
-    await assertHubSidebarPresent(`detail-${x.label}`)
-    takeScreenshot(`detail-${x.label}`)
-    assertHealthy(`detail-${x.label}`)
-  }
+  await runStep('full-detail-sidebar-sanity', { workflowId: 'U1' }, async () => {
+    for (const x of detailLinks) {
+      open(`${BASE_URL}${x.href}`)
+      waitFor('main')
+      waitFor(300)
+      await assertHubSidebarPresent(`detail-${x.label}`)
+      takeScreenshot(`detail-${x.label}`)
+      assertHealthy(`detail-${x.label}`)
+    }
+  })
 
   // Data portability: export -> delete -> import -> verify restored.
   const exportPath = path.join(ARTIFACTS_DIR, 'export.zip')
-  const exportInfo = await exportZipToFile(exportPath)
-  fs.writeFileSync(path.join(ARTIFACTS_DIR, 'export.meta.txt'), `content_type=${exportInfo.contentType}\nbytes=${exportInfo.bytes}\n`)
+  const exportInfo = await runStep('full-export-zip', { workflowId: 'U7' }, async () => exportZipToFile(exportPath))
+  await runStep('full-write-export-meta', { workflowId: 'U7' }, async () => {
+    fs.writeFileSync(path.join(ARTIFACTS_DIR, 'export.meta.txt'), `content_type=${exportInfo.contentType}\nbytes=${exportInfo.bytes}\n`)
+  })
 
-  await settingsDeleteMyData()
+  await runStep('full-delete-my-data', { workflowId: 'U7' }, async () => settingsDeleteMyData())
   // Confirm empty-state surfaces return.
   open(`${BASE_URL}/today`)
   await waitUntil(
@@ -4010,7 +4386,7 @@ async function runFullScope() {
     { label: 'today empty state after delete', timeoutMs: 60000 },
   )
 
-  await settingsImportZip({ zipPath: exportPath, replaceExisting: false })
+  await runStep('full-import-zip', { workflowId: 'U7' }, async () => settingsImportZip({ zipPath: exportPath, replaceExisting: false }))
   open(`${BASE_URL}/today`)
   await waitUntil(
     async () => Boolean(await evalJs('Boolean(document.querySelector(\'[data-e2e="today-log-table"]\'))')),
@@ -4018,18 +4394,22 @@ async function runFullScope() {
   )
 
   // Page sweep (desktop).
-  logLine('sweep: desktop viewport')
-  setViewport(1280, 720)
-  await sweepPages({ labelPrefix: 'desktop' })
+  await runStep('full-desktop-sweep', { workflowId: 'U1' }, async () => {
+    logLine('sweep: desktop viewport')
+    setViewport(1280, 720)
+    await sweepPages({ labelPrefix: 'desktop' })
+  })
 
   // Page sweep (mobile).
-  logLine('sweep: mobile viewport')
-  setViewport(390, 844)
-  await sweepPages({ labelPrefix: 'mobile' })
+  await runStep('full-mobile-sweep', { workflowId: 'U1' }, async () => {
+    logLine('sweep: mobile viewport')
+    setViewport(390, 844)
+    await sweepPages({ labelPrefix: 'mobile' })
+  })
 
   // Multi-user RLS: sign out, sign in as B, verify A's deep links are 404/not-found.
-  await signOut()
-  await signInWithCodePreferDevUi(EMAIL_B)
+  await runStep('full-signout', { workflowId: 'U8' }, async () => signOut())
+  await runStep('full-signin-user-b', { workflowId: 'U8' }, async () => signInWithCodePreferDevUi(EMAIL_B))
 
   // User B should see empty state on /today.
   await waitUntil(
@@ -4038,18 +4418,20 @@ async function runFullScope() {
   )
 
   const deepLinks = [substanceHref, deviceHref, formulationHref, cycleHref].filter((h) => typeof h === 'string')
-  for (const href of deepLinks) {
-    open(`${BASE_URL}${href}`)
-    // Next.js notFound renders a simple 404 page. Assert we do not see app layout content.
-    await waitUntil(
-      async () => {
-        const body = await evalJs('document.body.innerText')
-        if (typeof body !== 'string') return false
-        return body.toLowerCase().includes('not found') || body.toLowerCase().includes('could not be found')
-      },
-      { label: `userB cannot open ${href}`, timeoutMs: 30000 },
-    )
-  }
+  await runStep('full-rls-deeplink-denial-checks', { workflowId: 'U8' }, async () => {
+    for (const href of deepLinks) {
+      open(`${BASE_URL}${href}`)
+      // Next.js notFound renders a simple 404 page. Assert we do not see app layout content.
+      await waitUntil(
+        async () => {
+          const body = await evalJs('document.body.innerText')
+          if (typeof body !== 'string') return false
+          return body.toLowerCase().includes('not found') || body.toLowerCase().includes('could not be found')
+        },
+        { label: `userB cannot open ${href}`, timeoutMs: 30000 },
+      )
+    }
+  })
 
   // Simple CSV import (sparse datasets): import a tiny events CSV for user B and verify it produces a usable /today and /cycles.
   const customSimpleCsv = process.env.E2E_SIMPLE_EVENTS_CSV_PATH
@@ -4092,6 +4474,13 @@ async function runFullScope() {
 }
 
 async function main() {
+  runStartedAtMs = Date.now()
+  appendStepEvent('run_start', {
+    run_id: RUN_ID,
+    scope: E2E_SCOPE,
+    base_url: BASE_URL,
+  })
+
   if (E2E_SCOPE === 'runtime') {
     await runRuntimeScope()
     return
@@ -4123,21 +4512,25 @@ async function main() {
   await runFullScope()
 }
 
+let mainErr = null
+
 main()
   .catch((err) => {
+    mainErr = err
     const name = err && typeof err === 'object' && 'name' in err ? String(err.name) : 'Error'
     const msg = err instanceof Error ? err.message : String(err)
     process.stderr.write(`${name}: ${msg}\n`)
     if (err instanceof Error && err.stack) {
       process.stderr.write(`${err.stack}\n`)
     }
-    process.exit(1)
   })
   .finally(() => {
+    writeRunSummary(mainErr ? 'failed' : 'passed', mainErr)
     // Best-effort clean-up: close the browser session.
     try {
       runAgentBrowser(['close'], { allowFailure: true })
     } catch {
       // ignore
     }
+    if (mainErr) process.exit(1)
   })
