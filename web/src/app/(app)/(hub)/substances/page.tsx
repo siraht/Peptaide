@@ -61,6 +61,7 @@ export default async function SubstancesPage() {
           { label: 'With family', value: fmtCount(withFamily), tone: withFamily > 0 ? 'good' : 'neutral' },
         ]}
         defaultCollapsed
+        openWhenFocus="new"
         storageKey="peptaide.module.substances.add-single"
       >
         <CreateSubstanceForm />

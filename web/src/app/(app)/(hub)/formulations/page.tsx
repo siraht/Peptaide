@@ -78,6 +78,7 @@ export default async function FormulationsPage() {
               { label: 'Devices', value: fmtCount(devices.length), tone: devices.length > 0 ? 'good' : 'neutral' },
             ]}
             defaultCollapsed
+            openWhenFocus="new"
             storageKey="peptaide.module.formulations.add"
           >
             <CreateFormulationForm substances={substanceOptions} routes={routeOptions} devices={deviceOptions} />

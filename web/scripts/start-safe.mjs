@@ -68,6 +68,17 @@ function findPidOnPort(port) {
   return null
 }
 
+function tryKill(pid, signal) {
+  try {
+    process.kill(pid, signal)
+    return true
+  } catch (err) {
+    const code = err && typeof err === 'object' && 'code' in err ? String(err.code || '') : ''
+    if (code === 'ESRCH') return false
+    throw err
+  }
+}
+
 async function ensurePortFree(port) {
   const pid = findPidOnPort(port)
   if (!pid) {
@@ -80,7 +91,7 @@ async function ensurePortFree(port) {
   }
 
   process.stdout.write(`[start-safe] found pid=${pid} on port ${port}; sending SIGTERM\n`)
-  process.kill(pid, 'SIGTERM')
+  tryKill(pid, 'SIGTERM')
 
   const deadline = Date.now() + 8000
   while (Date.now() < deadline) {
@@ -95,7 +106,7 @@ async function ensurePortFree(port) {
   const stillPid = findPidOnPort(port)
   if (stillPid) {
     process.stdout.write(`[start-safe] pid=${stillPid} still bound on ${port}; sending SIGKILL\n`)
-    process.kill(stillPid, 'SIGKILL')
+    tryKill(stillPid, 'SIGKILL')
     await sleep(300)
   }
 

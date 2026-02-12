@@ -59,6 +59,7 @@ export default async function RoutesPage() {
           { label: 'Calibrated', value: fmtCount(calibrated), tone: calibrated > 0 ? 'good' : 'neutral' },
         ]}
         defaultCollapsed
+        openWhenFocus="new"
         storageKey="peptaide.module.routes.add-single"
       >
         <CreateRouteForm />

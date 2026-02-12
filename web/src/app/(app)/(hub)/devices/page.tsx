@@ -61,6 +61,7 @@ export default async function DevicesPage() {
           { label: 'Kinds', value: fmtCount(kindCount), tone: kindCount > 0 ? 'good' : 'neutral' },
         ]}
         defaultCollapsed
+        openWhenFocus="new"
         storageKey="peptaide.module.devices.add"
       >
         <CreateDeviceForm />

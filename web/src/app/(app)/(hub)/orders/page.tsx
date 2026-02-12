@@ -156,6 +156,7 @@ export default async function OrdersPage() {
           { label: 'Orders', value: fmtCount(orders.length), tone: orders.length > 0 ? 'good' : 'neutral' },
         ]}
         defaultCollapsed
+        openWhenFocus="new-vendor"
         storageKey="peptaide.module.orders.add-vendor"
       >
         <CreateVendorForm />
@@ -170,6 +171,7 @@ export default async function OrdersPage() {
           { label: 'Orders', value: fmtCount(orders.length), tone: orders.length > 0 ? 'good' : 'neutral' },
         ]}
         defaultCollapsed
+        openWhenFocus="new-order"
         storageKey="peptaide.module.orders.add-order"
       >
         {vendorOptions.length === 0 ? (
@@ -195,6 +197,7 @@ export default async function OrdersPage() {
           { label: 'Items', value: fmtCount(visibleItems.length), tone: visibleItems.length > 0 ? 'good' : 'neutral' },
         ]}
         defaultCollapsed
+        openWhenFocus="new-order-item"
         storageKey="peptaide.module.orders.add-item"
       >
         {orderOptions.length === 0 || substanceOptions.length === 0 ? (

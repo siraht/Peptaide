@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 type CompactModuleTone = 'neutral' | 'good' | 'warn'
@@ -28,6 +29,7 @@ export function CompactEntryModule(props: {
   summaryItems?: CompactModuleSummaryItem[]
   defaultCollapsed?: boolean
   storageKey?: string
+  openWhenFocus?: string | string[]
   children: React.ReactNode
   className?: string
   emptyCta?: {
@@ -42,13 +44,24 @@ export function CompactEntryModule(props: {
     summaryItems = [],
     defaultCollapsed = true,
     storageKey,
+    openWhenFocus,
     children,
     className,
     emptyCta,
   } = props
 
+  const searchParams = useSearchParams()
   const [open, setOpen] = useState(!defaultCollapsed)
   const [storageReady, setStorageReady] = useState(!storageKey)
+
+  const shouldOpenForFocus = useMemo(() => {
+    const focus = String(searchParams.get('focus') || '').trim()
+    if (!focus || !openWhenFocus) return false
+    const wanted = (Array.isArray(openWhenFocus) ? openWhenFocus : [openWhenFocus])
+      .map((x) => String(x || '').trim())
+      .filter(Boolean)
+    return wanted.includes(focus)
+  }, [openWhenFocus, searchParams])
 
   useEffect(() => {
     if (!storageKey) return
@@ -71,6 +84,11 @@ export function CompactEntryModule(props: {
       // Ignore storage write failures.
     }
   }, [open, storageKey, storageReady])
+
+  useEffect(() => {
+    if (!shouldOpenForFocus) return
+    setOpen(true)
+  }, [shouldOpenForFocus])
 
   const panelId = useMemo(() => `compact-module-panel-${id}`, [id])
 

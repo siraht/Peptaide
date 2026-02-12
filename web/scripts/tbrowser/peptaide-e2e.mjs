@@ -733,8 +733,11 @@ async function hasCompactModule(moduleId) {
   return Boolean(await evalJs(`Boolean(document.querySelector(${JSON.stringify(compactModuleSelector(moduleId))}))`))
 }
 
-async function ensureCompactModuleOpen(moduleId) {
+async function ensureCompactModuleOpen(moduleId, { required = false } = {}) {
   if (!(await hasCompactModule(moduleId))) {
+    if (required) {
+      fail(`Expected compact module "${moduleId}" but it was not found.`)
+    }
     return false
   }
 
@@ -1031,7 +1034,7 @@ async function seedDemoDataIfAvailable() {
 async function createDistribution({ name, valueType, distType, p1 }) {
   logLine(`dist: creating ${name}`)
   open(`${BASE_URL}/distributions`)
-  await ensureCompactModuleOpen('distributions-add')
+  await ensureCompactModuleOpen('distributions-add', { required: true })
   waitFor('input[name="name"]')
   fill('input[name="name"]', name)
   runAgentBrowser(['select', 'select[name="value_type"]', valueType])
@@ -1096,7 +1099,7 @@ async function bulkAddRoutes({ names, defaultKind, defaultUnit, supportsCalibrat
 async function createDevice({ name, kind, defaultUnit }) {
   logLine(`device: creating ${name}`)
   open(`${BASE_URL}/devices`)
-  await ensureCompactModuleOpen('devices-add')
+  await ensureCompactModuleOpen('devices-add', { required: true })
   waitFor('input[name="name"]')
   fill('input[name="name"]', name)
   runAgentBrowser(['select', 'select[name="device_kind"]', kind])
@@ -1186,7 +1189,7 @@ async function openPageWithVialSelector(pathname, { label, maxAttempts = 4, modu
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     open(`${BASE_URL}${pathname}`)
     if (resolvedModuleId) {
-      await ensureCompactModuleOpen(resolvedModuleId)
+      await ensureCompactModuleOpen(resolvedModuleId, { required: true })
     }
     try {
       await waitForVialSelectorCards({
@@ -2358,8 +2361,12 @@ async function cycleSplitAndEnd() {
     const display = `E2E Cycle ${suffix}`
 
     open(`${BASE_URL}/substances?focus=new`)
-    await ensureCompactModuleOpen('substances-add-single')
     await waitForBodyText('Substances', { label: 'substances page visible for cycle-card setup', timeoutMs: 60000 })
+    await waitUntil(async () => Boolean(await hasCompactModule('substances-add-single')), {
+      label: 'substances add-single compact module available',
+      timeoutMs: 30000,
+    })
+    await ensureCompactModuleOpen('substances-add-single', { required: true })
     waitFor('input[name="canonical_name"]')
     fill('input[name="canonical_name"]', canonical)
     fill('input[name="display_name"]', display)
@@ -2443,16 +2450,37 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   logLine('orders: vendor + order + item + generate vials')
   open(`${BASE_URL}/orders`)
   await waitForBodyText('Orders', { label: 'orders page visible' })
-  await ensureCompactModuleOpen('orders-quick-import')
-  await ensureCompactModuleOpen('orders-add-vendor')
+  await ensureCompactModuleOpen('orders-quick-import', { required: true })
+  await ensureCompactModuleOpen('orders-add-vendor', { required: true })
 
   // Verify the real-world import button works (idempotent).
   const hasRetaImport = await evalJs('document.body.innerText.includes("Import RETA-PEPTIDE orders")')
   if (hasRetaImport) {
     clickButtonByName('Import RETA-PEPTIDE orders')
-    // The success message can be transient due to router.refresh(). Wait for stable, persisted evidence:
-    // the imported Order I ordered_at date should appear in the Orders table.
-    await waitForBodyText('2025-09-24', { label: 'reta import persisted order visible', timeoutMs: 120000 })
+    await waitUntil(
+      async () => {
+        const res = await evalJs(`(() => {
+          const root = document.querySelector('[data-e2e="compact-module"][data-module-id="orders-quick-import"]')
+          const errorEl = root ? root.querySelector('p.text-red-600, p.dark\\\\:text-red-400') : null
+          const err = errorEl ? (errorEl.textContent || '').trim() : ''
+
+          const rootText = root ? (root.textContent || '') : ''
+          const bodyText = document.body.innerText || ''
+
+          return {
+            err,
+            hasSuccess: rootText.includes('Imported orders for RETA-PEPTIDE'),
+            hasPersistedOrderDate: bodyText.includes('2025-09-24'),
+          }
+        })()`)
+        if (!res || typeof res !== 'object') return false
+        if (res.err) {
+          fail(`RETA import failed: ${res.err}`)
+        }
+        return Boolean(res.hasSuccess || res.hasPersistedOrderDate)
+      },
+      { label: 'reta import completion', timeoutMs: 240000 },
+    )
   }
 
   async function tagOrdersForm(headingText, tag) {
@@ -2493,7 +2521,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   await waitForBodyText(E2E_VENDOR_NAME, { label: 'vendor created in UI' })
 
   // Order form only appears after at least one vendor exists.
-  await ensureCompactModuleOpen('orders-add-order')
+  await ensureCompactModuleOpen('orders-add-order', { required: true })
   await waitForBodyText('Add order', { label: 'order form visible' })
   const orderForm = await tagOrdersForm('Add order', 'order')
 
@@ -2506,7 +2534,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   await waitForBodyText('Add order item', { label: 'order created (order item form visible)' })
 
   // Order item form only appears after at least one order exists.
-  await ensureCompactModuleOpen('orders-add-item')
+  await ensureCompactModuleOpen('orders-add-item', { required: true })
   const itemForm = await tagOrdersForm('Add order item', 'item')
 
   // Order item
@@ -2522,7 +2550,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   fill(`${itemForm} input[name="expected_vials"]`, '2')
   click(`${itemForm} button[type="submit"]`)
   // Generate vials form only appears after at least one order item exists.
-  await ensureCompactModuleOpen('orders-generate-vials')
+  await ensureCompactModuleOpen('orders-generate-vials', { required: true })
   await waitForBodyText('Generate vials', { label: 'generate vials form visible', timeoutMs: 60000 })
   const genForm = await tagOrdersForm('Generate vials', 'gen')
 
@@ -2573,7 +2601,7 @@ async function inventoryReconcileImportedVials() {
   logLine('inventory: reconcile imported vial tags (spreadsheet migration)')
   open(`${BASE_URL}/inventory`)
   await waitForBodyText('Inventory', { label: 'inventory page visible' })
-  await ensureCompactModuleOpen('inventory-reconcile-imported')
+  await ensureCompactModuleOpen('inventory-reconcile-imported', { required: true })
 
   const hasCard = await evalJs('Boolean(document.querySelector(\'[data-e2e="reconcile-imported-vials"]\'))')
   if (!hasCard) {
@@ -2617,7 +2645,7 @@ async function createEvidenceSourceViaUi({ citation, notes }) {
   logLine('evidence: create evidence source')
   open(`${BASE_URL}/evidence-sources`)
   await waitForBodyText('Evidence sources', { label: 'evidence sources page visible' })
-  await ensureCompactModuleOpen('evidence-add')
+  await ensureCompactModuleOpen('evidence-add', { required: true })
 
   const formSel = 'form[data-e2e="evidence-create-form"]'
   waitFor(formSel)
