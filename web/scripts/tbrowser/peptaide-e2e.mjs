@@ -4323,11 +4323,14 @@ async function runFullScope() {
     const prevW = 1280
     const prevH = 720
     setViewport(1600, 1280)
-    open(`${BASE_URL}/today`)
-    waitFor('main')
-    waitFor(300)
-    mockCompareTodayPath = takeScreenshot('compare-today-1600x1280')
-    setViewport(prevW, prevH)
+    try {
+      open(`${BASE_URL}/today`)
+      waitFor('main')
+      waitFor(300)
+      mockCompareTodayPath = takeScreenshot('compare-today-1600x1280')
+    } finally {
+      setViewport(prevW, prevH)
+    }
   })
 
   const compareReportPath = await runStep('full-write-mockup-compare-report', { workflowId: 'U2' }, async () =>
@@ -4417,6 +4420,7 @@ async function runFullScope() {
 
   await runStep('full-rls-user-b-empty-today', { workflowId: 'U8' }, async () => {
     // User B should see empty state on /today.
+    open(`${BASE_URL}/today`)
     await waitUntil(
       async () => Boolean(await evalJs('document.body.innerText.includes("No formulations exist yet")')),
       { label: 'userB today empty state', timeoutMs: 60000 },

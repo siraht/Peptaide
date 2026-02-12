@@ -35,6 +35,10 @@ function parseLcov(lcovText) {
       if (!map.has(current)) map.set(current, new Map())
       continue
     }
+    if (line === 'end_of_record') {
+      current = null
+      continue
+    }
     if (!current) continue
 
     if (line.startsWith('DA:')) {
