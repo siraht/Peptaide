@@ -1,12 +1,22 @@
 import { CreateDistributionForm } from './create-distribution-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listDistributions } from '@/lib/repos/distributionsRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function DistributionsPage() {
   const supabase = await createClient()
   const dists = await listDistributions(supabase)
+
+  const fractionCount = dists.filter((d) => d.value_type === 'fraction').length
+  const volumePerUnitCount = dists.filter((d) => d.value_type === 'volume_ml_per_unit').length
+  const pointCount = dists.filter((d) => d.dist_type === 'point').length
 
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
@@ -17,7 +27,43 @@ export default async function DistributionsPage() {
         </p>
       </div>
 
-      <CreateDistributionForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Distributions',
+            value: fmtCount(dists.length),
+            detail: dists.length > 0 ? 'Reusable uncertainty models ready for assignment.' : 'No reusable distributions yet.',
+            tone: dists.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Fraction models',
+            value: fmtCount(fractionCount),
+            detail: 'Used by base bioavailability specs and route assumptions.',
+            tone: fractionCount > 0 ? 'good' : 'neutral',
+          },
+          {
+            label: 'Point distributions',
+            value: fmtCount(pointCount),
+            detail: `${fmtCount(volumePerUnitCount)} support volume-per-unit calibration contexts.`,
+            tone: pointCount > 0 ? 'good' : 'neutral',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="distributions-add"
+        title="Add distribution"
+        description="Create one probability model entry for use across setup and recommendation workflows."
+        summaryItems={[
+          { label: 'All distributions', value: fmtCount(dists.length), tone: dists.length > 0 ? 'good' : 'neutral' },
+          { label: 'Fraction', value: fmtCount(fractionCount), tone: fractionCount > 0 ? 'good' : 'neutral' },
+          { label: 'Point', value: fmtCount(pointCount), tone: pointCount > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.distributions.add"
+      >
+        <CreateDistributionForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>

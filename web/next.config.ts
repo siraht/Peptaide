@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  // Keep Turbopack root deterministic even when multiple lockfiles exist nearby.
+  turbopack: {
+    root: process.cwd(),
+  },
+}
 
-export default nextConfig;
+export default nextConfig

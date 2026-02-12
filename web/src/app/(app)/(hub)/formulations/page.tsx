@@ -3,12 +3,18 @@ import Link from 'next/link'
 import { BulkAddFormulationsForm } from './bulk-add-formulations-form'
 import { CreateFormulationForm } from './create-formulation-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { listFormulationsEnriched } from '@/lib/repos/formulationsRepo'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { listSubstances } from '@/lib/repos/substancesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function FormulationsPage() {
   const supabase = await createClient()
@@ -20,6 +26,14 @@ export default async function FormulationsPage() {
     listFormulationsEnriched(supabase),
   ])
 
+  const prerequisitesReady = substances.length > 0 && routes.length > 0
+  const withDeviceCount = formulations.filter((f) => f.device != null).length
+  const defaultForRouteCount = formulations.filter((f) => f.formulation.is_default_for_route).length
+
+  const substanceOptions = substances.map((s) => ({ id: s.id, label: s.display_name }))
+  const routeOptions = routes.map((r) => ({ id: r.id, label: r.name }))
+  const deviceOptions = devices.map((d) => ({ id: d.id, label: d.name }))
+
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
       <div>
@@ -29,7 +43,61 @@ export default async function FormulationsPage() {
         </p>
       </div>
 
-      {substances.length === 0 || routes.length === 0 ? (
+      <MetricsStrip
+        items={[
+          {
+            label: 'Formulations',
+            value: fmtCount(formulations.length),
+            detail: `${fmtCount(defaultForRouteCount)} marked default-for-route`,
+            tone: formulations.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'With device',
+            value: fmtCount(withDeviceCount),
+            detail: 'Formulations tied to a concrete device profile.',
+            tone: withDeviceCount > 0 ? 'good' : 'neutral',
+          },
+          {
+            label: 'Prerequisites',
+            value: `${fmtCount(substances.length)} substances / ${fmtCount(routes.length)} routes`,
+            detail: prerequisitesReady ? 'Ready for formulation creation workflows.' : 'Create at least one substance and route first.',
+            tone: prerequisitesReady ? 'good' : 'warn',
+          },
+        ]}
+      />
+
+      {prerequisitesReady ? (
+        <>
+          <CompactEntryModule
+            id="formulations-add"
+            title="Add formulation"
+            description="Create one formulation with optional device linkage and route defaults."
+            summaryItems={[
+              { label: 'Substances', value: fmtCount(substances.length), tone: 'good' },
+              { label: 'Routes', value: fmtCount(routes.length), tone: 'good' },
+              { label: 'Devices', value: fmtCount(devices.length), tone: devices.length > 0 ? 'good' : 'neutral' },
+            ]}
+            defaultCollapsed
+            storageKey="peptaide.module.formulations.add"
+          >
+            <CreateFormulationForm substances={substanceOptions} routes={routeOptions} devices={deviceOptions} />
+          </CompactEntryModule>
+
+          <CompactEntryModule
+            id="formulations-bulk-add"
+            title="Bulk add formulations"
+            description="Seed multiple formulations in one pass using shared substance/route/device choices."
+            summaryItems={[
+              { label: 'Existing formulations', value: fmtCount(formulations.length), tone: formulations.length > 0 ? 'good' : 'neutral' },
+              { label: 'Defaults', value: fmtCount(defaultForRouteCount), tone: defaultForRouteCount > 0 ? 'good' : 'neutral' },
+            ]}
+            defaultCollapsed
+            storageKey="peptaide.module.formulations.bulk-add"
+          >
+            <BulkAddFormulationsForm substances={substanceOptions} routes={routeOptions} devices={deviceOptions} />
+          </CompactEntryModule>
+        </>
+      ) : (
         <EmptyState
           icon="medication"
           title="Formulations need prerequisites"
@@ -39,19 +107,6 @@ export default async function FormulationsPage() {
           secondaryHref="/routes"
           secondaryLabel="Open routes"
         />
-      ) : (
-        <>
-          <CreateFormulationForm
-            substances={substances.map((s) => ({ id: s.id, label: s.display_name }))}
-            routes={routes.map((r) => ({ id: r.id, label: r.name }))}
-            devices={devices.map((d) => ({ id: d.id, label: d.name }))}
-          />
-          <BulkAddFormulationsForm
-            substances={substances.map((s) => ({ id: s.id, label: s.display_name }))}
-            routes={routes.map((r) => ({ id: r.id, label: r.name }))}
-            devices={devices.map((d) => ({ id: d.id, label: d.name }))}
-          />
-        </>
       )}
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">

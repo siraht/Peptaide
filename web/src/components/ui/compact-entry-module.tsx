@@ -47,27 +47,30 @@ export function CompactEntryModule(props: {
     emptyCta,
   } = props
 
-  const [open, setOpen] = useState(() => {
-    const fallback = !defaultCollapsed
-    if (!storageKey || typeof window === 'undefined') return fallback
-    try {
-      const raw = window.localStorage.getItem(storageKey)
-      if (raw === 'open') return true
-      if (raw === 'closed') return false
-    } catch {
-      // Storage can be disabled in private mode; fall back to in-memory state.
-    }
-    return fallback
-  })
+  const [open, setOpen] = useState(!defaultCollapsed)
+  const [storageReady, setStorageReady] = useState(!storageKey)
 
   useEffect(() => {
     if (!storageKey) return
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      if (raw === 'open') setOpen(true)
+      else if (raw === 'closed') setOpen(false)
+    } catch {
+      // Storage can be disabled in private mode; fall back to in-memory state.
+    } finally {
+      setStorageReady(true)
+    }
+  }, [storageKey])
+
+  useEffect(() => {
+    if (!storageKey || !storageReady) return
     try {
       window.localStorage.setItem(storageKey, open ? 'open' : 'closed')
     } catch {
       // Ignore storage write failures.
     }
-  }, [open, storageKey])
+  }, [open, storageKey, storageReady])
 
   const panelId = useMemo(() => `compact-module-panel-${id}`, [id])
 

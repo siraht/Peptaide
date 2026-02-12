@@ -64,7 +64,7 @@ const SKIP_DB_RESET = isTruthyEnv(process.env.E2E_SKIP_DB_RESET)
 const E2E_SCOPE = String(process.env.E2E_SCOPE || 'full')
   .trim()
   .toLowerCase()
-const VALID_E2E_SCOPES = new Set(['full', 'smoke', 'today', 'settings'])
+const VALID_E2E_SCOPES = new Set(['full', 'smoke', 'today', 'settings', 'inventory', 'orders', 'reference', 'runtime'])
 if (!VALID_E2E_SCOPES.has(E2E_SCOPE)) {
   throw new Error(`Invalid E2E_SCOPE="${E2E_SCOPE}". Expected one of: ${Array.from(VALID_E2E_SCOPES).join(', ')}`)
 }
@@ -243,6 +243,107 @@ function copyFileIfExists(srcPath, destPath) {
   } catch {
     return false
   }
+}
+
+function extractStaticAssetsFromHtml(html) {
+  const rx = /"(\/_next\/static\/[^"?#]+\.(?:css|js))"/g
+  const found = []
+  const seen = new Set()
+  for (const match of String(html || '').matchAll(rx)) {
+    const asset = match[1]
+    if (!asset || seen.has(asset)) continue
+    seen.add(asset)
+    found.push(asset)
+  }
+  return found
+}
+
+function readCssTokenValue(cssText, tokenName) {
+  const rx = new RegExp(`${tokenName}\\s*:\\s*([^;\\}]+)(?:[;\\}])`)
+  const match = String(cssText || '').match(rx)
+  if (!match) return null
+  const value = String(match[1] || '').trim()
+  return value || null
+}
+
+async function runtimeHttpPreflight({ timeoutMs = 45000, requestTimeoutMs = 7000, pollMs = 1000 } = {}) {
+  const signInUrl = new URL('/sign-in', BASE_URL).toString()
+  const start = Date.now()
+  let html = ''
+  let status = null
+  let lastErr = ''
+
+  logLine(`runtime: preflight html ${signInUrl}`)
+
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(signInUrl, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      })
+      status = res.status
+      html = await res.text()
+      if (res.ok && html.includes('</html>')) {
+        break
+      }
+      const snippet = String(html || '').replace(/\s+/g, ' ').slice(0, 180)
+      lastErr = `HTTP ${res.status} while loading /sign-in. Body starts: ${snippet}`
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err)
+    }
+    await sleep(pollMs)
+  }
+
+  if (!html || !html.includes('</html>')) {
+    fail(`runtime preflight failed while loading /sign-in (status=${String(status)}): ${lastErr || 'unknown error'}`)
+  }
+
+  const assets = extractStaticAssetsFromHtml(html)
+  if (assets.length === 0) {
+    fail('runtime preflight failed: /sign-in referenced zero /_next/static css/js assets.')
+  }
+
+  logLine(`runtime: preflight assets ${assets.length}`)
+
+  const cssBodies = []
+  for (const assetPath of assets) {
+    const assetUrl = new URL(assetPath, BASE_URL).toString()
+    const res = await fetch(assetUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(requestTimeoutMs),
+    })
+    const body = await res.text()
+    if (!res.ok) {
+      const snippet = String(body || '').replace(/\s+/g, ' ').slice(0, 160)
+      fail(`runtime preflight asset failed: ${res.status} ${assetPath} body=${snippet}`)
+    }
+    logLine(`runtime: preflight asset 200 ${assetPath}`)
+    if (assetPath.endsWith('.css')) cssBodies.push(body)
+  }
+
+  const combinedCss = cssBodies.join('\n')
+  if (!combinedCss.trim()) {
+    fail('runtime preflight failed: no CSS asset bodies were collected from /sign-in references.')
+  }
+
+  const requiredTokens = ['--color-primary', '--color-background-dark', '--color-surface-dark']
+  for (const token of requiredTokens) {
+    const value = readCssTokenValue(combinedCss, token)
+    if (!value) {
+      fail(`runtime preflight failed: required token ${token} was missing/empty in sign-in CSS assets.`)
+    }
+    logLine(`runtime: preflight token ${token}=${value}`)
+  }
+}
+
+async function assertRuntimePreflight() {
+  await runtimeHttpPreflight()
+  open(`${BASE_URL}/sign-in`)
+  waitFor('input[name="email"]')
+  await assertSignInStitchVisualContract()
+  assertHealthy('runtime-sign-in')
 }
 
 function writeMockupCompareReport() {
@@ -624,6 +725,59 @@ async function waitUntil(fn, { timeoutMs = 30000, intervalMs = 250, label = 'con
   }
 }
 
+function compactModuleSelector(moduleId) {
+  return `[data-e2e="compact-module"][data-module-id="${moduleId}"]`
+}
+
+async function hasCompactModule(moduleId) {
+  return Boolean(await evalJs(`Boolean(document.querySelector(${JSON.stringify(compactModuleSelector(moduleId))}))`))
+}
+
+async function ensureCompactModuleOpen(moduleId) {
+  if (!(await hasCompactModule(moduleId))) {
+    return false
+  }
+
+  const isOpen = await evalJs(
+    `(() => {
+      const root = document.querySelector(${JSON.stringify(compactModuleSelector(moduleId))})
+      if (!root) return false
+      const panel = root.querySelector('[data-e2e="compact-module-content"]')
+      return panel ? panel.getAttribute('data-expanded') === '1' : false
+    })()`,
+  )
+  if (isOpen) return true
+
+  const clicked = await evalJs(
+    `(() => {
+      const root = document.querySelector(${JSON.stringify(compactModuleSelector(moduleId))})
+      if (!root) return false
+      const btn = root.querySelector('[data-e2e="compact-module-open"]')
+      if (!btn) return false
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      return true
+    })()`,
+  )
+  if (!clicked) {
+    fail(`Could not open compact module "${moduleId}"`)
+  }
+
+  await waitUntil(
+    async () =>
+      Boolean(
+        await evalJs(`(() => {
+          const root = document.querySelector(${JSON.stringify(compactModuleSelector(moduleId))})
+          if (!root) return false
+          const panel = root.querySelector('[data-e2e="compact-module-content"]')
+          return panel ? panel.getAttribute('data-expanded') === '1' : false
+        })()`),
+      ),
+    { label: `compact module open (${moduleId})`, timeoutMs: 30000 },
+  )
+
+  return true
+}
+
 async function mailpitFetchJson(pathname) {
   const url = new URL(pathname, MAILPIT_URL)
   const res = await fetch(url)
@@ -877,6 +1031,7 @@ async function seedDemoDataIfAvailable() {
 async function createDistribution({ name, valueType, distType, p1 }) {
   logLine(`dist: creating ${name}`)
   open(`${BASE_URL}/distributions`)
+  await ensureCompactModuleOpen('distributions-add')
   waitFor('input[name="name"]')
   fill('input[name="name"]', name)
   runAgentBrowser(['select', 'select[name="value_type"]', valueType])
@@ -941,6 +1096,7 @@ async function bulkAddRoutes({ names, defaultKind, defaultUnit, supportsCalibrat
 async function createDevice({ name, kind, defaultUnit }) {
   logLine(`device: creating ${name}`)
   open(`${BASE_URL}/devices`)
+  await ensureCompactModuleOpen('devices-add')
   waitFor('input[name="name"]')
   fill('input[name="name"]', name)
   runAgentBrowser(['select', 'select[name="device_kind"]', kind])
@@ -1023,9 +1179,15 @@ async function waitForVialSelectorCards({ label, timeoutMs = 60000 } = {}) {
   )
 }
 
-async function openPageWithVialSelector(pathname, { label, maxAttempts = 4 } = {}) {
+async function openPageWithVialSelector(pathname, { label, maxAttempts = 4, moduleId } = {}) {
+  const resolvedModuleId =
+    moduleId || (pathname === '/inventory' ? 'inventory-add-vial' : pathname === '/setup/inventory' ? 'setup-inventory-add-vial' : null)
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     open(`${BASE_URL}${pathname}`)
+    if (resolvedModuleId) {
+      await ensureCompactModuleOpen(resolvedModuleId)
+    }
     try {
       await waitForVialSelectorCards({
         label: `${label || pathname} selector present (attempt ${attempt}/${maxAttempts})`,
@@ -1087,7 +1249,25 @@ async function createFormulationFromVialFlow({ substanceLabelIncludes, routeLabe
   const routeId = await selectOptionValue(`${createForm} select[name="route_id"]`, routeLabelIncludes)
   runAgentBrowser(['select', `${createForm} select[name="route_id"]`, routeId])
   fill(`${createForm} input[name="name"]`, formulationName)
-  click(`${createForm} button[type="submit"]`)
+  const submitted = await evalJs(
+    `(() => {
+      const form = document.querySelector(${JSON.stringify(createForm)})
+      if (!form) return false
+      const submitButton = form.querySelector('button[type="submit"]')
+      if (typeof form.requestSubmit === 'function') {
+        if (submitButton) form.requestSubmit(submitButton)
+        else form.requestSubmit()
+        return true
+      }
+      if (submitButton) {
+        submitButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+        return true
+      }
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      return true
+    })()`,
+  )
+  if (!submitted) fail('Could not submit create formulation form in vial flow')
 
   await waitUntil(
     async () => {
@@ -1201,6 +1381,199 @@ async function createVial({ formulationLabelIncludes, massValue, massUnit, volum
   fill(`${formSel} input[name="cost_usd"]`, String(costUsd))
   click(`${formSel} button[type="submit"]`)
   await waitForBodyText('Created', { label: 'vial create success' })
+}
+
+async function inventoryOrderLinkingDeepInteractions({ formulationLabelIncludes }) {
+  logLine('inventory: order-linking deep interactions')
+  const formSel = 'form[data-e2e="vial-create-form"]'
+  const toggleSel = '[data-e2e="vial-link-order-item-toggle"]'
+  const selectSel = '[data-e2e="vial-link-order-item-select"]'
+  const previewSel = '[data-e2e="vial-link-provenance-preview"]'
+  const costInputSel = '[data-e2e="vial-cost-usd-input"]'
+
+  async function waitForVialCreateOutcome(label) {
+    await waitUntil(
+      async () => {
+        const res = await evalJs(`(() => {
+          const form = document.querySelector(${JSON.stringify(formSel)})
+          const root = form ? form.parentElement : null
+          if (!root) return { ok: false, err: 'vial create form root not found' }
+
+          const errEl = root.querySelector('p.text-red-600, p.dark\\\\:text-red-400')
+          const okEl = root.querySelector('p.text-emerald-700, p.dark\\\\:text-emerald-300')
+          const err = errEl ? (errEl.textContent || '').trim() : ''
+          const ok = okEl ? (okEl.textContent || '').trim() : ''
+          return { ok: ok.includes('Created.'), err }
+        })()`)
+
+        if (!res || typeof res !== 'object') return false
+        if (res.err) {
+          fail(`vial create failed (${label}): ${res.err}`)
+        }
+        return Boolean(res.ok)
+      },
+      { label: `vial create success (${label})`, timeoutMs: 60000 },
+    )
+  }
+
+  await openPageWithVialSelector('/inventory', { label: 'inventory order-linking deep interactions' })
+  await clickFormulationMiniCardByLabel(formulationLabelIncludes)
+
+  const enabled = await evalJs(`(() => {
+    const cb = document.querySelector(${JSON.stringify(toggleSel)})
+    if (!(cb instanceof HTMLInputElement)) return false
+    if (!cb.checked) cb.click()
+    return cb.checked
+  })()`)
+  if (!enabled) {
+    fail('Could not enable order-item linkage toggle in Add vial form.')
+  }
+
+  await waitUntil(
+    async () => Boolean(await evalJs(`Boolean(document.querySelector(${JSON.stringify(selectSel)}))`)),
+    { label: 'order-linking select visible', timeoutMs: 30000 },
+  )
+  await waitUntil(
+    async () => Boolean(await evalJs(`Boolean(document.querySelector(${JSON.stringify(previewSel)}))`)),
+    { label: 'order-linking provenance preview visible', timeoutMs: 30000 },
+  )
+
+  const linkedState = await evalJs(`(() => {
+    const selected = document.querySelector(${JSON.stringify(selectSel)})
+    const costInput = document.querySelector(${JSON.stringify(costInputSel)})
+    const preview = document.querySelector(${JSON.stringify(previewSel)})
+    if (!(selected instanceof HTMLSelectElement) || !(costInput instanceof HTMLInputElement) || !preview) {
+      return null
+    }
+
+    const cells = Array.from(preview.querySelectorAll('div'))
+    let impliedText = ''
+    for (let i = 0; i < cells.length - 1; i += 1) {
+      const label = (cells[i].textContent || '').trim().toLowerCase()
+      if (label === 'implied per-vial cost') {
+        impliedText = (cells[i + 1].textContent || '').trim()
+        break
+      }
+    }
+
+    return {
+      selectedValue: selected.value || '',
+      impliedText,
+      costInput: costInput.value || '',
+    }
+  })()`)
+
+  if (!linkedState || typeof linkedState !== 'object') {
+    fail('Could not read linked order-item state in inventory order-linking checks.')
+  }
+  if (!linkedState.selectedValue) {
+    fail('Order-linking select had no selected value after enabling linkage.')
+  }
+
+  const impliedCost = parseCurrency(linkedState.impliedText)
+  if (impliedCost == null) {
+    fail(`Could not parse implied per-vial cost from preview text: "${String(linkedState.impliedText)}"`)
+  }
+
+  const autoFilledCost = Number(linkedState.costInput)
+  if (!Number.isFinite(autoFilledCost)) {
+    fail(`Expected numeric auto-filled cost input, got "${String(linkedState.costInput)}"`)
+  }
+  if (!approxEq(autoFilledCost, impliedCost, { tol: 0.01 })) {
+    fail(`Linked cost autofill mismatch: implied=${impliedCost} input=${autoFilledCost}`)
+  }
+
+  // Manual override path.
+  fill(costInputSel, '123.45')
+  await waitUntil(
+    async () => {
+      const info = await evalJs(`(() => {
+        const msg = Array.from(document.querySelectorAll(${JSON.stringify(`${formSel} p`)}))
+          .map((x) => (x.textContent || '').trim())
+          .find((x) => x.includes('Manual override is active')) || ''
+        const resetBtn = Array.from(document.querySelectorAll(${JSON.stringify(`${formSel} button`)}))
+          .find((x) => (x.textContent || '').trim() === 'Use linked default')
+        const v = (document.querySelector(${JSON.stringify(costInputSel)}) || {}).value || ''
+        return { msg, hasReset: Boolean(resetBtn), v }
+      })()`)
+      if (!info || typeof info !== 'object') return false
+      return info.v === '123.45' && Boolean(info.msg) && Boolean(info.hasReset)
+    },
+    { label: 'manual override state visible for linked vial cost', timeoutMs: 30000 },
+  )
+
+  const resetClicked = await evalJs(`(() => {
+    const btn = Array.from(document.querySelectorAll(${JSON.stringify(`${formSel} button`)}))
+      .find((x) => (x.textContent || '').trim() === 'Use linked default')
+    if (!btn) return false
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    return true
+  })()`)
+  if (!resetClicked) {
+    fail('Could not click "Use linked default" in order-linking section.')
+  }
+
+  await waitUntil(
+    async () => {
+      const vRaw = await evalJs(`(document.querySelector(${JSON.stringify(costInputSel)}) || {}).value || ""`)
+      const v = Number(vRaw)
+      if (!Number.isFinite(v)) return false
+      return approxEq(v, impliedCost, { tol: 0.01 })
+    },
+    { label: 'linked default restored after reset', timeoutMs: 30000 },
+  )
+
+  runAgentBrowser(['select', `${formSel} select[name="status"]`, 'planned'])
+  fill(`${formSel} input[name="content_mass_value"]`, '7.5')
+  runAgentBrowser(['select', `${formSel} select[name="content_mass_unit"]`, 'mg'])
+  fill(`${formSel} input[name="total_volume_value"]`, '3')
+  runAgentBrowser(['select', `${formSel} select[name="total_volume_unit"]`, 'mL'])
+  const linkedNotes = `e2e linked vial ${RUN_ID}`
+  fill(`${formSel} input[name="notes"]`, linkedNotes)
+  click(`${formSel} button[type="submit"]`)
+  await waitForVialCreateOutcome('linked')
+
+  // Unlinked fallback path.
+  await openPageWithVialSelector('/inventory', { label: 'inventory order-linking unlinked fallback' })
+  await clickFormulationMiniCardByLabel(formulationLabelIncludes)
+
+  const disabled = await evalJs(`(() => {
+    const cb = document.querySelector(${JSON.stringify(toggleSel)})
+    if (!(cb instanceof HTMLInputElement)) return false
+    if (cb.checked) cb.click()
+    return !cb.checked
+  })()`)
+  if (!disabled) {
+    fail('Could not disable order-item linkage toggle for unlinked fallback test.')
+  }
+
+  await waitUntil(
+    async () => !Boolean(await evalJs(`Boolean(document.querySelector(${JSON.stringify(selectSel)}))`)),
+    { label: 'order-linking select hidden when unlinked', timeoutMs: 30000 },
+  )
+
+  const hiddenOrderItemBlank = await evalJs(
+    `(() => {
+      const hidden = document.querySelector(${JSON.stringify(`${formSel} input[name="order_item_id"][type="hidden"]`)})
+      return hidden instanceof HTMLInputElement ? hidden.value === '' : false
+    })()`,
+  )
+  if (!hiddenOrderItemBlank) {
+    fail('Expected hidden order_item_id input to be blank for unlinked vial fallback.')
+  }
+
+  runAgentBrowser(['select', `${formSel} select[name="status"]`, 'planned'])
+  fill(`${formSel} input[name="content_mass_value"]`, '8')
+  runAgentBrowser(['select', `${formSel} select[name="content_mass_unit"]`, 'mg'])
+  fill(`${formSel} input[name="total_volume_value"]`, '4')
+  runAgentBrowser(['select', `${formSel} select[name="total_volume_unit"]`, 'mL'])
+  fill(costInputSel, '21.43')
+  const unlinkedNotes = `e2e unlinked vial ${RUN_ID}`
+  fill(`${formSel} input[name="notes"]`, unlinkedNotes)
+  click(`${formSel} button[type="submit"]`)
+  await waitForVialCreateOutcome('unlinked')
+
+  assertHealthy('inventory-order-linking')
 }
 
 async function addBaseBaSpec({ substanceLabelIncludes, routeLabelIncludes, distLabelIncludes }) {
@@ -1985,11 +2358,31 @@ async function cycleSplitAndEnd() {
     const display = `E2E Cycle ${suffix}`
 
     open(`${BASE_URL}/substances?focus=new`)
+    await ensureCompactModuleOpen('substances-add-single')
     await waitForBodyText('Substances', { label: 'substances page visible for cycle-card setup', timeoutMs: 60000 })
     waitFor('input[name="canonical_name"]')
     fill('input[name="canonical_name"]', canonical)
     fill('input[name="display_name"]', display)
-    clickButtonByName('Create')
+    const created = await evalJs(
+      `(() => {
+        const canonicalInput = document.querySelector('input[name="canonical_name"]')
+        const form = canonicalInput && canonicalInput.closest('form')
+        if (!form) return false
+        const submitButton = form.querySelector('button[type="submit"]')
+        if (typeof form.requestSubmit === 'function') {
+          if (submitButton) form.requestSubmit(submitButton)
+          else form.requestSubmit()
+          return true
+        }
+        if (submitButton) {
+          submitButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+          return true
+        }
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+        return true
+      })()`,
+    )
+    if (!created) fail('Could not submit create substance form for cycle-card setup')
     await waitForBodyText(display, { label: 'second substance created for cycle cards', timeoutMs: 60000 })
 
     open(`${BASE_URL}/cycles`)
@@ -2050,6 +2443,8 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   logLine('orders: vendor + order + item + generate vials')
   open(`${BASE_URL}/orders`)
   await waitForBodyText('Orders', { label: 'orders page visible' })
+  await ensureCompactModuleOpen('orders-quick-import')
+  await ensureCompactModuleOpen('orders-add-vendor')
 
   // Verify the real-world import button works (idempotent).
   const hasRetaImport = await evalJs('document.body.innerText.includes("Import RETA-PEPTIDE orders")')
@@ -2061,12 +2456,26 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   }
 
   async function tagOrdersForm(headingText, tag) {
+    const moduleIdByTag = {
+      vendor: 'orders-add-vendor',
+      order: 'orders-add-order',
+      item: 'orders-add-item',
+      gen: 'orders-generate-vials',
+    }
     const ok = await evalJs(
       `(() => {
+        const moduleIdByTag = ${JSON.stringify(moduleIdByTag)}
         const h = Array.from(document.querySelectorAll('h2'))
           .find((el) => (el.textContent || '').trim() === ${JSON.stringify(headingText)})
         const card = h ? h.closest('div') : null
-        const form = card ? card.querySelector('form') : null
+        let form = card ? card.querySelector('form') : null
+        if (!form) {
+          const moduleId = moduleIdByTag[${JSON.stringify(tag)}]
+          const root = moduleId
+            ? document.querySelector('[data-e2e="compact-module"][data-module-id="' + moduleId + '"]')
+            : null
+          form = root ? root.querySelector('form') : null
+        }
         if (!form) return false
         form.setAttribute('data-e2e-form', ${JSON.stringify(tag)})
         return true
@@ -2084,6 +2493,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   await waitForBodyText(E2E_VENDOR_NAME, { label: 'vendor created in UI' })
 
   // Order form only appears after at least one vendor exists.
+  await ensureCompactModuleOpen('orders-add-order')
   await waitForBodyText('Add order', { label: 'order form visible' })
   const orderForm = await tagOrdersForm('Add order', 'order')
 
@@ -2096,6 +2506,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   await waitForBodyText('Add order item', { label: 'order created (order item form visible)' })
 
   // Order item form only appears after at least one order exists.
+  await ensureCompactModuleOpen('orders-add-item')
   const itemForm = await tagOrdersForm('Add order item', 'item')
 
   // Order item
@@ -2111,6 +2522,7 @@ async function ordersCreateAndGenerateVials({ substanceLabelIncludes, formulatio
   fill(`${itemForm} input[name="expected_vials"]`, '2')
   click(`${itemForm} button[type="submit"]`)
   // Generate vials form only appears after at least one order item exists.
+  await ensureCompactModuleOpen('orders-generate-vials')
   await waitForBodyText('Generate vials', { label: 'generate vials form visible', timeoutMs: 60000 })
   const genForm = await tagOrdersForm('Generate vials', 'gen')
 
@@ -2161,6 +2573,7 @@ async function inventoryReconcileImportedVials() {
   logLine('inventory: reconcile imported vial tags (spreadsheet migration)')
   open(`${BASE_URL}/inventory`)
   await waitForBodyText('Inventory', { label: 'inventory page visible' })
+  await ensureCompactModuleOpen('inventory-reconcile-imported')
 
   const hasCard = await evalJs('Boolean(document.querySelector(\'[data-e2e="reconcile-imported-vials"]\'))')
   if (!hasCard) {
@@ -2204,6 +2617,7 @@ async function createEvidenceSourceViaUi({ citation, notes }) {
   logLine('evidence: create evidence source')
   open(`${BASE_URL}/evidence-sources`)
   await waitForBodyText('Evidence sources', { label: 'evidence sources page visible' })
+  await ensureCompactModuleOpen('evidence-add')
 
   const formSel = 'form[data-e2e="evidence-create-form"]'
   waitFor(formSel)
@@ -2513,6 +2927,12 @@ function approxEq(a, b, { tol = 2 } = {}) {
   return Math.abs(na - nb) <= tol
 }
 
+function parseCurrency(text) {
+  const cleaned = String(text || '').replace(/[^0-9.-]+/g, '')
+  const n = Number(cleaned)
+  return Number.isFinite(n) ? n : null
+}
+
 function timeTextIncludesHHMM(timeText, hhmm) {
   const t = String(timeText || '')
   const raw = String(hhmm || '')
@@ -2528,6 +2948,25 @@ function timeTextIncludesHHMM(timeText, hhmm) {
 }
 
 async function assertSignInStitchVisualContract() {
+  await waitUntil(
+    async () =>
+      Boolean(
+        await evalJs(`(() => {
+          const css = getComputedStyle(document.documentElement)
+          const bodyCss = getComputedStyle(document.body)
+          const primaryBtn = document.querySelector('form button[type="submit"]')
+          const primary = css.getPropertyValue('--color-primary').trim()
+          const bgDark = css.getPropertyValue('--color-background-dark').trim()
+          const surfaceDark = css.getPropertyValue('--color-surface-dark').trim()
+          const fontManropeVar =
+            bodyCss.getPropertyValue('--font-manrope').trim() || css.getPropertyValue('--font-manrope').trim()
+          const primaryBtnBg = primaryBtn ? getComputedStyle(primaryBtn).backgroundColor : ''
+          return Boolean(primary && bgDark && surfaceDark && fontManropeVar && primaryBtnBg)
+        })()`),
+      ),
+    { label: 'sign-in visual token readiness', timeoutMs: 30000, intervalMs: 250 },
+  )
+
   const res = await evalJs(`(() => {
     const css = getComputedStyle(document.documentElement)
     const bodyCss = getComputedStyle(document.body)
@@ -3163,6 +3602,9 @@ async function initializeRun() {
   copyFileIfExists(MOCKUP_TODAY_SCREEN, path.join(ARTIFACTS_DIR, 'mockup-today.png'))
   copyFileIfExists(MOCKUP_SETTINGS_SCREEN, path.join(ARTIFACTS_DIR, 'mockup-settings.png'))
 
+  // Runtime guardrail: fail immediately if /sign-in references stale/missing assets or theme contract is broken.
+  await assertRuntimePreflight()
+
   await resetLocalSupabaseDb()
 
   // Best-effort: clean any old browser instance for this session name.
@@ -3172,6 +3614,18 @@ async function initializeRun() {
 
   await signInWithMagicLink(EMAIL_A)
   await seedDemoDataIfAvailable()
+}
+
+async function initializeRuntimeOnlyRun() {
+  ensureDir(ARTIFACTS_DIR)
+  logLine(`run_id: ${RUN_ID}`)
+  logLine(`base_url: ${BASE_URL}`)
+  logLine(`scope: ${E2E_SCOPE}`)
+  logLine(`session: ${SESSION}`)
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+
+  runAgentBrowser(['close'], { allowFailure: true })
+  setViewport(1280, 720)
 }
 
 async function runSmokeScope() {
@@ -3274,6 +3728,84 @@ async function runSettingsScope() {
   await sweepPages({ labelPrefix: 'mobile-settings', onlyLabels: ['settings', 'substances', 'inventory', 'orders'] })
 
   logLine('PASS: settings browser verification completed')
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function runInventoryScope() {
+  await initializeRun()
+
+  await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'Demo formulation' })
+  await inventoryOrderLinkingDeepInteractions({ formulationLabelIncludes: 'Demo formulation' })
+  await inventoryActivateCloseOneVial()
+  await inventoryReconcileImportedVials()
+  await verifyVialSelectorMobileSanity({ formulationLabelIncludes: 'Demo formulation' })
+
+  logLine('sweep: desktop viewport (inventory)')
+  setViewport(1280, 720)
+  await sweepPages({
+    labelPrefix: 'desktop-inventory',
+    onlyLabels: ['inventory', 'orders', 'today', 'analytics'],
+  })
+
+  logLine('sweep: mobile viewport (inventory)')
+  setViewport(390, 844)
+  await sweepPages({ labelPrefix: 'mobile-inventory', onlyLabels: ['inventory', 'orders', 'today'] })
+
+  logLine('PASS: inventory browser verification completed')
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function runOrdersScope() {
+  await initializeRun()
+
+  await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: 'Demo formulation' })
+
+  logLine('sweep: desktop viewport (orders)')
+  setViewport(1280, 720)
+  await sweepPages({
+    labelPrefix: 'desktop-orders',
+    onlyLabels: ['orders', 'inventory'],
+  })
+
+  logLine('sweep: mobile viewport (orders)')
+  setViewport(390, 844)
+  await sweepPages({ labelPrefix: 'mobile-orders', onlyLabels: ['orders'] })
+
+  logLine('PASS: orders browser verification completed')
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function runReferenceScope() {
+  await initializeRun()
+
+  const evidenceCitation = `https://example.com/peptaide-e2e-reference/${RUN_ID}`
+  await createEvidenceSourceViaUi({ citation: evidenceCitation, notes: `e2e reference ${RUN_ID}` })
+  await createDistribution({ name: E2E_DIST_FRACTION, valueType: 'fraction', distType: 'point', p1: 0.5 })
+  await createDevice({ name: E2E_DEVICE_SPRAY, kind: 'spray', defaultUnit: 'spray' })
+
+  logLine('sweep: desktop viewport (reference)')
+  setViewport(1280, 720)
+  await sweepPages({
+    labelPrefix: 'desktop-reference',
+    onlyLabels: ['settings', 'substances', 'routes', 'formulations', 'devices', 'distributions', 'evidence-sources'],
+  })
+
+  logLine('sweep: mobile viewport (reference)')
+  setViewport(390, 844)
+  await sweepPages({
+    labelPrefix: 'mobile-reference',
+    onlyLabels: ['settings', 'substances', 'routes', 'formulations', 'devices', 'distributions', 'evidence-sources'],
+  })
+
+  logLine('PASS: reference browser verification completed')
+  logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
+}
+
+async function runRuntimeScope() {
+  await initializeRuntimeOnlyRun()
+  await assertRuntimePreflight()
+  takeScreenshot('runtime-sign-in')
+  logLine('PASS: runtime browser verification completed')
   logLine(`artifacts_dir: ${ARTIFACTS_DIR}`)
 }
 
@@ -3385,6 +3917,7 @@ async function runFullScope() {
   await deleteEvidenceSourceViaUi({ citation: evidenceCitationDelete })
 
   await ordersCreateAndGenerateVials({ substanceLabelIncludes: 'Demo substance', formulationLabelIncludes: E2E_FORMULATION_IN })
+  await inventoryOrderLinkingDeepInteractions({ formulationLabelIncludes: E2E_FORMULATION_IN })
   await inventoryActivateCloseOneVial()
 
   // Capture a /today screenshot at the same viewport size as the Stitch mockup artifact (1600x1280) so
@@ -3525,6 +4058,10 @@ async function runFullScope() {
 }
 
 async function main() {
+  if (E2E_SCOPE === 'runtime') {
+    await runRuntimeScope()
+    return
+  }
   if (E2E_SCOPE === 'smoke') {
     await runSmokeScope()
     return
@@ -3535,6 +4072,18 @@ async function main() {
   }
   if (E2E_SCOPE === 'settings') {
     await runSettingsScope()
+    return
+  }
+  if (E2E_SCOPE === 'inventory') {
+    await runInventoryScope()
+    return
+  }
+  if (E2E_SCOPE === 'orders') {
+    await runOrdersScope()
+    return
+  }
+  if (E2E_SCOPE === 'reference') {
+    await runReferenceScope()
     return
   }
   await runFullScope()

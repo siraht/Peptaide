@@ -3,13 +3,22 @@ import Link from 'next/link'
 import { CreateDeviceForm } from './create-device-form'
 import { deleteDeviceAction } from './actions'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listDevices } from '@/lib/repos/devicesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function DevicesPage() {
   const supabase = await createClient()
   const devices = await listDevices(supabase)
+
+  const kindCount = new Set(devices.map((d) => d.device_kind)).size
+  const defaultUnitCount = new Set(devices.map((d) => d.default_unit)).size
 
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
@@ -20,7 +29,42 @@ export default async function DevicesPage() {
         </p>
       </div>
 
-      <CreateDeviceForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Devices',
+            value: fmtCount(devices.length),
+            detail: devices.length > 0 ? 'Reusable delivery hardware profiles.' : 'No device profiles yet.',
+            tone: devices.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Kinds',
+            value: fmtCount(kindCount),
+            detail: kindCount > 0 ? 'Distinct delivery modalities represented.' : 'No device kinds defined yet.',
+            tone: kindCount > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Default units',
+            value: fmtCount(defaultUnitCount),
+            detail: defaultUnitCount > 0 ? 'Distinct default unit labels in use.' : 'No default units yet.',
+            tone: defaultUnitCount > 0 ? 'good' : 'warn',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="devices-add"
+        title="Add device"
+        description="Create a reusable delivery device profile used by formulations and calibrations."
+        summaryItems={[
+          { label: 'Devices', value: fmtCount(devices.length), tone: devices.length > 0 ? 'good' : 'neutral' },
+          { label: 'Kinds', value: fmtCount(kindCount), tone: kindCount > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.devices.add"
+      >
+        <CreateDeviceForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>

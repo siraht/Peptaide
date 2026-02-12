@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:safe": "node scripts/start-safe.mjs",
+    "runtime:preflight": "node scripts/runtime-preflight.mjs",
     "lint": "eslint",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -13,7 +15,11 @@
     "e2e:browser": "node scripts/tbrowser/peptaide-e2e.mjs",
     "e2e:browser:smoke": "E2E_SCOPE=smoke node scripts/tbrowser/peptaide-e2e.mjs",
     "e2e:browser:today": "E2E_SCOPE=today node scripts/tbrowser/peptaide-e2e.mjs",
-    "e2e:browser:settings": "E2E_SCOPE=settings node scripts/tbrowser/peptaide-e2e.mjs"
+    "e2e:browser:settings": "E2E_SCOPE=settings node scripts/tbrowser/peptaide-e2e.mjs",
+    "e2e:browser:inventory": "E2E_SCOPE=inventory node scripts/tbrowser/peptaide-e2e.mjs",
+    "e2e:browser:orders": "E2E_SCOPE=orders node scripts/tbrowser/peptaide-e2e.mjs",
+    "e2e:browser:reference": "E2E_SCOPE=reference node scripts/tbrowser/peptaide-e2e.mjs",
+    "e2e:browser:runtime": "E2E_SCOPE=runtime node scripts/tbrowser/peptaide-e2e.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

@@ -3,13 +3,22 @@ import Link from 'next/link'
 import { deleteEvidenceSourceAction } from './actions'
 import { CreateEvidenceSourceForm } from './create-evidence-source-form'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listEvidenceSources } from '@/lib/repos/evidenceSourcesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function EvidenceSourcesPage() {
   const supabase = await createClient()
   const sources = await listEvidenceSources(supabase)
+
+  const withNotes = sources.filter((s) => Boolean(s.notes && s.notes.trim())).length
+  const typeCount = new Set(sources.map((s) => s.source_type)).size
 
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
@@ -25,7 +34,42 @@ export default async function EvidenceSourcesPage() {
         </p>
       </div>
 
-      <CreateEvidenceSourceForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Sources',
+            value: fmtCount(sources.length),
+            detail: sources.length > 0 ? 'Available citations for recommendation context.' : 'No saved references yet.',
+            tone: sources.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Source types',
+            value: fmtCount(typeCount),
+            detail: typeCount > 0 ? 'Diversity of citation source categories.' : 'No source types yet.',
+            tone: typeCount > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'With notes',
+            value: fmtCount(withNotes),
+            detail: 'Rows with attached context/annotation notes.',
+            tone: withNotes > 0 ? 'good' : 'neutral',
+          },
+        ]}
+      />
+
+      <CompactEntryModule
+        id="evidence-add"
+        title="Add evidence source"
+        description="Capture citation metadata and optional notes for downstream recommendation references."
+        summaryItems={[
+          { label: 'Saved sources', value: fmtCount(sources.length), tone: sources.length > 0 ? 'good' : 'neutral' },
+          { label: 'With notes', value: fmtCount(withNotes), tone: withNotes > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.evidence.add"
+      >
+        <CreateEvidenceSourceForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Saved evidence sources</h2>

@@ -17,8 +17,11 @@ Environment=PATH=/home/ubuntu/.nvm/versions/node/v22.21.1/bin:/usr/local/sbin:/u
 # Build at service start. For faster restarts, run build manually and remove this line.
 ExecStartPre=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run build
 
-# Expose on a fixed port + host (defaults come from /etc/peptaide/web.env).
-ExecStart=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run start -- -p ${PORT} -H ${HOST}
+# Ensure port ownership is deterministic and avoid stale/manual next processes on the service port.
+ExecStart=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run start:safe -- --port ${PORT} --host ${HOST}
+
+# Fail fast if the started process is serving stale/missing Next static assets.
+ExecStartPost=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run runtime:preflight -- --base-url http://127.0.0.1:${PORT} --timeout-ms 60000
 
 Restart=always
 RestartSec=2

@@ -2,13 +2,23 @@ import { CreateRouteForm } from './create-route-form'
 import { BulkAddRoutesForm } from './bulk-add-routes-form'
 import { deleteRouteAction } from './actions'
 
+import { CompactEntryModule } from '@/components/ui/compact-entry-module'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MetricsStrip } from '@/components/ui/metrics-strip'
 import { listRoutes } from '@/lib/repos/routesRepo'
 import { createClient } from '@/lib/supabase/server'
+
+function fmtCount(n: number): string {
+  return new Intl.NumberFormat().format(n)
+}
 
 export default async function RoutesPage() {
   const supabase = await createClient()
   const routes = await listRoutes(supabase)
+
+  const calibrated = routes.filter((r) => r.supports_device_calibration).length
+  const deviceUnitDefaultCount = routes.filter((r) => r.default_input_kind === 'device_units').length
+  const uniqueDefaultUnits = new Set(routes.map((r) => r.default_input_unit)).size
 
   return (
     <div className="h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6 space-y-6 custom-scrollbar">
@@ -17,9 +27,56 @@ export default async function RoutesPage() {
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Reference table for administration routes.</p>
       </div>
 
-      <CreateRouteForm />
+      <MetricsStrip
+        items={[
+          {
+            label: 'Routes',
+            value: fmtCount(routes.length),
+            detail: `${fmtCount(calibrated)} calibration-capable`,
+            tone: routes.length > 0 ? 'good' : 'warn',
+          },
+          {
+            label: 'Device-unit defaults',
+            value: fmtCount(deviceUnitDefaultCount),
+            detail: 'Routes configured for device-unit input by default.',
+            tone: deviceUnitDefaultCount > 0 ? 'good' : 'neutral',
+          },
+          {
+            label: 'Default unit variants',
+            value: fmtCount(uniqueDefaultUnits),
+            detail: uniqueDefaultUnits > 0 ? 'Distinct default dose units currently used.' : 'No default unit values yet.',
+            tone: uniqueDefaultUnits > 0 ? 'good' : 'warn',
+          },
+        ]}
+      />
 
-      <BulkAddRoutesForm />
+      <CompactEntryModule
+        id="routes-add-single"
+        title="Add route"
+        description="Create a single administration route with default input semantics."
+        summaryItems={[
+          { label: 'Routes', value: fmtCount(routes.length), tone: routes.length > 0 ? 'good' : 'neutral' },
+          { label: 'Calibrated', value: fmtCount(calibrated), tone: calibrated > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.routes.add-single"
+      >
+        <CreateRouteForm />
+      </CompactEntryModule>
+
+      <CompactEntryModule
+        id="routes-bulk-add"
+        title="Bulk add routes"
+        description="Seed multiple route rows in one submission with shared defaults."
+        summaryItems={[
+          { label: 'Routes', value: fmtCount(routes.length), tone: routes.length > 0 ? 'good' : 'neutral' },
+          { label: 'Device units', value: fmtCount(deviceUnitDefaultCount), tone: deviceUnitDefaultCount > 0 ? 'good' : 'neutral' },
+        ]}
+        defaultCollapsed
+        storageKey="peptaide.module.routes.bulk-add"
+      >
+        <BulkAddRoutesForm />
+      </CompactEntryModule>
 
       <section className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">List</h2>
