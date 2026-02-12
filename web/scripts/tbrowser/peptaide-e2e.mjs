@@ -633,7 +633,7 @@ function pickText(obj) {
   return obj.text || obj.title || obj.value || obj.url || obj.name || ''
 }
 
-function collectDiagnostics() {
+function collectDiagnostics({ strict = false } = {}) {
   const consoleRaw = runAgentBrowser(['console'], { json: true, allowFailure: true })
   const errorsRaw = runAgentBrowser(['errors'], { json: true, allowFailure: true })
   const networkRaw = runAgentBrowser(['network', 'requests', '--filter', '.'], {
@@ -642,6 +642,27 @@ function collectDiagnostics() {
   })
   const titleRaw = runAgentBrowser(['get', 'title'], { json: true, allowFailure: true })
   const urlRaw = runAgentBrowser(['get', 'url'], { json: true, allowFailure: true })
+
+  const diagnosticCommandFailures = [
+    ['console', consoleRaw],
+    ['errors', errorsRaw],
+    ['network-requests', networkRaw],
+    ['get-title', titleRaw],
+    ['get-url', urlRaw],
+  ]
+    .filter(([, res]) => (res.status ?? 0) !== 0)
+    .map(([name, res]) => ({
+      command: String(name),
+      status: Number(res.status ?? 1),
+      detail: String(res.stderr || res.stdout || '').trim() || '(no diagnostic output)',
+    }))
+
+  if (strict && diagnosticCommandFailures.length > 0) {
+    const first = diagnosticCommandFailures[0]
+    throw new Error(
+      `Unable to collect browser diagnostics via "${first.command}" (status=${first.status}): ${first.detail}`,
+    )
+  }
 
   const consoleData = extractData(extractJson(consoleRaw.stdout))
   const errorsData = extractData(extractJson(errorsRaw.stdout))
@@ -688,6 +709,7 @@ function collectDiagnostics() {
     consoleWarnings,
     pageErrors: errorTexts,
     failedRequests,
+    diagnosticCommandFailures,
     rawConsoleMessages: consoleMsgs,
     rawPageErrors: pageErrors,
     rawNetworkRequests: requests,
@@ -703,8 +725,13 @@ function writeDiagSummary(label, diag) {
   lines.push(`page_errors: ${diag.pageErrors.length}`)
   lines.push(`console_warnings: ${diag.consoleWarnings.length}`)
   lines.push(`failed_requests: ${diag.failedRequests.length}`)
+  lines.push(`diagnostic_command_failures: ${(diag.diagnosticCommandFailures || []).length}`)
   if (diag.consoleErrors.length) lines.push(`console_errors_sample: ${diag.consoleErrors[0]}`)
   if (diag.pageErrors.length) lines.push(`page_errors_sample: ${diag.pageErrors[0]}`)
+  if ((diag.diagnosticCommandFailures || []).length > 0) {
+    const f = diag.diagnosticCommandFailures[0]
+    lines.push(`diagnostic_command_failures_sample: ${f.command} status=${f.status} ${f.detail}`)
+  }
   if (diag.failedRequests.length) {
     const r = diag.failedRequests[0]
     lines.push(`failed_requests_sample: ${r.method} ${r.status} ${r.url}`)
@@ -797,7 +824,7 @@ function writeFailureForensicsArtifacts(stepId, diag) {
 }
 
 function assertHealthy(label, { allowWarnings = true } = {}) {
-  const diag = collectDiagnostics()
+  const diag = collectDiagnostics({ strict: true })
   writeDiagSummary(label, diag)
 
   if (diag.consoleErrors.length > 0) {
