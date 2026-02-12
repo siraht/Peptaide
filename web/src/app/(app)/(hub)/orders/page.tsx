@@ -205,7 +205,7 @@ export default async function OrdersPage() {
             icon="receipt_long"
             title="Order items need setup"
             description="Create at least one order and one substance before adding order items."
-            actionHref="/orders"
+            actionHref="/orders?focus=new-order"
             actionLabel="Create order"
             secondaryHref="/settings?tab=substances"
             secondaryLabel="Open substances"
@@ -231,7 +231,7 @@ export default async function OrdersPage() {
             icon="medication_liquid"
             title="No vial generation targets yet"
             description="Create an order item linked to a formulation to generate planned vials."
-            actionHref="/orders"
+            actionHref="/orders?focus=new-order-item"
             actionLabel="Add order item"
           />
         ) : (

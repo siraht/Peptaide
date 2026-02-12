@@ -92,6 +92,7 @@ export default async function InventoryPage() {
           { label: 'Known formulations', value: fmtCount(totalFormulations), tone: totalFormulations > 0 ? 'good' : 'warn' },
         ]}
         defaultCollapsed
+        openWhenFocus="reconcile-imported"
         storageKey="peptaide.module.inventory.reconcile"
       >
         <ReconcileImportedVialsForm />
@@ -106,6 +107,7 @@ export default async function InventoryPage() {
           { label: 'Active vials', value: fmtCount(active), tone: active > 0 ? 'good' : 'neutral' },
         ]}
         defaultCollapsed
+        openWhenFocus={['new-vial', 'add-vial']}
         storageKey="peptaide.module.inventory.add-vial"
         emptyCta={
           selectorSubstances.length === 0
@@ -136,7 +138,7 @@ export default async function InventoryPage() {
             description="Create a vial here or generate planned vials from Orders."
             actionHref="/orders"
             actionLabel="Open orders"
-            secondaryHref="/inventory"
+            secondaryHref="/inventory?focus=new-vial"
             secondaryLabel="Add vial"
           />
         ) : (
