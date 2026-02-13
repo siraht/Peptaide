@@ -102,8 +102,8 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, n)
 }
 
-function isRetryableAgentBrowserError(stderr) {
-  const s = String(stderr || '')
+function isRetryableAgentBrowserError(stderrOrStdout) {
+  const s = String(stderrOrStdout || '')
   return s.includes('Resource temporarily unavailable (os error 11)') || s.includes('daemon may be busy')
 }
 
@@ -133,13 +133,18 @@ function runAgentBrowser(cmdArgs, { json = false, allowFailure = false, retries 
     const stderr = (result.stderr || '').trim()
     const status = result.status ?? 0
 
-    if (status === 0 || allowFailure) {
+    if (status === 0) {
       return { stdout, stderr, status }
     }
 
-    if (attempt < retries && isRetryableAgentBrowserError(stderr)) {
+    const retryableMsg = stderr || stdout
+    if (attempt < retries && isRetryableAgentBrowserError(retryableMsg)) {
       sleepSync(250 + attempt * 100)
       continue
+    }
+
+    if (allowFailure) {
+      return { stdout, stderr, status }
     }
 
     throw new Error(stderr || stdout || `agent-browser exited with ${status}`)
