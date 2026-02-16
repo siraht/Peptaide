@@ -29,6 +29,25 @@ export function payloadHasOwnKey(payload: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(payload, key)
 }
 
+export function normalizeSessionNotes(notes: string | null): string | null {
+  if (notes == null) return null
+  const value = String(notes).trim()
+  return value.length > 0 ? value : null
+}
+
+export function normalizeSessionTags(tags: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of tags) {
+    const value = String(raw).trim()
+    if (!value) continue
+    if (seen.has(value)) continue
+    seen.add(value)
+    out.push(value)
+  }
+  return out
+}
+
 function hasStructuredInputPatch(payload: SessionUpdatePayloadLike): boolean {
   return (
     payloadHasOwnKey(payload, 'input_kind') ||

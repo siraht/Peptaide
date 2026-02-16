@@ -14,7 +14,12 @@ import { withIdempotency } from '@/lib/api/cli/idempotency'
 import { readJsonBody, requireApply, validateBody } from '@/lib/api/cli/request'
 import { runCliRoute } from '@/lib/api/cli/route'
 import { CliApiError, okEnvelope } from '@/lib/api/cli/response'
-import { buildSessionUpdateRecomputeInput, payloadHasOwnKey } from '@/lib/api/cli/sessionUpdate'
+import {
+  buildSessionUpdateRecomputeInput,
+  normalizeSessionNotes,
+  normalizeSessionTags,
+  payloadHasOwnKey,
+} from '@/lib/api/cli/sessionUpdate'
 import { createSession, type SessionCreateInput, type SessionCreateResult } from '@/lib/app/sessions/createSession'
 
 export const runtime = 'nodejs'
@@ -603,8 +608,8 @@ export async function POST(request: Request): Promise<Response> {
       const updates: Record<string, unknown> = {}
 
       if (payload.ts != null) updates.ts = payload.ts
-      if (payloadHasOwnKey(payload, 'notes')) updates.notes = payload.notes ?? null
-      if (payload.tags != null) updates.tags = payload.tags
+      if (payloadHasOwnKey(payload, 'notes')) updates.notes = normalizeSessionNotes(payload.notes ?? null)
+      if (payload.tags != null) updates.tags = normalizeSessionTags(payload.tags)
 
       const needsRecompute =
         payload.input_text != null ||

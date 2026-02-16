@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 
-import { buildSessionUpdateRecomputeInput, payloadHasOwnKey } from './sessionUpdate'
+import {
+  buildSessionUpdateRecomputeInput,
+  normalizeSessionNotes,
+  normalizeSessionTags,
+  payloadHasOwnKey,
+} from './sessionUpdate'
 
 describe('payloadHasOwnKey', () => {
   test('returns true for explicit null and false for missing keys', () => {
@@ -80,5 +85,25 @@ describe('buildSessionUpdateRecomputeInput', () => {
     })
 
     expect(input.notes).toBeNull()
+  })
+})
+
+describe('normalizeSessionNotes', () => {
+  test('trims non-empty notes', () => {
+    expect(normalizeSessionNotes('  hello  ')).toBe('hello')
+  })
+
+  test('coerces empty notes to null', () => {
+    expect(normalizeSessionNotes('   ')).toBeNull()
+  })
+
+  test('preserves explicit null', () => {
+    expect(normalizeSessionNotes(null)).toBeNull()
+  })
+})
+
+describe('normalizeSessionTags', () => {
+  test('trims, drops empty values, and de-duplicates tags', () => {
+    expect(normalizeSessionTags(['  alpha', 'alpha ', ' ', 'beta'])).toEqual(['alpha', 'beta'])
   })
 })
