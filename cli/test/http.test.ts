@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
@@ -121,7 +122,10 @@ describe('callApi', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const envelope = await callApi({
-      config: makeConfig('https://example.test'),
+      config: {
+        ...makeConfig('https://example.test'),
+        profile: `missing-${randomUUID()}`,
+      },
       domain: 'sessions',
       payload: { action: 'list' },
       authRequired: true,

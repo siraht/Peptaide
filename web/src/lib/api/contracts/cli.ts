@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { hasEffectiveModelContext } from './sessionCreateValidation'
+import { hasEffectiveModelContext, hasScopedBaseOverride } from './sessionCreateValidation'
 
 export const CLI_CONTRACT_VERSION = '2026-02-16'
 
@@ -156,7 +156,13 @@ export const calcEffectiveRequestSchema =
         })
       }
 
-      if (v.compartment === 'both') {
+      if (
+        hasScopedBaseOverride({
+          compartment: v.compartment ?? null,
+          systemicBaseFractionDistId: v.systemic_base_fraction_dist_id ?? null,
+          cnsBaseFractionDistId: v.cns_base_fraction_dist_id ?? null,
+        })
+      ) {
         if (!v.systemic_base_fraction_dist_id) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
