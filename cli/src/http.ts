@@ -120,9 +120,12 @@ export async function callApi(opts: {
     (envelope.code === 'auth_failed' || envelope.code === 'auth_required') &&
     stored?.refresh_token
   ) {
-    const refreshEnvelope = await doFetch(null)
-    // If this endpoint itself is /auth with refresh action we should avoid recursion.
-    if (opts.domain !== 'auth') {
+    const isAlreadyRefreshCall =
+      opts.domain === 'auth' &&
+      typeof opts.payload.action === 'string' &&
+      String(opts.payload.action) === 'refresh'
+
+    if (!isAlreadyRefreshCall) {
       const refreshResult = await callApi({
         config,
         domain: 'auth',
@@ -152,8 +155,6 @@ export async function callApi(opts: {
       } else if (config.verbose) {
         return refreshResult
       }
-    } else {
-      envelope = refreshEnvelope
     }
   }
 

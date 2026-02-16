@@ -95,6 +95,14 @@ function parseYmd(raw: string): { year: number; month: number; day: number } {
   if (!(year >= 1970 && month >= 1 && month <= 12 && day >= 1 && day <= 31)) {
     throw new Error('Invalid date.')
   }
+  const check = new Date(Date.UTC(year, month - 1, day))
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day
+  ) {
+    throw new Error('Invalid date.')
+  }
   return { year, month, day }
 }
 
@@ -224,11 +232,21 @@ async function buildCreateInput(
   const resolvedTs = (() => {
     if (payload.ts) return payload.ts
     if (payload.date && payload.time && payload.timezone) {
-      return dateTimeInZoneToIsoUtc({
-        date: payload.date,
-        time: payload.time,
-        timezone: payload.timezone,
-      })
+      try {
+        return dateTimeInZoneToIsoUtc({
+          date: payload.date,
+          time: payload.time,
+          timezone: payload.timezone,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new CliApiError({
+          code: 'validation_error',
+          status: 400,
+          message: 'Invalid date/time/timezone input.',
+          details: [message],
+        })
+      }
     }
     return undefined
   })()
@@ -379,7 +397,55 @@ export async function POST(request: Request): Promise<Response> {
 
       for (const item of payload.items) {
         try {
-          const created = await executeCreate(auth, item, applyMode.dryRun)
+          let created: Awaited<ReturnType<typeof executeCreate>> | null = null
+
+          if (applyMode.dryRun) {
+            created = await executeCreate(auth, item, true)
+          } else {
+            const idempotent = await withIdempotency({
+              supabase: auth.supabase,
+              operation: 'sessions.batch.create',
+              idempotencyKey: item.idempotency_key,
+              requestPayload: item,
+              execute: async () => {
+                const run = await executeCreate(auth, item, false)
+                return {
+                  status: run.status,
+                  envelope: okEnvelope({
+                    requestId,
+                    message: run.envelopeData.message,
+                    data: {
+                      saved: run.envelopeData.saved,
+                      session: run.envelopeData.session,
+                    },
+                    warnings: run.envelopeData.warnings,
+                  }),
+                }
+              },
+            })
+
+            const envelopeData =
+              idempotent.envelope.data &&
+              typeof idempotent.envelope.data === 'object'
+                ? (idempotent.envelope.data as Record<string, unknown>)
+                : null
+            const session = envelopeData?.session ?? null
+
+            items.push({
+              idempotency_key: item.idempotency_key,
+              ok: true,
+              message: idempotent.replayed
+                ? `${idempotent.envelope.message} (replayed from idempotency cache)`
+                : idempotent.envelope.message,
+              session,
+            })
+            continue
+          }
+
+          if (!created) {
+            throw new Error('Internal error: batch item create did not execute.')
+          }
+
           items.push({
             idempotency_key: item.idempotency_key,
             ok: true,
@@ -399,23 +465,37 @@ export async function POST(request: Request): Promise<Response> {
 
       const okCount = items.filter((x) => x.ok).length
       const failCount = items.length - okCount
-      const status = failCount === 0 ? (applyMode.dryRun ? 200 : 201) : 409
+      const summary = {
+        total: items.length,
+        succeeded: okCount,
+        failed: failCount,
+      }
+      const message =
+        failCount === 0
+          ? `Batch processed ${okCount} item(s).`
+          : `Batch processed with partial failures (${okCount} ok / ${failCount} failed).`
+
+      if (failCount > 0) {
+        throw new CliApiError({
+          code: 'conflict',
+          status: 409,
+          message,
+          data: {
+            summary,
+            items,
+          },
+          details: ['One or more batch items failed.'],
+        })
+      }
 
       return {
-        status,
+        status: applyMode.dryRun ? 200 : 201,
         envelope: okEnvelope({
           requestId,
-          code: failCount === 0 ? (applyMode.dryRun ? 'dry_run' : 'ok') : 'conflict',
-          message:
-            failCount === 0
-              ? `Batch processed ${okCount} item(s).`
-              : `Batch processed with partial failures (${okCount} ok / ${failCount} failed).`,
+          code: applyMode.dryRun ? 'dry_run' : 'ok',
+          message,
           data: {
-            summary: {
-              total: items.length,
-              succeeded: okCount,
-              failed: failCount,
-            },
+            summary,
             items,
           },
         }),
@@ -590,22 +670,37 @@ export async function POST(request: Request): Promise<Response> {
         }
       }
 
-      const updateRes = await auth.supabase
-        .from('administration_events')
-        .update(updates)
-        .eq('id', payload.event_id)
-        .select('*')
-        .single()
+      const execUpdate = async () => {
+        const updateRes = await auth.supabase
+          .from('administration_events')
+          .update(updates)
+          .eq('id', payload.event_id)
+          .select('*')
+          .single()
 
-      if (updateRes.error) throw new Error(updateRes.error.message)
+        if (updateRes.error) throw new Error(updateRes.error.message)
 
-      return {
-        envelope: okEnvelope({
-          requestId,
-          message: 'Session updated.',
-          data: updateRes.data,
-        }),
+        return {
+          status: 200,
+          envelope: okEnvelope({
+            requestId,
+            message: 'Session updated.',
+            data: updateRes.data,
+          }),
+        }
       }
+
+      if (payload.idempotency_key) {
+        return withIdempotency({
+          supabase: auth.supabase,
+          operation: 'sessions.update',
+          idempotencyKey: payload.idempotency_key,
+          requestPayload: payload,
+          execute: execUpdate,
+        })
+      }
+
+      return execUpdate()
     }
 
     if (action === 'delete') {

@@ -28,6 +28,7 @@ The target outcome is a script-first interface where `--json` output is stable a
 - [x] (2026-02-16 16:40Z) Built `cli/` package with profile/config precedence, output envelopes, exit-code mapping, and all command families from this plan.
 - [x] (2026-02-16 16:55Z) Added tests and usage validation: `web` typecheck/tests, new CLI/unit tests, CLI usage smoke (`test:usage`, local profile/auth dry-run), and calc API smoke via CLI.
 - [x] (2026-02-16 16:57Z) Ran browser regression smoke with t-browser harness (`npm run e2e:browser:smoke`) after implementation and after runtime fixes; both runs passed.
+- [x] (2026-02-16 17:08Z) Performed a fresh-eyes post-implementation audit and fixed correctness issues in CLI/API behavior (auth refresh retry path, batch/update idempotency, import/batch error envelope semantics, stricter date validation, and safe stdout ZIP export behavior).
 
 ## Surprises & Discoveries
 
@@ -63,6 +64,12 @@ The target outcome is a script-first interface where `--json` output is stable a
 
 - Observation: Commander command registration fails at runtime on duplicate option flags, even when TypeScript passes.
   Evidence: `test:usage` failed with `Cannot add option '--formulation-id <id>' ... conflicting flag` until duplicate `--formulation-id` declaration was removed from session-create flag composition.
+
+- Observation: Several routes returned `ok: true` envelopes while using error-like codes (`validation_error`/`conflict`), causing automation to treat failures as success.
+  Evidence: `sessions batch` partial failures and data import errors used `okEnvelope(...)` with conflict/error codes; fixed to return proper error envelopes (`ok: false`) via `CliApiError`.
+
+- Observation: CLI refresh retry logic performed an unnecessary unauthenticated retry and skipped proper refresh behavior for some auth-domain calls.
+  Evidence: `cli/src/http.ts` called `doFetch(null)` before refresh and had an auth-domain branch that bypassed refresh; fixed to explicit refresh-then-retry flow with recursion guard.
 
 ## Decision Log
 
@@ -122,6 +129,10 @@ The target outcome is a script-first interface where `--json` output is stable a
   Rationale: This change touched core today/session behavior; browser-level verification confirms no major UI/workflow regression.
   Date/Author: 2026-02-16 / Codex
 
+- Decision: Treat CLI/API envelope correctness (`ok` flag fidelity) as a hard contract and fail routes with `CliApiError` when import/batch operations report domain errors.
+  Rationale: Agent automation and exit-code mapping depend on `ok` semantics; code-only error labels inside success envelopes are unsafe.
+  Date/Author: 2026-02-16 / Codex
+
 ## Outcomes & Retrospective
 
 Implementation outcome for this phase:
@@ -141,6 +152,7 @@ Validation outcome:
 Remaining gaps:
 
 - Full authenticated end-to-end command matrix (all mutating CLI flows against a seeded local dataset) is not yet automated in a dedicated CLI integration suite.
+- A post-implementation review pass fixed several contract-level correctness gaps without changing command surface area; the remaining gap is deeper live integration coverage rather than core behavior.
 
 ## Context and Orientation
 
@@ -663,3 +675,5 @@ Created this plan to define how Peptaide can add an AI-agent-oriented CLI withou
 2026-02-16 revision (wording cleanup): removed remaining ambiguous deterministic-seed wording in MC rule text to keep probabilistic behavior statements precise.
 
 2026-02-16 revision (implementation complete): updated the living plan after delivery to reflect completed milestones, added runtime discoveries (Zod safeExtend + Commander duplicate flags), recorded implementation decisions, and replaced planning-only retrospective text with concrete implementation/test/browser-validation outcomes.
+
+2026-02-16 revision (fresh-eyes audit): fixed post-delivery correctness bugs discovered during careful review, including envelope `ok` semantics for import/batch failures, CLI auth-refresh retry flow, session batch/update idempotency behavior, date parsing validation strictness, and binary stdout export safety for `data export --out -`.

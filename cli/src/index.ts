@@ -74,6 +74,29 @@ function runLocalEnvelope(command: Command, envelope: CliEnvelope): void {
   process.exitCode = exitCodeForEnvelope(envelope)
 }
 
+function requireForceWhenNoInput(opts: {
+  command: Command
+  apply?: boolean
+  force?: boolean
+  commandName: string
+  actionLabel: string
+}): boolean {
+  if (!opts.apply) return true
+  const config = commandConfig(opts.command)
+  if (!config.noInput || opts.force) return true
+
+  runLocalEnvelope(
+    opts.command,
+    actionEnvelope({
+      ok: false,
+      code: 'conflict',
+      message: `${opts.commandName} requires --force when --no-input is set (${opts.actionLabel}).`,
+      errors: ['Re-run with --force or omit --no-input.'],
+    }),
+  )
+  return false
+}
+
 function ensureApplyOrDryRun(payload: { apply?: boolean; dryRunFlag?: boolean }): {
   apply: boolean
   dry_run: boolean
@@ -358,6 +381,18 @@ token
       return
     }
 
+    if (
+      !requireForceWhenNoInput({
+        command: cmd,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'auth token revoke',
+        actionLabel: 'profile deletion',
+      })
+    ) {
+      return
+    }
+
     deleteProfile(opts.tokenId)
     runLocalEnvelope(cmd, actionEnvelope({
       ok: true,
@@ -609,6 +644,18 @@ addSessionMutationFlags(sessions.command('delete').description('Soft delete one 
   .requiredOption('--id <eventId>')
   .option('--force')
   .action(async function action(this: Command, opts) {
+    if (
+      !requireForceWhenNoInput({
+        command: this as Command,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'sessions delete',
+        actionLabel: 'session deletion',
+      })
+    ) {
+      return
+    }
+
     const mode = ensureApplyOrDryRun({ apply: opts.apply, dryRunFlag: opts.dryRun })
     await runApiAction(this as Command, {
       domain: 'sessions',
@@ -824,6 +871,18 @@ cycleRules
   .option('--force')
   .option('--idempotency-key <key>')
   .action(async function action(this: Command, opts) {
+    if (
+      !requireForceWhenNoInput({
+        command: this as Command,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'cycles rules delete',
+        actionLabel: 'cycle rule deletion',
+      })
+    ) {
+      return
+    }
+
     const mode = ensureApplyOrDryRun({ apply: opts.apply, dryRunFlag: opts.dryRun })
     await runApiAction(this as Command, {
       domain: 'cycles',
@@ -920,26 +979,36 @@ data
   .requiredOption('--out <path>', 'output file path or - for stdout')
   .action(async function action(this: Command, opts) {
     const cmd = this as Command
-    const envelope = await runApiAction(cmd, {
+    const config = commandConfig(cmd)
+    const envelope = await callApi({
+      config,
       domain: 'data',
-      payload: {
-        action: 'export',
-        out: opts.out,
-      },
+      payload: { action: 'export', out: opts.out },
+      authRequired: true,
     })
+    process.exitCode = exitCodeForEnvelope(envelope)
 
-    if (!envelope.ok || !envelope.data || typeof envelope.data !== 'object') return
+    const outIsStdout = String(opts.out) === '-'
+    if (!envelope.ok || !envelope.data || typeof envelope.data !== 'object') {
+      renderEnvelope(envelope, config)
+      return
+    }
 
     const dataObj = envelope.data as Record<string, unknown>
     const zipBase64 = String(dataObj.zip_base64 ?? '')
-    if (!zipBase64) return
+    if (!zipBase64) {
+      renderEnvelope(envelope, config)
+      return
+    }
 
     const bytes = Buffer.from(zipBase64, 'base64')
-    if (opts.out === '-') {
+    if (outIsStdout) {
+      // For stdout mode, write only ZIP bytes so shell piping is safe.
       process.stdout.write(bytes)
       return
     }
 
+    renderEnvelope(envelope, config)
     const outPath = path.resolve(String(opts.out))
     fs.mkdirSync(path.dirname(outPath), { recursive: true })
     fs.writeFileSync(outPath, bytes)
@@ -1002,6 +1071,18 @@ data
   .option('--dry-run')
   .option('--idempotency-key <key>')
   .action(async function action(this: Command, opts) {
+    if (
+      !requireForceWhenNoInput({
+        command: this as Command,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'data delete-all',
+        actionLabel: 'account data deletion',
+      })
+    ) {
+      return
+    }
+
     const mode = ensureApplyOrDryRun({ apply: opts.apply, dryRunFlag: opts.dryRun })
     await runApiAction(this as Command, {
       domain: 'data',

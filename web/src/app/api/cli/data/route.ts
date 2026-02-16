@@ -149,12 +149,22 @@ export async function POST(request: Request): Promise<Response> {
           replaceExisting: Boolean(payload.replace),
         })
 
+        if (!result.ok) {
+          throw new CliApiError({
+            code: 'validation_error',
+            status: 400,
+            message: 'Import bundle reported errors.',
+            data: result,
+            details: result.errors.length > 0 ? result.errors : ['See table errors in data payload.'],
+          })
+        }
+
         return {
-          status: result.ok ? 200 : 400,
+          status: 200,
           envelope: okEnvelope({
             requestId,
-            code: applyMode.dryRun ? 'dry_run' : result.ok ? 'ok' : 'validation_error',
-            message: result.ok ? 'Import bundle processed.' : 'Import bundle reported errors.',
+            code: applyMode.dryRun ? 'dry_run' : 'ok',
+            message: 'Import bundle processed.',
             data: result,
           }),
         }
@@ -191,12 +201,22 @@ export async function POST(request: Request): Promise<Response> {
           inferCycles: payload.infer_cycles ?? true,
         })
 
+        if (!result.ok) {
+          throw new CliApiError({
+            code: 'validation_error',
+            status: 400,
+            message: 'Simple-events import reported errors.',
+            data: result,
+            details: result.errors.length > 0 ? result.errors : ['See row_errors in data payload.'],
+          })
+        }
+
         return {
-          status: result.ok ? 200 : 400,
+          status: 200,
           envelope: okEnvelope({
             requestId,
-            code: applyMode.dryRun ? 'dry_run' : result.ok ? 'ok' : 'validation_error',
-            message: result.ok ? 'Simple-events import processed.' : 'Simple-events import reported errors.',
+            code: applyMode.dryRun ? 'dry_run' : 'ok',
+            message: 'Simple-events import processed.',
             data: result,
           }),
         }
