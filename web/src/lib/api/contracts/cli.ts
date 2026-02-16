@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { hasEffectiveModelContext } from './sessionCreateValidation'
 
 export const CLI_CONTRACT_VERSION = '2026-02-16'
 
@@ -117,9 +118,15 @@ export const calcEffectiveRequestSchema =
       strict_model_coverage: z.boolean().optional(),
     })
     .superRefine((v, ctx) => {
-      const hasContext =
-        typeof v.formulation_id === 'string' ||
-        (typeof v.substance_id === 'string' && typeof v.route_id === 'string')
+      const hasContext = hasEffectiveModelContext({
+        formulationId: typeof v.formulation_id === 'string' ? v.formulation_id : null,
+        formulationName:
+          typeof (v as Record<string, unknown>).formulation_name === 'string'
+            ? String((v as Record<string, unknown>).formulation_name)
+            : null,
+        substanceId: typeof v.substance_id === 'string' ? v.substance_id : null,
+        routeId: typeof v.route_id === 'string' ? v.route_id : null,
+      })
 
       const hasGlobalDists =
         typeof v.base_fraction_dist_id === 'string' ||

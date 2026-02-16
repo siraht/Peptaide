@@ -69,4 +69,26 @@ describe('callApi', () => {
     const requestUrl = requestTarget instanceof URL ? requestTarget.toString() : String(requestTarget)
     expect(requestUrl).toBe('https://example.test/base/api/cli/sessions')
   })
+
+  test('returns envelope error instead of throwing for invalid api URL', async () => {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'peptaide-cli-http-'))
+    const homeDir = path.join(tmpRoot, 'home')
+    fs.mkdirSync(homeDir, { recursive: true })
+    vi.stubEnv('HOME', homeDir)
+
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const envelope = await callApi({
+      config: makeConfig('not a url'),
+      domain: 'sessions',
+      payload: { action: 'list' },
+      authRequired: false,
+    })
+
+    expect(envelope.ok).toBe(false)
+    expect(envelope.code).toBe('validation_error')
+    expect(envelope.message).toContain('Invalid API URL')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })

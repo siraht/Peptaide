@@ -39,6 +39,19 @@ function buildNetworkError(message: string, rid: string, code: string = 'runtime
   }
 }
 
+function buildApiUrl(apiUrl: string, domain: string): { ok: true; url: URL } | { ok: false; message: string } {
+  try {
+    const parsed = new URL(apiUrl)
+    const basePath = parsed.pathname.endsWith('/') ? parsed.pathname : `${parsed.pathname}/`
+    parsed.pathname = `${basePath}api/cli/${domain}`
+    parsed.search = ''
+    parsed.hash = ''
+    return { ok: true, url: parsed }
+  } catch {
+    return { ok: false, message: `Invalid API URL: ${apiUrl}` }
+  }
+}
+
 function tokensFromProfile(config: RuntimeConfig): StoredTokens | null {
   const profile = getProfile(config.profile)
   if (!profile.access_token || !profile.refresh_token) return null
@@ -77,8 +90,11 @@ export async function callApi(opts: {
     }
   }
 
-  const baseUrl = config.apiUrl.endsWith('/') ? config.apiUrl : `${config.apiUrl}/`
-  const url = new URL(`api/cli/${opts.domain}`, baseUrl)
+  const builtUrl = buildApiUrl(config.apiUrl, opts.domain)
+  if (!builtUrl.ok) {
+    return buildNetworkError(builtUrl.message, rid, 'validation_error')
+  }
+  const url = builtUrl.url
 
   const doFetch = async (token: string | null): Promise<CliEnvelope> => {
     try {
