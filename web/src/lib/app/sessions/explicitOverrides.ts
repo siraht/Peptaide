@@ -13,10 +13,13 @@ export function applyExplicitCompartmentOverrides(opts: {
   missingByCompartment: Map<SessionCompartment, string[]>
   explicitGlobalBase: string | null
   explicitGlobalMultipliers: string[]
+  explicitGlobalMultipliersProvided: boolean
   explicitSystemicBase: string | null
   explicitCnsBase: string | null
   explicitSystemicMultipliers: string[]
   explicitCnsMultipliers: string[]
+  explicitSystemicMultipliersProvided: boolean
+  explicitCnsMultipliersProvided: boolean
 }): void {
   const setExplicitBase = (compartment: SessionCompartment, base: string | null): void => {
     if (!base || !opts.compartments.includes(compartment)) return
@@ -31,7 +34,7 @@ export function applyExplicitCompartmentOverrides(opts: {
     }
   }
 
-  if (opts.explicitGlobalMultipliers.length > 0) {
+  if (opts.explicitGlobalMultipliersProvided) {
     for (const compartment of opts.compartments) {
       opts.multipliersByCompartment.set(compartment, opts.explicitGlobalMultipliers)
     }
@@ -40,10 +43,10 @@ export function applyExplicitCompartmentOverrides(opts: {
   setExplicitBase('systemic', opts.explicitSystemicBase)
   setExplicitBase('cns', opts.explicitCnsBase)
 
-  if (opts.explicitSystemicMultipliers.length > 0 && opts.compartments.includes('systemic')) {
+  if (opts.explicitSystemicMultipliersProvided && opts.compartments.includes('systemic')) {
     opts.multipliersByCompartment.set('systemic', opts.explicitSystemicMultipliers)
   }
-  if (opts.explicitCnsMultipliers.length > 0 && opts.compartments.includes('cns')) {
+  if (opts.explicitCnsMultipliersProvided && opts.compartments.includes('cns')) {
     opts.multipliersByCompartment.set('cns', opts.explicitCnsMultipliers)
   }
 }

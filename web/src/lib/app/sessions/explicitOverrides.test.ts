@@ -32,10 +32,13 @@ describe('applyExplicitCompartmentOverrides', () => {
       ...maps,
       explicitGlobalBase: null,
       explicitGlobalMultipliers: [],
+      explicitGlobalMultipliersProvided: false,
       explicitSystemicBase: null,
       explicitCnsBase: null,
       explicitSystemicMultipliers: ['systemic-only'],
       explicitCnsMultipliers: ['cns-only'],
+      explicitSystemicMultipliersProvided: true,
+      explicitCnsMultipliersProvided: true,
     })
 
     expect(maps.baseFractionDistIdByCompartment.get('systemic')).toBe('base-systemic')
@@ -52,10 +55,13 @@ describe('applyExplicitCompartmentOverrides', () => {
       ...maps,
       explicitGlobalBase: null,
       explicitGlobalMultipliers: ['global-m'],
+      explicitGlobalMultipliersProvided: true,
       explicitSystemicBase: null,
       explicitCnsBase: null,
       explicitSystemicMultipliers: [],
       explicitCnsMultipliers: [],
+      explicitSystemicMultipliersProvided: false,
+      explicitCnsMultipliersProvided: false,
     })
 
     expect(maps.baseFractionDistIdByCompartment.get('systemic')).toBe('base-systemic')
@@ -74,10 +80,13 @@ describe('applyExplicitCompartmentOverrides', () => {
       ...maps,
       explicitGlobalBase: null,
       explicitGlobalMultipliers: [],
+      explicitGlobalMultipliersProvided: false,
       explicitSystemicBase: 'explicit-systemic',
       explicitCnsBase: null,
       explicitSystemicMultipliers: [],
       explicitCnsMultipliers: [],
+      explicitSystemicMultipliersProvided: false,
+      explicitCnsMultipliersProvided: false,
     })
 
     expect(maps.baseFractionDistIdByCompartment.get('systemic')).toBe('explicit-systemic')
@@ -92,15 +101,60 @@ describe('applyExplicitCompartmentOverrides', () => {
       ...maps,
       explicitGlobalBase: 'global-base',
       explicitGlobalMultipliers: ['global-m'],
+      explicitGlobalMultipliersProvided: true,
       explicitSystemicBase: 'systemic-base',
       explicitCnsBase: null,
       explicitSystemicMultipliers: ['systemic-m'],
       explicitCnsMultipliers: [],
+      explicitSystemicMultipliersProvided: true,
+      explicitCnsMultipliersProvided: false,
     })
 
     expect(maps.baseFractionDistIdByCompartment.get('systemic')).toBe('systemic-base')
     expect(maps.baseFractionDistIdByCompartment.get('cns')).toBe('global-base')
     expect(maps.multipliersByCompartment.get('systemic')).toEqual(['systemic-m'])
     expect(maps.multipliersByCompartment.get('cns')).toEqual(['global-m'])
+  })
+
+  test('supports explicit clear of global multipliers via empty list', () => {
+    const maps = seedMaps()
+
+    applyExplicitCompartmentOverrides({
+      compartments: ['systemic', 'cns'],
+      ...maps,
+      explicitGlobalBase: null,
+      explicitGlobalMultipliers: [],
+      explicitGlobalMultipliersProvided: true,
+      explicitSystemicBase: null,
+      explicitCnsBase: null,
+      explicitSystemicMultipliers: [],
+      explicitCnsMultipliers: [],
+      explicitSystemicMultipliersProvided: false,
+      explicitCnsMultipliersProvided: false,
+    })
+
+    expect(maps.multipliersByCompartment.get('systemic')).toEqual([])
+    expect(maps.multipliersByCompartment.get('cns')).toEqual([])
+  })
+
+  test('keeps defaults when global multipliers were not provided', () => {
+    const maps = seedMaps()
+
+    applyExplicitCompartmentOverrides({
+      compartments: ['systemic', 'cns'],
+      ...maps,
+      explicitGlobalBase: null,
+      explicitGlobalMultipliers: [],
+      explicitGlobalMultipliersProvided: false,
+      explicitSystemicBase: null,
+      explicitCnsBase: null,
+      explicitSystemicMultipliers: [],
+      explicitCnsMultipliers: [],
+      explicitSystemicMultipliersProvided: false,
+      explicitCnsMultipliersProvided: false,
+    })
+
+    expect(maps.multipliersByCompartment.get('systemic')).toEqual(['default-systemic'])
+    expect(maps.multipliersByCompartment.get('cns')).toEqual(['default-cns'])
   })
 })

@@ -749,6 +749,9 @@ export async function createSession(
   const baseFractionDistIdByCompartment = new Map<Compartment, string | null>()
   const missingByCompartment = new Map<Compartment, string[]>()
 
+  const explicitGlobalMultipliersProvided = Array.isArray(input.multiplierDistIds)
+  const explicitSystemicMultipliersProvided = Array.isArray(input.systemicMultiplierDistIds)
+  const explicitCnsMultipliersProvided = Array.isArray(input.cnsMultiplierDistIds)
   const explicitGlobalBase = String(input.baseFractionDistId ?? '').trim() || null
   const explicitGlobalMultipliers = toDistributionIds(input.multiplierDistIds)
   const explicitSystemicBase = String(input.systemicBaseFractionDistId ?? '').trim() || null
@@ -839,10 +842,13 @@ export async function createSession(
     missingByCompartment,
     explicitGlobalBase,
     explicitGlobalMultipliers,
+    explicitGlobalMultipliersProvided,
     explicitSystemicBase,
     explicitCnsBase,
     explicitSystemicMultipliers,
     explicitCnsMultipliers,
+    explicitSystemicMultipliersProvided,
+    explicitCnsMultipliersProvided,
   })
 
   // Fetch all referenced distributions in one round trip.
