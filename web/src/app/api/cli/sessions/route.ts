@@ -35,12 +35,18 @@ const sessionGetRequestSchema = z.object({
 
 const sessionDeleteRequestSchema = z.object({
   event_id: z.string().uuid(),
+  force: z.boolean().optional(),
   apply: z.boolean().optional(),
   dry_run: z.boolean().optional(),
   idempotency_key: z.string().min(1).max(256).optional(),
 })
 
-const sessionRestoreRequestSchema = sessionDeleteRequestSchema
+const sessionRestoreRequestSchema = z.object({
+  event_id: z.string().uuid(),
+  apply: z.boolean().optional(),
+  dry_run: z.boolean().optional(),
+  idempotency_key: z.string().min(1).max(256).optional(),
+})
 type SessionCreateSuccess = Extract<SessionCreateResult, { status: 'success' }>
 
 function readAction(payload: unknown): SessionsAction {
@@ -710,6 +716,15 @@ export async function POST(request: Request): Promise<Response> {
         dryRun: payload.dry_run,
         command: 'sessions delete',
       })
+
+      if (!applyMode.dryRun && !payload.force) {
+        throw new CliApiError({
+          code: 'conflict',
+          status: 409,
+          message: 'sessions delete requires force=true when apply=true.',
+          details: ['Re-run with --force for destructive session deletion.'],
+        })
+      }
 
       if (applyMode.dryRun) {
         return {

@@ -97,6 +97,26 @@ function requireForceWhenNoInput(opts: {
   return false
 }
 
+function requireForceForApply(opts: {
+  command: Command
+  apply?: boolean
+  force?: boolean
+  commandName: string
+  actionLabel: string
+}): boolean {
+  if (!opts.apply || opts.force) return true
+  runLocalEnvelope(
+    opts.command,
+    actionEnvelope({
+      ok: false,
+      code: 'conflict',
+      message: `${opts.commandName} requires --force when applying ${opts.actionLabel}.`,
+      errors: ['Re-run with --apply --force, or omit --apply for dry-run.'],
+    }),
+  )
+  return false
+}
+
 function ensureApplyOrDryRun(payload: { apply?: boolean; dryRunFlag?: boolean }): {
   apply: boolean
   dry_run: boolean
@@ -382,6 +402,18 @@ token
     }
 
     if (
+      !requireForceForApply({
+        command: cmd,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'auth token revoke',
+        actionLabel: 'profile deletion',
+      })
+    ) {
+      return
+    }
+
+    if (
       !requireForceWhenNoInput({
         command: cmd,
         apply: Boolean(opts.apply),
@@ -645,6 +677,18 @@ addSessionMutationFlags(sessions.command('delete').description('Soft delete one 
   .option('--force')
   .action(async function action(this: Command, opts) {
     if (
+      !requireForceForApply({
+        command: this as Command,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'sessions delete',
+        actionLabel: 'session deletion',
+      })
+    ) {
+      return
+    }
+
+    if (
       !requireForceWhenNoInput({
         command: this as Command,
         apply: Boolean(opts.apply),
@@ -872,6 +916,18 @@ cycleRules
   .option('--idempotency-key <key>')
   .action(async function action(this: Command, opts) {
     if (
+      !requireForceForApply({
+        command: this as Command,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'cycles rules delete',
+        actionLabel: 'cycle rule deletion',
+      })
+    ) {
+      return
+    }
+
+    if (
       !requireForceWhenNoInput({
         command: this as Command,
         apply: Boolean(opts.apply),
@@ -1007,11 +1063,19 @@ data
       process.stdout.write(bytes)
       return
     }
-
-    renderEnvelope(envelope, config)
     const outPath = path.resolve(String(opts.out))
     fs.mkdirSync(path.dirname(outPath), { recursive: true })
     fs.writeFileSync(outPath, bytes)
+
+    const sanitizedEnvelope: CliEnvelope = {
+      ...envelope,
+      data: {
+        ...dataObj,
+        zip_base64: null,
+        output_path: outPath,
+      },
+    }
+    renderEnvelope(sanitizedEnvelope, config)
   })
 
 data
@@ -1071,6 +1135,18 @@ data
   .option('--dry-run')
   .option('--idempotency-key <key>')
   .action(async function action(this: Command, opts) {
+    if (
+      !requireForceForApply({
+        command: this as Command,
+        apply: Boolean(opts.apply),
+        force: Boolean(opts.force),
+        commandName: 'data delete-all',
+        actionLabel: 'account data deletion',
+      })
+    ) {
+      return
+    }
+
     if (
       !requireForceWhenNoInput({
         command: this as Command,

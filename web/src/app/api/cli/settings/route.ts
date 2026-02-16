@@ -58,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
       return {
         envelope: okEnvelope({
           requestId,
-          message: 'Loaded profile settings.',
+          message: action === 'profile_get' ? 'Loaded profile settings.' : 'Loaded notification settings.',
           data: profile,
         }),
       }

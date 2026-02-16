@@ -238,6 +238,15 @@ export async function POST(request: Request): Promise<Response> {
     const payload = validateBody(dataDeleteAllRequestSchema, body)
     const applyMode = requireApply({ apply: payload.apply, dryRun: payload.dry_run, command: 'data delete-all' })
 
+    if (!applyMode.dryRun && !payload.force) {
+      throw new CliApiError({
+        code: 'conflict',
+        status: 409,
+        message: 'data delete-all requires force=true when apply=true.',
+        details: ['Re-run with --force for destructive account data deletion.'],
+      })
+    }
+
     const execDeleteAll = async () => {
       if (applyMode.dryRun) {
         return {

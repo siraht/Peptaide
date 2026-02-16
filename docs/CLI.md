@@ -110,6 +110,13 @@ node dist/index.js sessions create \
   --json
 ```
 
+Destructive applies require `--force`:
+
+- `auth token revoke --apply --force`
+- `sessions delete --apply --force`
+- `cycles rules delete --apply --force`
+- `data delete-all --apply --force --confirm DELETE`
+
 Apply session create with idempotency:
 
 ```bash

@@ -29,6 +29,7 @@ The target outcome is a script-first interface where `--json` output is stable a
 - [x] (2026-02-16 16:55Z) Added tests and usage validation: `web` typecheck/tests, new CLI/unit tests, CLI usage smoke (`test:usage`, local profile/auth dry-run), and calc API smoke via CLI.
 - [x] (2026-02-16 16:57Z) Ran browser regression smoke with t-browser harness (`npm run e2e:browser:smoke`) after implementation and after runtime fixes; both runs passed.
 - [x] (2026-02-16 17:08Z) Performed a fresh-eyes post-implementation audit and fixed correctness issues in CLI/API behavior (auth refresh retry path, batch/update idempotency, import/batch error envelope semantics, stricter date validation, and safe stdout ZIP export behavior).
+- [x] (2026-02-16 17:12Z) Performed a second fresh-eyes audit and fixed additional safety/clarity issues (force-required destructive applies across CLI/API destructive commands, safer export output ordering/sanitization, and minor settings message clarity).
 
 ## Surprises & Discoveries
 
@@ -70,6 +71,9 @@ The target outcome is a script-first interface where `--json` output is stable a
 
 - Observation: CLI refresh retry logic performed an unnecessary unauthenticated retry and skipped proper refresh behavior for some auth-domain calls.
   Evidence: `cli/src/http.ts` called `doFetch(null)` before refresh and had an auth-domain branch that bypassed refresh; fixed to explicit refresh-then-retry flow with recursion guard.
+
+- Observation: Destructive CLI actions could still apply without `--force` in common non-prompt flows, and some API delete routes accepted `force` but ignored it.
+  Evidence: `sessions delete`, `cycles rules delete`, and `data delete-all` initially allowed apply without force at one or both layers; fixed with explicit force checks in CLI and route handlers.
 
 ## Decision Log
 
@@ -131,6 +135,10 @@ The target outcome is a script-first interface where `--json` output is stable a
 
 - Decision: Treat CLI/API envelope correctness (`ok` flag fidelity) as a hard contract and fail routes with `CliApiError` when import/batch operations report domain errors.
   Rationale: Agent automation and exit-code mapping depend on `ok` semantics; code-only error labels inside success envelopes are unsafe.
+  Date/Author: 2026-02-16 / Codex
+
+- Decision: Enforce `force=true` for destructive apply operations in CLI/API routes rather than relying on interactive confirmations that are not currently implemented.
+  Rationale: This prevents accidental irreversible mutations and makes safety behavior deterministic for automation.
   Date/Author: 2026-02-16 / Codex
 
 ## Outcomes & Retrospective
@@ -677,3 +685,5 @@ Created this plan to define how Peptaide can add an AI-agent-oriented CLI withou
 2026-02-16 revision (implementation complete): updated the living plan after delivery to reflect completed milestones, added runtime discoveries (Zod safeExtend + Commander duplicate flags), recorded implementation decisions, and replaced planning-only retrospective text with concrete implementation/test/browser-validation outcomes.
 
 2026-02-16 revision (fresh-eyes audit): fixed post-delivery correctness bugs discovered during careful review, including envelope `ok` semantics for import/batch failures, CLI auth-refresh retry flow, session batch/update idempotency behavior, date parsing validation strictness, and binary stdout export safety for `data export --out -`.
+
+2026-02-16 revision (second fresh-eyes audit): tightened destructive apply safety by requiring force at CLI/API layers for destructive commands, improved data export file-output ordering/sanitization, and updated CLI docs to match enforced force semantics.

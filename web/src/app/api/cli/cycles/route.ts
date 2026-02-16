@@ -454,6 +454,15 @@ export async function POST(request: Request): Promise<Response> {
     const payload = validateBody(cycleRulesDeleteRequestSchema, body)
     const applyMode = requireApply({ apply: payload.apply, dryRun: payload.dry_run, command: 'cycles rules delete' })
 
+    if (!applyMode.dryRun && !payload.force) {
+      throw new CliApiError({
+        code: 'conflict',
+        status: 409,
+        message: 'cycles rules delete requires force=true when apply=true.',
+        details: ['Re-run with --force for destructive cycle-rule deletion.'],
+      })
+    }
+
     const existingRules = await listCycleRules(auth.supabase)
     const existing = existingRules.find((rule) => rule.id === payload.cycle_rule_id) ?? null
     if (!existing) {
