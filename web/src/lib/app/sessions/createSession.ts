@@ -31,6 +31,8 @@ import type { Database } from '@/lib/supabase/database.types'
 import type { DbClient } from '@/lib/repos/types'
 import { safeTimeZone, utcIsoFromTodayLocalTime } from '@/lib/time/timeZone'
 
+import { applyExplicitCompartmentOverrides } from './explicitOverrides'
+
 export type Compartment = Extract<Database['public']['Enums']['compartment_t'], 'systemic' | 'cns'>
 
 type CanonicalDistSpec = {
@@ -754,107 +756,94 @@ export async function createSession(
   const explicitSystemicMultipliers = toDistributionIds(input.systemicMultiplierDistIds)
   const explicitCnsMultipliers = toDistributionIds(input.cnsMultiplierDistIds)
 
-  const useExplicitBoth =
-    compartments.includes('systemic') &&
-    compartments.includes('cns') &&
-    (explicitSystemicBase || explicitCnsBase || explicitSystemicMultipliers.length > 0 || explicitCnsMultipliers.length > 0)
+  const modifierCompartments: Database['public']['Enums']['compartment_t'][] = Array.from(
+    new Set<Database['public']['Enums']['compartment_t']>([...compartments, 'both']),
+  )
 
-  if (useExplicitBoth) {
-    if (!explicitSystemicBase || !explicitCnsBase) {
-      return failWithRollback(
-        'Explicit both-compartment modeling requires systemic and cns base distribution IDs.',
-      )
-    }
+  const [components, formulationModsAll] = await Promise.all([
+    listFormulationComponents({ supabase, formulationId }),
+    listFormulationModifierSpecs({ supabase, formulationId, compartments: modifierCompartments }),
+  ])
 
-    baseFractionDistIdByCompartment.set('systemic', explicitSystemicBase)
-    baseFractionDistIdByCompartment.set('cns', explicitCnsBase)
-    multipliersByCompartment.set('systemic', explicitSystemicMultipliers)
-    multipliersByCompartment.set('cns', explicitCnsMultipliers)
-    missingByCompartment.set('systemic', [])
-    missingByCompartment.set('cns', [])
-  } else if (explicitGlobalBase || explicitGlobalMultipliers.length > 0) {
-    for (const compartment of compartments) {
-      baseFractionDistIdByCompartment.set(compartment, explicitGlobalBase)
-      multipliersByCompartment.set(compartment, explicitGlobalMultipliers)
-      missingByCompartment.set(compartment, explicitGlobalBase ? [] : ['missing_base_bioavailability_spec'])
+  const componentIds = components.map((c) => c.id)
+  const componentSpecsAll = await listComponentModifierSpecs({
+    supabase,
+    formulationComponentIds: componentIds,
+    compartments: modifierCompartments,
+  })
+
+  const componentSpecsByComponentId = new Map<string, typeof componentSpecsAll>()
+  for (const spec of componentSpecsAll) {
+    const arr = componentSpecsByComponentId.get(spec.formulation_component_id) ?? []
+    arr.push(spec)
+    componentSpecsByComponentId.set(spec.formulation_component_id, arr)
+  }
+
+  const baseSpecByCompartment = new Map<Compartment, Awaited<ReturnType<typeof getBioavailabilitySpec>>>()
+  if (formulationEnriched.substance && formulationEnriched.route) {
+    const baseSpecs = await Promise.all(
+      compartments.map((compartment) =>
+        getBioavailabilitySpec({
+          supabase,
+          substanceId: formulationEnriched.substance!.id,
+          routeId: formulationEnriched.route!.id,
+          compartment,
+        }),
+      ),
+    )
+    for (let i = 0; i < compartments.length; i++) {
+      baseSpecByCompartment.set(compartments[i]!, baseSpecs[i] ?? null)
     }
   } else {
-    const modifierCompartments: Database['public']['Enums']['compartment_t'][] = Array.from(
-      new Set<Database['public']['Enums']['compartment_t']>([...compartments, 'both']),
-    )
-
-    const [components, formulationModsAll] = await Promise.all([
-      listFormulationComponents({ supabase, formulationId }),
-      listFormulationModifierSpecs({ supabase, formulationId, compartments: modifierCompartments }),
-    ])
-
-    const componentIds = components.map((c) => c.id)
-    const componentSpecsAll = await listComponentModifierSpecs({
-      supabase,
-      formulationComponentIds: componentIds,
-      compartments: modifierCompartments,
-    })
-
-    const componentSpecsByComponentId = new Map<string, typeof componentSpecsAll>()
-    for (const spec of componentSpecsAll) {
-      const arr = componentSpecsByComponentId.get(spec.formulation_component_id) ?? []
-      arr.push(spec)
-      componentSpecsByComponentId.set(spec.formulation_component_id, arr)
-    }
-
-    const baseSpecByCompartment = new Map<Compartment, Awaited<ReturnType<typeof getBioavailabilitySpec>>>()
-    if (formulationEnriched.substance && formulationEnriched.route) {
-      const baseSpecs = await Promise.all(
-        compartments.map((compartment) =>
-          getBioavailabilitySpec({
-            supabase,
-            substanceId: formulationEnriched.substance!.id,
-            routeId: formulationEnriched.route!.id,
-            compartment,
-          }),
-        ),
-      )
-      for (let i = 0; i < compartments.length; i++) {
-        baseSpecByCompartment.set(compartments[i]!, baseSpecs[i] ?? null)
-      }
-    } else {
-      for (const compartment of compartments) {
-        baseSpecByCompartment.set(compartment, null)
-      }
-    }
-
     for (const compartment of compartments) {
-      const missing: string[] = []
-
-      const baseSpec = baseSpecByCompartment.get(compartment) ?? null
-      if (!baseSpec) {
-        baseFractionDistIdByCompartment.set(compartment, null)
-        missing.push('missing_base_bioavailability_spec')
-      } else {
-        baseFractionDistIdByCompartment.set(compartment, baseSpec.base_fraction_dist_id)
-      }
-
-      const formulationMultiplierIds = formulationModsAll
-        .filter((m) => m.compartment === compartment || m.compartment === 'both')
-        .map((m) => m.multiplier_dist_id)
-
-      const componentMultiplierIds: string[] = []
-      for (const c of components) {
-        const specsForComponent = (componentSpecsByComponentId.get(c.id) ?? []).filter(
-          (s) => s.compartment === compartment || s.compartment === 'both',
-        )
-        if (specsForComponent.length > 0) {
-          componentMultiplierIds.push(...specsForComponent.map((s) => s.multiplier_dist_id))
-        } else if (c.modifier_dist_id) {
-          componentMultiplierIds.push(c.modifier_dist_id)
-        }
-      }
-
-      const multiplierIds = [...formulationMultiplierIds, ...componentMultiplierIds]
-      multipliersByCompartment.set(compartment, multiplierIds)
-      missingByCompartment.set(compartment, missing)
+      baseSpecByCompartment.set(compartment, null)
     }
   }
+
+  for (const compartment of compartments) {
+    const missing: string[] = []
+
+    const baseSpec = baseSpecByCompartment.get(compartment) ?? null
+    if (!baseSpec) {
+      baseFractionDistIdByCompartment.set(compartment, null)
+      missing.push('missing_base_bioavailability_spec')
+    } else {
+      baseFractionDistIdByCompartment.set(compartment, baseSpec.base_fraction_dist_id)
+    }
+
+    const formulationMultiplierIds = formulationModsAll
+      .filter((m) => m.compartment === compartment || m.compartment === 'both')
+      .map((m) => m.multiplier_dist_id)
+
+    const componentMultiplierIds: string[] = []
+    for (const c of components) {
+      const specsForComponent = (componentSpecsByComponentId.get(c.id) ?? []).filter(
+        (s) => s.compartment === compartment || s.compartment === 'both',
+      )
+      if (specsForComponent.length > 0) {
+        componentMultiplierIds.push(...specsForComponent.map((s) => s.multiplier_dist_id))
+      } else if (c.modifier_dist_id) {
+        componentMultiplierIds.push(c.modifier_dist_id)
+      }
+    }
+
+    const multiplierIds = [...formulationMultiplierIds, ...componentMultiplierIds]
+    multipliersByCompartment.set(compartment, multiplierIds)
+    missingByCompartment.set(compartment, missing)
+  }
+
+  applyExplicitCompartmentOverrides({
+    compartments,
+    baseFractionDistIdByCompartment,
+    multipliersByCompartment,
+    missingByCompartment,
+    explicitGlobalBase,
+    explicitGlobalMultipliers,
+    explicitSystemicBase,
+    explicitCnsBase,
+    explicitSystemicMultipliers,
+    explicitCnsMultipliers,
+  })
 
   // Fetch all referenced distributions in one round trip.
   const allDistIds: string[] = []

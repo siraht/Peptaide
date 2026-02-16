@@ -44,8 +44,6 @@ function buildApiUrl(apiUrl: string, domain: string): { ok: true; url: URL } | {
     const parsed = new URL(apiUrl)
     const basePath = parsed.pathname.endsWith('/') ? parsed.pathname : `${parsed.pathname}/`
     parsed.pathname = `${basePath}api/cli/${domain}`
-    parsed.search = ''
-    parsed.hash = ''
     return { ok: true, url: parsed }
   } catch {
     return { ok: false, message: `Invalid API URL: ${apiUrl}` }
@@ -167,9 +165,11 @@ export async function callApi(opts: {
                 : null,
             token_type: String(tokenData.token_type ?? 'bearer'),
           })
-          envelope = await doFetch(accessToken)
+          return doFetch(accessToken)
         }
-      } else if (config.verbose) {
+
+        return buildNetworkError('Auth refresh response missing token fields.', rid)
+      } else {
         return refreshResult
       }
     }
