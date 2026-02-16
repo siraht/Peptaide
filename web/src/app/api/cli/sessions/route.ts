@@ -14,6 +14,7 @@ import { withIdempotency } from '@/lib/api/cli/idempotency'
 import { readJsonBody, requireApply, validateBody } from '@/lib/api/cli/request'
 import { runCliRoute } from '@/lib/api/cli/route'
 import { CliApiError, okEnvelope } from '@/lib/api/cli/response'
+import { buildSessionUpdateRecomputeInput, payloadHasOwnKey } from '@/lib/api/cli/sessionUpdate'
 import { createSession, type SessionCreateInput, type SessionCreateResult } from '@/lib/app/sessions/createSession'
 
 export const runtime = 'nodejs'
@@ -602,7 +603,7 @@ export async function POST(request: Request): Promise<Response> {
       const updates: Record<string, unknown> = {}
 
       if (payload.ts != null) updates.ts = payload.ts
-      if (payload.notes != null) updates.notes = payload.notes
+      if (payloadHasOwnKey(payload, 'notes')) updates.notes = payload.notes ?? null
       if (payload.tags != null) updates.tags = payload.tags
 
       const needsRecompute =
@@ -612,21 +613,23 @@ export async function POST(request: Request): Promise<Response> {
         payload.input_unit != null
 
       if (needsRecompute) {
-        const recompute = await createSession(auth.supabase, {
-          formulationId: current.formulation_id,
-          inputText: payload.input_text ?? current.input_text,
-          inputKind: payload.input_kind ?? current.input_kind,
-          inputValue: payload.input_value ?? current.input_value ?? undefined,
-          inputUnit: payload.input_unit ?? current.input_unit ?? undefined,
-          normalizedUnit: payload.normalized_unit,
-          preferStructured: payload.prefer_structured,
-          ts: payload.ts ?? current.ts,
-          notes: payload.notes ?? current.notes,
-          tags: payload.tags ?? current.tags,
-          cycleDecision: payload.cycle_decision,
-          vialId: current.vial_id,
-          dryRun: true,
-        })
+        const recompute = await createSession(
+          auth.supabase,
+          buildSessionUpdateRecomputeInput({
+            payload,
+            current: {
+              formulation_id: current.formulation_id,
+              input_text: current.input_text,
+              input_kind: current.input_kind,
+              input_value: current.input_value,
+              input_unit: current.input_unit,
+              ts: current.ts,
+              notes: current.notes,
+              tags: current.tags,
+              vial_id: current.vial_id,
+            },
+          }),
+        )
 
         if (recompute.status !== 'success') {
           throw new CliApiError({

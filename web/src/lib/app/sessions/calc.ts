@@ -14,6 +14,7 @@ import { getBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
 import type { DbClient } from '@/lib/repos/types'
 
 import type { CalcDoseRequest, CalcEffectiveRequest } from '@/lib/api/contracts/cli'
+import { applyExplicitCompartmentOverrides } from './explicitOverrides'
 
 type Compartment = 'systemic' | 'cns'
 
@@ -61,6 +62,46 @@ function selectCompartments(value: CalcEffectiveRequest['compartment']): Compart
   if (value === 'both') return ['systemic', 'cns']
   if (value === 'cns') return ['cns']
   return ['systemic']
+}
+
+function normalizeDistributionIds(ids: string[] | undefined): string[] {
+  if (!Array.isArray(ids)) return []
+  return ids.map((id) => String(id).trim()).filter((id) => id.length > 0)
+}
+
+export function applyCalcExplicitCompartmentOverrides(opts: {
+  compartments: Compartment[]
+  baseByCompartment: Map<Compartment, string | null>
+  multipliersByCompartment: Map<Compartment, string[]>
+  request: Pick<
+    CalcEffectiveRequest,
+    | 'base_fraction_dist_id'
+    | 'multiplier_dist_id'
+    | 'systemic_base_fraction_dist_id'
+    | 'cns_base_fraction_dist_id'
+    | 'systemic_multiplier_dist_id'
+    | 'cns_multiplier_dist_id'
+  >
+}): void {
+  const explicitGlobalBase = String(opts.request.base_fraction_dist_id ?? '').trim() || null
+  const explicitSystemicBase = String(opts.request.systemic_base_fraction_dist_id ?? '').trim() || null
+  const explicitCnsBase = String(opts.request.cns_base_fraction_dist_id ?? '').trim() || null
+
+  applyExplicitCompartmentOverrides({
+    compartments: opts.compartments,
+    baseFractionDistIdByCompartment: opts.baseByCompartment,
+    multipliersByCompartment: opts.multipliersByCompartment,
+    missingByCompartment: new Map(opts.compartments.map((compartment) => [compartment, []] as const)),
+    explicitGlobalBase,
+    explicitGlobalMultipliers: normalizeDistributionIds(opts.request.multiplier_dist_id),
+    explicitGlobalMultipliersProvided: Array.isArray(opts.request.multiplier_dist_id),
+    explicitSystemicBase,
+    explicitCnsBase,
+    explicitSystemicMultipliers: normalizeDistributionIds(opts.request.systemic_multiplier_dist_id),
+    explicitCnsMultipliers: normalizeDistributionIds(opts.request.cns_multiplier_dist_id),
+    explicitSystemicMultipliersProvided: Array.isArray(opts.request.systemic_multiplier_dist_id),
+    explicitCnsMultipliersProvided: Array.isArray(opts.request.cns_multiplier_dist_id),
+  })
 }
 
 function parseInput(request: {
@@ -325,21 +366,17 @@ export async function calcEffective(
   const hasGlobalExplicit =
     typeof request.base_fraction_dist_id === 'string' || (request.multiplier_dist_id?.length ?? 0) > 0
 
-  if (hasScopedExplicit) {
-    if (compartments.includes('systemic')) {
-      baseByCompartment.set('systemic', request.systemic_base_fraction_dist_id ?? null)
-      multipliersByCompartment.set('systemic', request.systemic_multiplier_dist_id ?? [])
-    }
-    if (compartments.includes('cns')) {
-      baseByCompartment.set('cns', request.cns_base_fraction_dist_id ?? null)
-      multipliersByCompartment.set('cns', request.cns_multiplier_dist_id ?? [])
-    }
-  } else if (hasGlobalExplicit) {
-    for (const compartment of compartments) {
-      baseByCompartment.set(compartment, request.base_fraction_dist_id ?? null)
-      multipliersByCompartment.set(compartment, request.multiplier_dist_id ?? [])
-    }
-  } else {
+  const hasContext =
+    typeof request.formulation_id === 'string' ||
+    (typeof request.substance_id === 'string' && typeof request.route_id === 'string')
+
+  if (!hasContext && !hasGlobalExplicit && !hasScopedExplicit) {
+    throw new Error(
+      'Provide formulation_id or substance_id+route_id when explicit distributions are not supplied.',
+    )
+  }
+
+  if (hasContext) {
     const resolved = await resolveModelFromContext({
       supabase,
       formulationId: request.formulation_id,
@@ -352,7 +389,19 @@ export async function calcEffective(
       baseByCompartment.set(compartment, resolved.baseByCompartment.get(compartment) ?? null)
       multipliersByCompartment.set(compartment, resolved.multipliersByCompartment.get(compartment) ?? [])
     }
+  } else {
+    for (const compartment of compartments) {
+      baseByCompartment.set(compartment, null)
+      multipliersByCompartment.set(compartment, [])
+    }
   }
+
+  applyCalcExplicitCompartmentOverrides({
+    compartments,
+    baseByCompartment,
+    multipliersByCompartment,
+    request,
+  })
 
   const distIds = new Set<string>()
   for (const compartment of compartments) {
