@@ -225,16 +225,21 @@ export const sessionUpdateRequestSchema = z
   })
   .superRefine((v, ctx) => {
     const hasText = typeof v.input_text === 'string'
-    const hasStructured =
-      v.input_kind != null &&
-      typeof v.input_value === 'number' &&
-      typeof v.input_unit === 'string'
-
-    if (hasText && hasStructured && !v.prefer_structured) {
+    const hasAnyStructuredPatch =
+      v.input_kind != null || typeof v.input_value === 'number' || typeof v.input_unit === 'string'
+    if (hasText && hasAnyStructuredPatch && !v.prefer_structured) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'When updating with both text and structured values, set prefer_structured=true.',
         path: ['prefer_structured'],
+      })
+    }
+
+    if (v.apply === false && v.dry_run === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid apply/dry-run combination for sessions update.',
+        path: ['dry_run'],
       })
     }
   })
