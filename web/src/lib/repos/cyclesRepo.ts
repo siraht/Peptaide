@@ -171,6 +171,32 @@ export async function completeCycleInstance(
   requireOk(res.error, 'cycle_instances.complete')
 }
 
+export async function reopenCycleInstance(
+  supabase: DbClient,
+  opts: { cycleInstanceId: string },
+): Promise<void> {
+  const res = await supabase
+    .from('cycle_instances')
+    .update({ status: 'active', end_ts: null })
+    .eq('id', opts.cycleInstanceId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'cycle_instances.reopen')
+}
+
+export async function deleteCycleInstanceHard(
+  supabase: DbClient,
+  opts: { cycleInstanceId: string },
+): Promise<void> {
+  const res = await supabase
+    .from('cycle_instances')
+    .delete()
+    .eq('id', opts.cycleInstanceId)
+    .is('deleted_at', null)
+
+  requireOk(res.error, 'cycle_instances.delete')
+}
+
 export async function abandonCycleInstance(
   supabase: DbClient,
   opts: { cycleInstanceId: string; endTs: string },

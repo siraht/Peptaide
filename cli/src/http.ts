@@ -77,7 +77,8 @@ export async function callApi(opts: {
     }
   }
 
-  const url = new URL(`/api/cli/${opts.domain}`, config.apiUrl)
+  const baseUrl = config.apiUrl.endsWith('/') ? config.apiUrl : `${config.apiUrl}/`
+  const url = new URL(`api/cli/${opts.domain}`, baseUrl)
 
   const doFetch = async (token: string | null): Promise<CliEnvelope> => {
     try {

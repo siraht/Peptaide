@@ -11,9 +11,11 @@ import type { Distribution } from '@/lib/domain/uncertainty/types'
 import {
   completeCycleInstance,
   createCycleInstance,
+  deleteCycleInstanceHard,
   getActiveCycleForSubstance,
   getCycleRuleForSubstance,
   getLastCycleForSubstance,
+  reopenCycleInstance,
 } from '@/lib/repos/cyclesRepo'
 import { getBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
 import { listComponentModifierSpecs } from '@/lib/repos/componentModifierSpecsRepo'
@@ -329,6 +331,40 @@ function toDistributionIds(ids: string[] | undefined): string[] {
   return out
 }
 
+type CycleMutationState = {
+  completedCycleId: string | null
+  createdCycleIds: string[]
+}
+
+async function rollbackCycleMutations(
+  supabase: DbClient,
+  state: CycleMutationState,
+): Promise<string[]> {
+  if (!state.completedCycleId && state.createdCycleIds.length === 0) return []
+
+  const warnings: string[] = []
+
+  for (const cycleInstanceId of [...state.createdCycleIds].reverse()) {
+    try {
+      await deleteCycleInstanceHard(supabase, { cycleInstanceId })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      warnings.push(`Rollback warning: failed deleting provisional cycle ${cycleInstanceId}: ${msg}`)
+    }
+  }
+
+  if (state.completedCycleId) {
+    try {
+      await reopenCycleInstance(supabase, { cycleInstanceId: state.completedCycleId })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      warnings.push(`Rollback warning: failed reopening cycle ${state.completedCycleId}: ${msg}`)
+    }
+  }
+
+  return warnings
+}
+
 export async function createSession(
   supabase: DbClient,
   input: SessionCreateInput,
@@ -345,53 +381,62 @@ export async function createSession(
 
   const cycleDecision = parseCycleDecision(input.cycleDecision)
   const warnings: string[] = []
-
-  const userRes = await supabase.auth.getUser()
-  const user = userRes.data.user
-  if (!user) {
-    return { status: 'error', message: 'Not authenticated.', warnings }
+  const cycleMutations: CycleMutationState = {
+    completedCycleId: null,
+    createdCycleIds: [],
+  }
+  const failWithRollback = async (message: string): Promise<SessionCreateResult> => {
+    const rollbackWarnings = await rollbackCycleMutations(supabase, cycleMutations)
+    return { status: 'error', message, warnings: [...warnings, ...rollbackWarnings] }
   }
 
-  const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
-  const eventTime = deriveEventTime({
-    ts: input.ts,
-    timeHHMM: input.timeHHMM,
-    timezone: input.timezone,
-    profile,
-  })
-
-  if (!eventTime.ok) {
-    return { status: 'error', message: eventTime.message, warnings }
-  }
-
-  const formulationEnriched = await getFormulationEnrichedById(supabase, {
-    formulationId,
-  })
-  if (!formulationEnriched) {
-    return { status: 'error', message: 'Formulation not found.', warnings }
-  }
-
-  const compartments = (() => {
-    const defaultCompartments = compartmentsForSubstance(formulationEnriched.substance)
-    if (!input.compartment || input.compartment === 'both') return defaultCompartments
-    if (input.compartment === 'systemic') return ['systemic'] as Compartment[]
-    return ['cns'] as Compartment[]
-  })()
-
-  let selectedVial: VialRow | null = null
-  if (input.vialId) {
-    selectedVial = await getVialById(supabase, { vialId: input.vialId })
-    if (!selectedVial) {
-      return { status: 'error', message: 'Specified vial was not found.', warnings }
+  try {
+    const userRes = await supabase.auth.getUser()
+    const user = userRes.data.user
+    if (!user) {
+      return { status: 'error', message: 'Not authenticated.', warnings }
     }
-    if (selectedVial.formulation_id !== formulationId) {
-      return { status: 'error', message: 'Specified vial does not belong to the selected formulation.', warnings }
+
+    const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
+    const eventTime = deriveEventTime({
+      ts: input.ts,
+      timeHHMM: input.timeHHMM,
+      timezone: input.timezone,
+      profile,
+    })
+
+    if (!eventTime.ok) {
+      return { status: 'error', message: eventTime.message, warnings }
     }
-  } else {
-    selectedVial = await getActiveVialForFormulation(supabase, {
+
+    const formulationEnriched = await getFormulationEnrichedById(supabase, {
       formulationId,
     })
-  }
+    if (!formulationEnriched) {
+      return { status: 'error', message: 'Formulation not found.', warnings }
+    }
+
+    const compartments = (() => {
+      const defaultCompartments = compartmentsForSubstance(formulationEnriched.substance)
+      if (!input.compartment || input.compartment === 'both') return defaultCompartments
+      if (input.compartment === 'systemic') return ['systemic'] as Compartment[]
+      return ['cns'] as Compartment[]
+    })()
+
+    let selectedVial: VialRow | null = null
+    if (input.vialId) {
+      selectedVial = await getVialById(supabase, { vialId: input.vialId })
+      if (!selectedVial) {
+        return { status: 'error', message: 'Specified vial was not found.', warnings }
+      }
+      if (selectedVial.formulation_id !== formulationId) {
+        return { status: 'error', message: 'Specified vial does not belong to the selected formulation.', warnings }
+      }
+    } else {
+      selectedVial = await getActiveVialForFormulation(supabase, {
+        formulationId,
+      })
+    }
 
   // Calibration for device-units inputs.
   let calibrationDistSpec: CanonicalDistSpec | null = null
@@ -623,6 +668,7 @@ export async function createSession(
                   cycleInstanceId: activeCycle.id,
                   endTs: safeEnd.toISOString(),
                 })
+                cycleMutations.completedCycleId = activeCycle.id
               }
 
               if (!input.dryRun) {
@@ -635,6 +681,7 @@ export async function createSession(
                   notes: null,
                 })
                 cycleInstanceId = newCycle.id
+                cycleMutations.createdCycleIds.push(newCycle.id)
               } else {
                 cycleInstanceId = randomUUID()
               }
@@ -651,6 +698,7 @@ export async function createSession(
               notes: null,
             })
             cycleInstanceId = newCycle.id
+            cycleMutations.createdCycleIds.push(newCycle.id)
           } else {
             cycleInstanceId = randomUUID()
           }
@@ -668,6 +716,7 @@ export async function createSession(
             notes: null,
           })
           cycleInstanceId = newCycle.id
+          cycleMutations.createdCycleIds.push(newCycle.id)
         } else {
           cycleInstanceId = randomUUID()
         }
@@ -682,13 +731,14 @@ export async function createSession(
             notes: null,
           })
           cycleInstanceId = newCycle.id
+          cycleMutations.createdCycleIds.push(newCycle.id)
         } else {
           cycleInstanceId = randomUUID()
         }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { status: 'error', message: `Cycle assignment failed: ${msg}`, warnings }
+      return failWithRollback(`Cycle assignment failed: ${msg}`)
     }
   }
 
@@ -711,11 +761,9 @@ export async function createSession(
 
   if (useExplicitBoth) {
     if (!explicitSystemicBase || !explicitCnsBase) {
-      return {
-        status: 'error',
-        message: 'Explicit both-compartment modeling requires systemic and cns base distribution IDs.',
-        warnings,
-      }
+      return failWithRollback(
+        'Explicit both-compartment modeling requires systemic and cns base distribution IDs.',
+      )
     }
 
     baseFractionDistIdByCompartment.set('systemic', explicitSystemicBase)
@@ -910,7 +958,7 @@ export async function createSession(
       if (!baseRow) {
         const msg = `Model coverage missing for compartment: ${compartment}`
         if (input.strictModelCoverage) {
-          return { status: 'error', message: msg, warnings }
+          return failWithRollback(msg)
         }
         warnings.push(msg)
         continue
@@ -920,7 +968,7 @@ export async function createSession(
       if (baseDist.valueType !== 'fraction') {
         const msg = `Base distribution for ${compartment} must be a fraction distribution.`
         if (input.strictModelCoverage) {
-          return { status: 'error', message: msg, warnings }
+          return failWithRollback(msg)
         }
         warnings.push(msg)
         continue
@@ -1013,14 +1061,18 @@ export async function createSession(
   })
 
   if (insertRes.error) {
-    return { status: 'error', message: `Failed to save event: ${insertRes.error.message}`, warnings }
+    return failWithRollback(`Failed to save event: ${insertRes.error.message}`)
   }
 
-  return {
-    status: 'success',
-    message: 'Saved.',
-    warnings,
-    saved: true,
-    session,
+    return {
+      status: 'success',
+      message: 'Saved.',
+      warnings,
+      saved: true,
+      session,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return failWithRollback(`Session creation failed: ${msg}`)
   }
 }

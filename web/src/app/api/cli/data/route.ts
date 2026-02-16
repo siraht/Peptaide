@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { z } from 'zod'
 
 import { dataDeleteAllRequestSchema } from '@/lib/api/contracts/cli'
+import { shouldStoreDeleteAllIdempotency } from '@/lib/api/cli/dataDeleteAll'
 import { rowsToCsv } from '@/lib/export/csv'
 import { EXPORT_COLUMNS, type ExportTableName } from '@/lib/export/exportColumns'
 import { exportAllRowsForTable } from '@/lib/repos/exportRepo'
@@ -274,11 +275,15 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    if (payload.idempotency_key) {
+    const deleteAllIdempotencyKey = payload.idempotency_key
+    if (shouldStoreDeleteAllIdempotency({
+      dryRun: applyMode.dryRun,
+      idempotencyKey: deleteAllIdempotencyKey,
+    }) && deleteAllIdempotencyKey) {
       return withIdempotency({
         supabase: auth.supabase,
         operation: 'data.delete_all',
-        idempotencyKey: payload.idempotency_key,
+        idempotencyKey: deleteAllIdempotencyKey,
         requestPayload: payload,
         execute: execDeleteAll,
       })
