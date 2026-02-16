@@ -355,12 +355,14 @@ export default async function TodayPage({
 
   const maxDailyAdminMg = Math.max(...dailyAdminTotalsByDay.map((d) => d.mg), 1)
 
+  const actionableDoseWarnings = doseWarnings.filter((w) => w.severity === 'warning' || w.severity === 'error')
+
   const warningCountBySubstanceId = new Map<string, number>()
-  for (const w of doseWarnings) {
+  for (const w of actionableDoseWarnings) {
     warningCountBySubstanceId.set(w.substanceId, (warningCountBySubstanceId.get(w.substanceId) ?? 0) + 1)
   }
-  const warningCountTotal = doseWarnings.length
-  const warningRows = doseWarnings.slice(0, 120)
+  const warningCountTotal = actionableDoseWarnings.length
+  const warningRows = actionableDoseWarnings.slice(0, 120)
 
   const formulationsBySubstanceId = new Map<
     string,
@@ -398,7 +400,7 @@ export default async function TodayPage({
       }
     }
 
-    const warningHit = doseWarnings.find((w) => w.substanceId === ccSubstanceId)
+    const warningHit = actionableDoseWarnings.find((w) => w.substanceId === ccSubstanceId)
     if (warningHit) return { id: warningHit.substanceId, name: warningHit.substanceName }
     return null
   })()
@@ -437,7 +439,7 @@ export default async function TodayPage({
   })()
 
   const selectedWarnings = selectedSubstanceId
-    ? doseWarnings.filter((w) => w.substanceId === selectedSubstanceId).slice(0, 60)
+    ? actionableDoseWarnings.filter((w) => w.substanceId === selectedSubstanceId).slice(0, 60)
     : []
 
   const analyticsFilter = {
