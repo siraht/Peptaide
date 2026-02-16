@@ -1,143 +1,19 @@
 'use server'
 
-import { randomUUID, createHash } from 'node:crypto'
-
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
-import { computeDose } from '@/lib/domain/dose/computeDose'
-import { eventCostFromVial } from '@/lib/domain/cost/cost'
-import { suggestCycleAction } from '@/lib/domain/cycles/suggest'
-import { distributionMean } from '@/lib/domain/uncertainty/sample'
-import { simulateEffectiveDose } from '@/lib/domain/uncertainty/monteCarlo'
-import { parseQuantity } from '@/lib/domain/units/types'
-import { toCanonicalMassMg, toCanonicalVolumeMl } from '@/lib/domain/units/canonicalize'
-import type { Distribution } from '@/lib/domain/uncertainty/types'
-import {
-  completeCycleInstance,
-  createCycleInstance,
-  getActiveCycleForSubstance,
-  getCycleRuleForSubstance,
-  getLastCycleForSubstance,
-} from '@/lib/repos/cyclesRepo'
+import { createSession } from '@/lib/app/sessions/createSession'
 import { requireData, requireOk } from '@/lib/repos/errors'
-import { getBioavailabilitySpec } from '@/lib/repos/bioavailabilitySpecsRepo'
-import { listComponentModifierSpecs } from '@/lib/repos/componentModifierSpecsRepo'
-import { listDistributionsById, distributionRowToDomain } from '@/lib/repos/distributionsRepo'
-import { getDeviceCalibration } from '@/lib/repos/deviceCalibrationsRepo'
-import { getLastEventEnrichedForSubstance } from '@/lib/repos/eventsRepo'
-import { listFormulationComponents } from '@/lib/repos/formulationComponentsRepo'
-import { getFormulationEnrichedById } from '@/lib/repos/formulationsRepo'
-import { listFormulationModifierSpecs } from '@/lib/repos/formulationModifierSpecsRepo'
-import { ensureMyProfile, getMyProfile } from '@/lib/repos/profilesRepo'
-import { getActiveVialForFormulation } from '@/lib/repos/vialsRepo'
+import { discardVial, getVialById } from '@/lib/repos/vialsRepo'
 import { createClient } from '@/lib/supabase/server'
-import type { Database } from '@/lib/supabase/database.types'
-import { safeTimeZone, utcIsoFromTodayLocalTime } from '@/lib/time/timeZone'
-
-type Compartment = Extract<Database['public']['Enums']['compartment_t'], 'systemic' | 'cns'>
-
-type CanonicalDistSpec = {
-  id: string
-  value_type: Database['public']['Enums']['distribution_value_type_t']
-  dist_type: Database['public']['Enums']['distribution_dist_type_t']
-  p1: number | null
-  p2: number | null
-  p3: number | null
-  min_value: number | null
-  max_value: number | null
-  units: string | null
-}
-
-type CanonicalModelSnapshot = {
-  version: 1
-  formulation_id: string
-  substance_id: string | null
-  route_id: string | null
-  device_id: string | null
-  calibration:
-    | {
-        source: 'vial_override' | 'device_calibration'
-        unit_label: string
-        dist: CanonicalDistSpec
-        mean_volume_ml_per_unit: number
-      }
-    | null
-  compartments: Partial<
-    Record<
-      Compartment,
-      {
-        base_fraction: CanonicalDistSpec | null
-        multipliers: CanonicalDistSpec[]
-        missing: string[]
-      }
-    >
-  >
-}
+import { createVialAction } from '../(hub)/inventory/actions'
 
 export type CreateEventState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'confirm_new_cycle'; message: string }
   | { status: 'success'; message: string; eventId: string }
-
-function hashToSeed53(input: string): bigint {
-  const digest = createHash('sha256').update(input).digest()
-  let x = 0n
-  for (let i = 0; i < 8; i++) {
-    x = (x << 8n) + BigInt(digest[i] ?? 0)
-  }
-  return x & ((1n << 53n) - 1n)
-}
-
-function deriveSeed(seed: bigint, label: string): bigint {
-  return hashToSeed53(`${seed.toString()}|${label}`)
-}
-
-function distToSpec(dist: Database['public']['Tables']['distributions']['Row']): CanonicalDistSpec {
-  return {
-    id: dist.id,
-    value_type: dist.value_type,
-    dist_type: dist.dist_type,
-    p1: dist.p1,
-    p2: dist.p2,
-    p3: dist.p3,
-    min_value: dist.min_value,
-    max_value: dist.max_value,
-    units: dist.units,
-  }
-}
-
-function compartmentsForSubstance(substance: { target_compartment_default: Database['public']['Enums']['compartment_t'] } | null): Compartment[] {
-  if (!substance) return ['systemic']
-  switch (substance.target_compartment_default) {
-    case 'cns':
-      return ['cns']
-    case 'both':
-      return ['systemic', 'cns']
-    case 'systemic':
-    default:
-      return ['systemic']
-  }
-}
-
-function safeVialContentMassMg(vial: Database['public']['Tables']['vials']['Row'] | null): number | null {
-  if (!vial) return null
-  try {
-    return toCanonicalMassMg(Number(vial.content_mass_value), vial.content_mass_unit)
-  } catch {
-    return null
-  }
-}
-
-function safeVialTotalVolumeMl(vial: Database['public']['Tables']['vials']['Row'] | null): number | null {
-  if (!vial) return null
-  if (vial.total_volume_value == null || vial.total_volume_unit == null) return null
-  try {
-    return toCanonicalVolumeMl(Number(vial.total_volume_value), vial.total_volume_unit)
-  } catch {
-    return null
-  }
-}
 
 export async function seedDemoDataAction(): Promise<void> {
   const supabase = await createClient()
@@ -323,6 +199,58 @@ export async function seedDemoDataAction(): Promise<void> {
   revalidatePath('/today')
 }
 
+function normalizeHistoryParam(raw: string): '90' | '180' | 'all' {
+  const parsed = parseHistoryParam(raw)
+  return parsed ?? '90'
+}
+
+function parseHistoryParam(raw: string): '90' | '180' | 'all' | null {
+  if (raw === '90') return '90'
+  if (raw === '180') return '180'
+  if (raw === 'all') return 'all'
+  return null
+}
+
+function buildTodayReturnParams(raw: string): URLSearchParams {
+  const input = new URLSearchParams(raw)
+  const out = new URLSearchParams()
+
+  const focus = String(input.get('focus') ?? '').trim()
+  if (focus === 'log') out.set('focus', focus)
+
+  const formulationId = String(input.get('formulation_id') ?? '').trim()
+  if (formulationId) out.set('formulation_id', formulationId)
+
+  const showDeleted = String(input.get('show_deleted') ?? '').trim()
+  if (showDeleted === '1') out.set('show_deleted', '1')
+
+  const history = parseHistoryParam(String(input.get('cc_history') ?? '').trim())
+  if (history) out.set('cc_history', history)
+
+  return out
+}
+
+export async function createVialFromTodayAction(formData: FormData): Promise<void> {
+  const substanceId = String(formData.get('cc_substance_id') ?? '').trim()
+  const history = normalizeHistoryParam(String(formData.get('cc_history') ?? '').trim())
+  const returnParams = buildTodayReturnParams(String(formData.get('cc_return_q') ?? '').trim())
+
+  const result = await createVialAction({ status: 'idle' }, formData)
+
+  const params = new URLSearchParams(returnParams)
+  params.set('cc_modal', 'add-vial')
+  if (substanceId) params.set('cc_substance_id', substanceId)
+  params.set('cc_history', history)
+
+  if (result.status === 'error') {
+    params.set('cc_error', result.message)
+  } else if (result.status === 'success') {
+    params.set('cc_notice', result.message)
+  }
+
+  redirect(`/today?${params.toString()}`)
+}
+
 export async function createEventAction(
   prevState: CreateEventState,
   formData: FormData,
@@ -335,483 +263,32 @@ export async function createEventAction(
   const timeHHMM = String(formData.get('time_hhmm') ?? '').trim()
   const notesRaw = String(formData.get('notes') ?? '').trim()
 
-  if (!formulationId) return { status: 'error', message: 'Missing formulation.' }
-  if (!inputText) return { status: 'error', message: 'Missing dose input.' }
+  const cycleDecision =
+    cycleDecisionRaw === 'new_cycle' || cycleDecisionRaw === 'continue_cycle'
+      ? cycleDecisionRaw
+      : cycleDecisionRaw === ''
+        ? 'auto'
+        : null
 
-  const cycleDecision: '' | 'new_cycle' | 'continue_cycle' =
-    cycleDecisionRaw === 'new_cycle' || cycleDecisionRaw === 'continue_cycle' ? cycleDecisionRaw : ''
-  if (cycleDecisionRaw && !cycleDecision) {
+  if (!cycleDecision) {
     return { status: 'error', message: 'Invalid cycle decision.' }
   }
 
   const supabase = await createClient()
-  const userRes = await supabase.auth.getUser()
-  const user = userRes.data.user
-  if (!user) return { status: 'error', message: 'Not authenticated.' }
-
-  const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
-  const timeZone = safeTimeZone(profile.timezone)
-
-  const formulationEnriched = await getFormulationEnrichedById(supabase, {
+  const result = await createSession(supabase, {
     formulationId,
-  })
-  if (!formulationEnriched) {
-    return { status: 'error', message: 'Formulation not found.' }
-  }
-
-  const compartments = compartmentsForSubstance(formulationEnriched.substance)
-  let eventTs: string
-  if (!timeHHMM) {
-    eventTs = new Date().toISOString()
-  } else {
-    try {
-      eventTs = utcIsoFromTodayLocalTime({ timeZone, timeHHMM })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      return { status: 'error', message: `Invalid time: ${msg}` }
-    }
-  }
-
-  let parsed: ReturnType<typeof parseQuantity>
-  try {
-    parsed = parseQuantity(inputText)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
-  }
-
-  const activeVial = await getActiveVialForFormulation(supabase, {
-    formulationId,
-  })
-
-  // Calibration for device-units inputs.
-  let calibrationDistSpec: CanonicalDistSpec | null = null
-  let calibrationMean: number | null = null
-  let calibrationSource: 'vial_override' | 'device_calibration' | null = null
-
-  if (parsed.kind === 'device_units') {
-    const routeId = formulationEnriched.formulation.route_id
-    const deviceId = formulationEnriched.formulation.device_id
-    const unitLabel = parsed.normalizedUnit
-
-    const distId =
-      activeVial?.volume_ml_per_unit_override_dist_id ??
-      (deviceId
-        ? (await getDeviceCalibration({
-            supabase,
-            deviceId,
-            routeId,
-            unitLabel,
-          }))?.volume_ml_per_unit_dist_id ?? null
-        : null)
-
-    if (!distId) {
-      return {
-        status: 'error',
-        message:
-          'Device-units input requires a calibration (set a device calibration or a per-vial override).',
-      }
-    }
-
-    const distRows = await listDistributionsById(supabase, { distributionIds: [distId] })
-    const distRow = distRows[0]
-    if (!distRow) {
-      return { status: 'error', message: 'Calibration distribution not found.' }
-    }
-
-    const domain = distributionRowToDomain(distRow)
-    if (domain.valueType !== 'volume_ml_per_unit') {
-      return { status: 'error', message: 'Calibration distribution has the wrong value_type.' }
-    }
-
-    calibrationDistSpec = distToSpec(distRow)
-    calibrationMean = distributionMean(domain)
-    calibrationSource =
-      activeVial?.volume_ml_per_unit_override_dist_id != null ? 'vial_override' : 'device_calibration'
-  }
-
-  const vialContentMassMg = safeVialContentMassMg(activeVial)
-  const vialTotalVolumeMl = safeVialTotalVolumeMl(activeVial)
-
-  let doseMassMg: number | null
-  let doseVolumeMl: number | null
-
-  try {
-    const doseRes = computeDose({
-      inputText,
-      inputKind: parsed.kind,
-      inputValue: parsed.value,
-      inputUnit: parsed.unit,
-      vial: activeVial
-        ? {
-            contentMassMg: vialContentMassMg,
-            totalVolumeMl: vialTotalVolumeMl,
-            concentrationMgPerMl: activeVial.concentration_mg_per_ml,
-          }
-        : null,
-      volumeMlPerDeviceUnit: calibrationMean,
-    })
-    doseMassMg = doseRes.doseMassMg
-    doseVolumeMl = doseRes.doseVolumeMl
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return { status: 'error', message: msg }
-  }
-
-  // Device-units inputs must be canonicalizable to a numeric dose to be saved.
-  if (parsed.kind === 'device_units' && doseVolumeMl == null) {
-    return {
-      status: 'error',
-      message:
-        'Could not compute dose from device units (missing or invalid calibration).',
-    }
-  }
-
-  const costUsd = eventCostFromVial({
-    doseMassMg,
-    doseVolumeMl,
-    vialContentMassMg,
-    vialTotalVolumeMl,
-    vialCostUsd: activeVial?.cost_usd ?? null,
-  })
-
-  // Cycle assignment (MVP): auto-assign the new event to an active cycle and auto-start a first/new
-  // cycle when rules indicate it should. When a gap suggests a new cycle but an active cycle exists,
-  // return a confirmation state unless the client provided an explicit `cycle_decision`.
-  let cycleInstanceId: string | null = null
-  const substanceId = formulationEnriched.substance?.id ?? null
-  if (substanceId) {
-    try {
-      const [cycleRule, lastEvent, activeCycle, lastCycle] = await Promise.all([
-        getCycleRuleForSubstance(supabase, { substanceId }),
-        getLastEventEnrichedForSubstance(supabase, { substanceId }),
-        getActiveCycleForSubstance(supabase, { substanceId }),
-        getLastCycleForSubstance(supabase, { substanceId }),
-      ])
-
-      const gapDaysThreshold =
-        cycleRule?.gap_days_to_suggest_new_cycle ?? profile.cycle_gap_default_days
-      const autoStartFirstCycle = cycleRule?.auto_start_first_cycle ?? true
-
-      const lastEventTs = lastEvent?.ts ? new Date(lastEvent.ts) : null
-      const newEventTs = new Date(eventTs)
-
-      const action = suggestCycleAction({
-        lastEventTs,
-        newEventTs,
-        gapDaysThreshold,
-        autoStartFirstCycle,
-      })
-
-      const nextCycleNumber = (lastCycle?.cycle_number ?? 0) + 1
-
-      if (action === 'suggest_new_cycle') {
-        if (activeCycle) {
-          if (!lastEventTs) {
-            throw new Error('Internal error: suggest_new_cycle requires lastEventTs.')
-          }
-
-          const activeStartTs = new Date(activeCycle.start_ts)
-          // If the active cycle started after the most recent event, it was created without any
-          // event (for example via the manual "Start cycle now" flow). In that case we should
-          // treat it as the intended new cycle and avoid prompting to start yet another cycle.
-          if (activeStartTs.getTime() > lastEventTs.getTime()) {
-            cycleInstanceId = activeCycle.id
-          } else {
-            if (!cycleDecision) {
-              const msPerDay = 24 * 60 * 60 * 1000
-              const gapDays = (newEventTs.getTime() - lastEventTs.getTime()) / msPerDay
-              const gapDaysLabel = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(gapDays)
-              const gapThresholdLabel = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(
-                gapDaysThreshold,
-              )
-              const substanceLabel = formulationEnriched.substance?.display_name ?? 'this substance'
-              return {
-                status: 'confirm_new_cycle',
-                message: `New cycle for ${substanceLabel}? Gap since last event is ${gapDaysLabel} days (threshold ${gapThresholdLabel}). OK = start new cycle; Cancel = keep current cycle.`,
-              }
-            }
-
-            if (cycleDecision === 'continue_cycle') {
-              cycleInstanceId = activeCycle.id
-            } else {
-              const endCandidate = lastEventTs
-              const safeEnd =
-                endCandidate.getTime() < activeStartTs.getTime() ? activeStartTs : endCandidate
-
-              await completeCycleInstance(supabase, {
-                cycleInstanceId: activeCycle.id,
-                endTs: safeEnd.toISOString(),
-              })
-
-              const newCycle = await createCycleInstance(supabase, {
-                substanceId,
-                cycleNumber: nextCycleNumber,
-                startTs: eventTs,
-                status: 'active',
-                goal: null,
-                notes: null,
-              })
-              cycleInstanceId = newCycle.id
-            }
-          }
-        } else {
-          // No active cycle exists to "continue", so starting a new cycle is unambiguous.
-          const newCycle = await createCycleInstance(supabase, {
-            substanceId,
-            cycleNumber: nextCycleNumber,
-            startTs: eventTs,
-            status: 'active',
-            goal: null,
-            notes: null,
-          })
-          cycleInstanceId = newCycle.id
-        }
-      } else if (activeCycle) {
-        cycleInstanceId = activeCycle.id
-      } else if (action === 'start_first_cycle') {
-        const newCycle = await createCycleInstance(supabase, {
-          substanceId,
-          cycleNumber: nextCycleNumber,
-          startTs: eventTs,
-          status: 'active',
-          goal: null,
-          notes: null,
-        })
-        cycleInstanceId = newCycle.id
-      } else if (lastCycle?.status === 'completed' || lastCycle?.status === 'abandoned') {
-        // If the user explicitly ended or abandoned the last cycle, the next administration should
-        // start a new cycle even if the gap is below the suggestion threshold.
-        const newCycle = await createCycleInstance(supabase, {
-          substanceId,
-          cycleNumber: nextCycleNumber,
-          startTs: eventTs,
-          status: 'active',
-          goal: null,
-          notes: null,
-        })
-        cycleInstanceId = newCycle.id
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      return { status: 'error', message: `Cycle assignment failed: ${msg}` }
-    }
-  }
-
-  // Resolve distributions needed for MC.
-  const multipliersByCompartment = new Map<Compartment, string[]>()
-  const baseFractionDistIdByCompartment = new Map<Compartment, string | null>()
-  const missingByCompartment = new Map<Compartment, string[]>()
-
-  const modifierCompartments: Database['public']['Enums']['compartment_t'][] = Array.from(
-    new Set<Database['public']['Enums']['compartment_t']>([...compartments, 'both']),
-  )
-
-  const [components, formulationModsAll] = await Promise.all([
-    listFormulationComponents({ supabase, formulationId }),
-    listFormulationModifierSpecs({ supabase, formulationId, compartments: modifierCompartments }),
-  ])
-
-  const componentIds = components.map((c) => c.id)
-  const componentSpecsAll = await listComponentModifierSpecs({
-    supabase,
-    formulationComponentIds: componentIds,
-    compartments: modifierCompartments,
-  })
-
-  const componentSpecsByComponentId = new Map<string, typeof componentSpecsAll>()
-  for (const spec of componentSpecsAll) {
-    const arr = componentSpecsByComponentId.get(spec.formulation_component_id) ?? []
-    arr.push(spec)
-    componentSpecsByComponentId.set(spec.formulation_component_id, arr)
-  }
-
-  const baseSpecByCompartment = new Map<Compartment, Awaited<ReturnType<typeof getBioavailabilitySpec>>>()
-  if (formulationEnriched.substance && formulationEnriched.route) {
-    const baseSpecs = await Promise.all(
-      compartments.map((compartment) =>
-        getBioavailabilitySpec({
-          supabase,
-          substanceId: formulationEnriched.substance!.id,
-          routeId: formulationEnriched.route!.id,
-          compartment,
-        }),
-      ),
-    )
-    for (let i = 0; i < compartments.length; i++) {
-      baseSpecByCompartment.set(compartments[i]!, baseSpecs[i] ?? null)
-    }
-  } else {
-    for (const compartment of compartments) {
-      baseSpecByCompartment.set(compartment, null)
-    }
-  }
-
-  for (const compartment of compartments) {
-    const missing: string[] = []
-
-    const baseSpec = baseSpecByCompartment.get(compartment) ?? null
-    if (!baseSpec) {
-      baseFractionDistIdByCompartment.set(compartment, null)
-      missing.push('missing_base_bioavailability_spec')
-    } else {
-      baseFractionDistIdByCompartment.set(compartment, baseSpec.base_fraction_dist_id)
-    }
-
-    const formulationMultiplierIds = formulationModsAll
-      .filter((m) => m.compartment === compartment || m.compartment === 'both')
-      .map((m) => m.multiplier_dist_id)
-
-    const componentMultiplierIds: string[] = []
-    for (const c of components) {
-      const specsForComponent = (componentSpecsByComponentId.get(c.id) ?? []).filter(
-        (s) => s.compartment === compartment || s.compartment === 'both',
-      )
-      if (specsForComponent.length > 0) {
-        componentMultiplierIds.push(...specsForComponent.map((s) => s.multiplier_dist_id))
-      } else if (c.modifier_dist_id) {
-        componentMultiplierIds.push(c.modifier_dist_id)
-      }
-    }
-
-    const multiplierIds = [...formulationMultiplierIds, ...componentMultiplierIds]
-    multipliersByCompartment.set(compartment, multiplierIds)
-    missingByCompartment.set(compartment, missing)
-  }
-
-  // Fetch all referenced distributions in one round trip.
-  const allDistIds: string[] = []
-  if (calibrationDistSpec) allDistIds.push(calibrationDistSpec.id)
-  for (const compartment of compartments) {
-    const baseId = baseFractionDistIdByCompartment.get(compartment)
-    if (baseId) allDistIds.push(baseId)
-    allDistIds.push(...(multipliersByCompartment.get(compartment) ?? []))
-  }
-
-  const distRows = await listDistributionsById(supabase, { distributionIds: [...new Set(allDistIds)] })
-  const distRowById = new Map(distRows.map((d) => [d.id, d] as const))
-
-  // Build canonical snapshot first (needed for deterministic seeding).
-  const snapshot: CanonicalModelSnapshot = {
-    version: 1,
-    formulation_id: formulationId,
-    substance_id: formulationEnriched.substance?.id ?? null,
-    route_id: formulationEnriched.route?.id ?? null,
-    device_id: formulationEnriched.device?.id ?? null,
-    calibration:
-      calibrationDistSpec && calibrationMean != null && calibrationSource
-        ? {
-            source: calibrationSource,
-            unit_label: parsed.normalizedUnit,
-            dist: calibrationDistSpec,
-            mean_volume_ml_per_unit: calibrationMean,
-          }
-        : null,
-    compartments: {},
-  }
-
-  for (const compartment of compartments) {
-    const missing = missingByCompartment.get(compartment) ?? []
-    const baseId = baseFractionDistIdByCompartment.get(compartment) ?? null
-    const baseRow = baseId ? distRowById.get(baseId) ?? null : null
-
-    if (baseId && !baseRow) {
-      missing.push('missing_base_bioavailability_distribution')
-    }
-
-    const multiplierIds = multipliersByCompartment.get(compartment) ?? []
-    const multiplierSpecs: CanonicalDistSpec[] = []
-    for (const id of multiplierIds) {
-      const row = distRowById.get(id)
-      if (!row) {
-        missing.push('missing_multiplier_distribution')
-        continue
-      }
-      multiplierSpecs.push(distToSpec(row))
-    }
-    multiplierSpecs.sort((a, b) => a.id.localeCompare(b.id))
-
-    snapshot.compartments[compartment] = {
-      base_fraction: baseRow ? distToSpec(baseRow) : null,
-      multipliers: multiplierSpecs,
-      // Keep snapshot stable for deterministic MC seeding.
-      missing: Array.from(new Set(missing)).sort(),
-    }
-  }
-
-  const eventId = randomUUID()
-
-  const canonicalJson = JSON.stringify(snapshot)
-  const mcSeed = hashToSeed53(`${user.id}|${eventId}|${canonicalJson}`)
-  const mcSeedNumber = Number(mcSeed)
-
-  const n = profile.default_simulation_n
-  let mcN: number | null = null
-
-  let systemic: { p05: number; p50: number; p95: number } | null = null
-  let cns: { p05: number; p50: number; p95: number } | null = null
-
-  if (doseMassMg != null) {
-    for (const compartment of compartments) {
-      const baseId = baseFractionDistIdByCompartment.get(compartment) ?? null
-      const baseRow = baseId ? distRowById.get(baseId) ?? null : null
-      if (!baseRow) continue
-
-      const baseDist = distributionRowToDomain(baseRow)
-      if (baseDist.valueType !== 'fraction') continue
-
-      const multiplierIds = multipliersByCompartment.get(compartment) ?? []
-      const multiplierDists: Distribution[] = []
-      for (const id of multiplierIds) {
-        const row = distRowById.get(id)
-        if (!row) continue
-        const d = distributionRowToDomain(row)
-        if (d.valueType !== 'multiplier') continue
-        multiplierDists.push(d)
-      }
-      multiplierDists.sort((a, b) => a.id.localeCompare(b.id))
-
-      const pct = simulateEffectiveDose({
-        doseMg: doseMassMg,
-        baseFractionDist: baseDist,
-        multiplierDists,
-        n,
-        seed: deriveSeed(mcSeed, compartment),
-      })
-
-      mcN = n
-      if (compartment === 'systemic') systemic = pct
-      if (compartment === 'cns') cns = pct
-    }
-  }
-
-  const insertRes = await supabase.from('administration_events').insert({
-    id: eventId,
-    ts: eventTs,
-    formulation_id: formulationId,
-    vial_id: activeVial?.id ?? null,
-    cycle_instance_id: cycleInstanceId,
-    input_text: inputText,
-    input_value: parsed.value,
-    input_unit: parsed.unit,
-    input_kind: parsed.kind,
-    dose_mass_mg: doseMassMg,
-    dose_volume_ml: doseVolumeMl,
-    eff_systemic_p05_mg: systemic?.p05 ?? null,
-    eff_systemic_p50_mg: systemic?.p50 ?? null,
-    eff_systemic_p95_mg: systemic?.p95 ?? null,
-    eff_cns_p05_mg: cns?.p05 ?? null,
-    eff_cns_p50_mg: cns?.p50 ?? null,
-    eff_cns_p95_mg: cns?.p95 ?? null,
-    mc_n: mcN,
-    mc_seed: mcN ? mcSeedNumber : null,
-    model_snapshot: snapshot,
-    cost_usd: costUsd,
+    inputText,
+    cycleDecision,
+    timeHHMM,
     notes: notesRaw ? notesRaw : null,
   })
 
-  if (insertRes.error) {
-    return { status: 'error', message: `Failed to save event: ${insertRes.error.message}` }
+  if (result.status === 'error') {
+    return { status: 'error', message: result.message }
+  }
+
+  if (result.status === 'confirm_new_cycle') {
+    return { status: 'confirm_new_cycle', message: result.message }
   }
 
   revalidatePath('/today')
@@ -819,10 +296,10 @@ export async function createEventAction(
   revalidatePath('/cycles')
   revalidatePath('/inventory')
   revalidatePath('/orders')
-  if (cycleInstanceId) {
-    revalidatePath(`/cycles/${cycleInstanceId}`)
+  if (result.session.cycleInstanceId) {
+    revalidatePath(`/cycles/${result.session.cycleInstanceId}`)
   }
-  return { status: 'success', message: 'Saved.', eventId }
+  return { status: 'success', message: result.message, eventId: result.session.eventId }
 }
 
 export async function deleteEventAction(formData: FormData): Promise<void> {
@@ -839,6 +316,32 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
   requireOk(res.error, 'administration_events.soft_delete')
   revalidatePath('/today')
   revalidatePath('/analytics')
+}
+
+export async function discardVialFromControlCenterAction(formData: FormData): Promise<void> {
+  const vialId = String(formData.get('vial_id') ?? '').trim()
+  const discardReasonRaw = String(formData.get('discard_reason') ?? '').trim()
+  const discardReason = discardReasonRaw ? discardReasonRaw : null
+  const returnParams = buildTodayReturnParams(String(formData.get('cc_return_q') ?? '').trim())
+  if (!vialId) return
+
+  const supabase = await createClient()
+  const vial = await getVialById(supabase, { vialId })
+  if (!vial) return
+
+  const existingReason = String(vial.discard_reason ?? '').trim() || null
+  if (vial.status !== 'discarded' || existingReason !== discardReason) {
+    const nowIso = new Date().toISOString()
+    const closedAt = vial.status === 'discarded' ? (vial.closed_at ?? nowIso) : nowIso
+    await discardVial(supabase, { vialId, closedAt, discardReason })
+  }
+
+  revalidatePath('/today')
+  revalidatePath('/inventory')
+  revalidatePath('/setup/inventory')
+  revalidatePath('/orders')
+  const q = returnParams.toString()
+  redirect(q ? `/today?${q}` : '/today')
 }
 
 export async function restoreEventAction(formData: FormData): Promise<void> {

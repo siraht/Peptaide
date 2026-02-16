@@ -22,6 +22,7 @@ Peptaide is a recording and analytics app for tracking peptide/medication admini
 ## Repo Layout
 
 - `web/`: Next.js (App Router) + TypeScript web app.
+- `cli/`: Agent-friendly TypeScript CLI for `/api/cli/*` session/cycle/settings/query flows.
 - `supabase/`: SQL migrations, local Supabase config, and RLS probes/scripts.
 - `ExecPlan.md`: the living implementation plan and current project status (authoritative for ongoing work).
 - `AGENTS.md`: local agent/contributor instructions for working in this repo.
@@ -123,6 +124,27 @@ npm test
 npm run lint
 npm run build
 ```
+
+## CLI Quick Start
+
+From `cli/`:
+
+```bash
+npm install
+npm run build
+npm run test
+npm run test:usage
+```
+
+Examples:
+
+```bash
+node dist/index.js --help
+node dist/index.js profiles --json
+node dist/index.js query resources --json
+```
+
+Full command and contract reference: `docs/CLI.md`.
 
 ## Data Import / Export
 
