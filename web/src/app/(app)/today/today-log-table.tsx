@@ -200,7 +200,7 @@ export function TodayLogTable(props: {
       setNotes('')
       setTimeHHMM(nowTimeHHMM(timeZone))
 
-      if (!showDeleted && res.event) {
+      if (!showDeleted && res.event && res.event.event_id && res.event.ts) {
         const createdEvent = res.event
         const eventLocalYMD = localDateYMD(createdEvent.ts, timeZone)
         const todayYMD = nowDateYMD(timeZone)

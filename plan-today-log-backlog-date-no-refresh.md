@@ -18,6 +18,7 @@ After this change, the Today log input row will include a date field before the 
 - [x] (2026-02-17 17:44Z) Ran web validation: `npm --prefix web run typecheck` passed; `npm --prefix web run test` passed (24 files / 119 tests); `npm --prefix web run lint` failed on pre-existing unrelated `no-explicit-any` issues in `web/src/lib/api/cli/{idempotency,query}.ts`.
 - [x] (2026-02-17 17:57Z) Ran t-browser validation: full harness `npm --prefix web run e2e:browser:today` failed in initialization (existing harness/runtime issue), then completed direct t-browser (`agent-browser`) validation of requested behaviors, including DB timestamp verification for backlog date.
 - [x] (2026-02-17 17:57Z) Finalized ExecPlan living sections with outcomes and evidence.
+- [x] (2026-02-17 18:29Z) Performed a fresh-eyes follow-up pass and hardened optimistic insertion to require non-null `event_id` and `ts` before local table append, preventing edge-case duplicate/unstable rows from partial payloads.
 
 ## Surprises & Discoveries
 
@@ -138,3 +139,4 @@ Implemented interface adjustments:
 
 - 2026-02-17: Created initial ExecPlan to cover date backlogging input and no-refresh save behavior, with concrete implementation and validation steps.
 - 2026-02-17: Updated all living sections after implementation/testing, recorded harness-level t-browser instability, and added direct t-browser + DB validation evidence for requested behaviors.
+- 2026-02-17: Added a post-implementation hardening note after fresh-eyes review (optimistic append now requires complete event identity/timestamp).
