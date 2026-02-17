@@ -7,13 +7,14 @@ import { createSession } from '@/lib/app/sessions/createSession'
 import { requireData, requireOk } from '@/lib/repos/errors'
 import { discardVial, getVialById } from '@/lib/repos/vialsRepo'
 import { createClient } from '@/lib/supabase/server'
+import type { EventEnrichedRow } from '@/lib/repos/eventsRepo'
 import { createVialAction } from '../(hub)/inventory/actions'
 
 export type CreateEventState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   | { status: 'confirm_new_cycle'; message: string }
-  | { status: 'success'; message: string; eventId: string }
+  | { status: 'success'; message: string; eventId: string; event: EventEnrichedRow | null }
 
 export async function seedDemoDataAction(): Promise<void> {
   const supabase = await createClient()
@@ -260,6 +261,7 @@ export async function createEventAction(
   const formulationId = String(formData.get('formulation_id') ?? '').trim()
   const inputText = String(formData.get('input_text') ?? '').trim()
   const cycleDecisionRaw = String(formData.get('cycle_decision') ?? '').trim()
+  const dateYMD = String(formData.get('date_ymd') ?? '').trim()
   const timeHHMM = String(formData.get('time_hhmm') ?? '').trim()
   const notesRaw = String(formData.get('notes') ?? '').trim()
 
@@ -279,6 +281,7 @@ export async function createEventAction(
     formulationId,
     inputText,
     cycleDecision,
+    dateYMD,
     timeHHMM,
     notes: notesRaw ? notesRaw : null,
   })
@@ -299,7 +302,23 @@ export async function createEventAction(
   if (result.session.cycleInstanceId) {
     revalidatePath(`/cycles/${result.session.cycleInstanceId}`)
   }
-  return { status: 'success', message: result.message, eventId: result.session.eventId }
+
+  let event: EventEnrichedRow | null = null
+  const eventRes = await supabase
+    .from('v_event_enriched')
+    .select('*')
+    .eq('event_id', result.session.eventId)
+    .maybeSingle()
+  if (eventRes.error) {
+    console.warn('v_event_enriched.select_after_create failed', {
+      eventId: result.session.eventId,
+      error: eventRes.error,
+    })
+  } else {
+    event = eventRes.data ?? null
+  }
+
+  return { status: 'success', message: result.message, eventId: result.session.eventId, event }
 }
 
 export async function deleteEventAction(formData: FormData): Promise<void> {

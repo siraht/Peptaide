@@ -29,7 +29,7 @@ import { ensureMyProfile, getMyProfile, type ProfileRow } from '@/lib/repos/prof
 import { getActiveVialForFormulation, getVialById, type VialRow } from '@/lib/repos/vialsRepo'
 import type { Database } from '@/lib/supabase/database.types'
 import type { DbClient } from '@/lib/repos/types'
-import { safeTimeZone, utcIsoFromTodayLocalTime } from '@/lib/time/timeZone'
+import { safeTimeZone, utcIsoFromLocalDateTime, utcIsoFromTodayLocalTime } from '@/lib/time/timeZone'
 
 import { applyExplicitCompartmentOverrides } from './explicitOverrides'
 
@@ -83,6 +83,7 @@ export type SessionCreateInput = {
   normalizedUnit?: string
   preferStructured?: boolean
   cycleDecision?: 'auto' | 'new_cycle' | 'continue_cycle'
+  dateYMD?: string
   timeHHMM?: string
   ts?: string
   timezone?: string
@@ -278,6 +279,7 @@ function coerceIsoDateTime(raw: string): string | null {
 
 function deriveEventTime(opts: {
   ts?: string
+  dateYMD?: string
   timeHHMM?: string
   timezone?: string
   profile: ProfileRow
@@ -287,18 +289,25 @@ function deriveEventTime(opts: {
     return { ok: true, eventTs: explicitTs }
   }
 
+  const dateYMD = String(opts.dateYMD ?? '').trim()
   const timeHHMM = String(opts.timeHHMM ?? '').trim()
-  if (!timeHHMM) {
+  if (!dateYMD && !timeHHMM) {
     return { ok: true, eventTs: new Date().toISOString() }
+  }
+
+  if (dateYMD && !timeHHMM) {
+    return { ok: false, message: 'Time is required when date is provided.' }
   }
 
   try {
     const timeZone = safeTimeZone(String(opts.timezone ?? '').trim() || opts.profile.timezone)
-    const eventTs = utcIsoFromTodayLocalTime({ timeZone, timeHHMM })
+    const eventTs = dateYMD
+      ? utcIsoFromLocalDateTime({ timeZone, dateYMD, timeHHMM })
+      : utcIsoFromTodayLocalTime({ timeZone, timeHHMM })
     return { ok: true, eventTs }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { ok: false, message: `Invalid time: ${msg}` }
+    return { ok: false, message: `Invalid local date/time: ${msg}` }
   }
 }
 
@@ -402,6 +411,7 @@ export async function createSession(
     const profile = (await getMyProfile(supabase)) ?? (await ensureMyProfile(supabase))
     const eventTime = deriveEventTime({
       ts: input.ts,
+      dateYMD: input.dateYMD,
       timeHHMM: input.timeHHMM,
       timezone: input.timezone,
       profile,

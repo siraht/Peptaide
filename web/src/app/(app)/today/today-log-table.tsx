@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 import type { EventEnrichedRow } from '@/lib/repos/eventsRepo'
 
@@ -14,12 +14,6 @@ export type TodayFormulationOption = {
   label: string
 }
 
-type FormulationMeta = {
-  formulationName: string
-  substanceName: string
-  routeName: string
-}
-
 function nowTimeHHMM(timeZone: string): string {
   return new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -27,6 +21,43 @@ function nowTimeHHMM(timeZone: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date())
+}
+
+function formatDateYMD(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+
+  const year = parts.find((p) => p.type === 'year')?.value
+  const month = parts.find((p) => p.type === 'month')?.value
+  const day = parts.find((p) => p.type === 'day')?.value
+  if (!year || !month || !day) return ''
+  return `${year}-${month}-${day}`
+}
+
+function nowDateYMD(timeZone: string): string {
+  return formatDateYMD(new Date(), timeZone)
+}
+
+function localDateYMD(iso: string | null | undefined, timeZone: string): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const ymd = formatDateYMD(d, timeZone)
+  return ymd || null
+}
+
+function compareEvents(a: EventEnrichedRow, b: EventEnrichedRow): number {
+  const tsCmp = String(a.ts ?? '').localeCompare(String(b.ts ?? ''))
+  if (tsCmp !== 0) return tsCmp
+
+  const createdCmp = String(a.created_at ?? '').localeCompare(String(b.created_at ?? ''))
+  if (createdCmp !== 0) return createdCmp
+
+  return String(a.event_id ?? '').localeCompare(String(b.event_id ?? ''))
 }
 
 function formatLocalTime(iso: string | null | undefined, timeZone: string): string {
@@ -54,7 +85,6 @@ function formatRecHint(h: { min: number | null; max: number | null; unit: string
 export function TodayLogTable(props: {
   timeZone: string
   formulations: TodayFormulationOption[]
-  formulationMetaById: Record<string, FormulationMeta>
   doseRecommendationsByFormulationId?: Record<string, { min: number | null; max: number | null; unit: string } | null>
   events: EventEnrichedRow[]
   vialLabelByVialId: Record<string, string>
@@ -65,7 +95,6 @@ export function TodayLogTable(props: {
   const {
     timeZone,
     formulations,
-    formulationMetaById,
     doseRecommendationsByFormulationId,
     events,
     vialLabelByVialId,
@@ -79,8 +108,6 @@ export function TodayLogTable(props: {
   const [hydrated, setHydrated] = useState(false)
   useEffect(() => setHydrated(true), [])
 
-  const router = useRouter()
-  const [, startTransition] = useTransition()
   const searchParams = useSearchParams()
 
   const focus = searchParams.get('focus')
@@ -94,9 +121,11 @@ export function TodayLogTable(props: {
   }, [formulationIdParam, formulations])
 
   const [formulationId, setFormulationId] = useState<string>(defaultFormulationId)
+  const [dateYMD, setDateYMD] = useState<string>(() => nowDateYMD(timeZone))
   const [timeHHMM, setTimeHHMM] = useState<string>(() => nowTimeHHMM(timeZone))
   const [inputText, setInputText] = useState<string>('')
   const [notes, setNotes] = useState<string>('')
+  const [tableEvents, setTableEvents] = useState<EventEnrichedRow[]>(events)
 
   const [status, setStatus] = useState<{ state: 'idle' | 'saving' | 'success' | 'error'; message: string }>({
     state: 'idle',
@@ -114,13 +143,24 @@ export function TodayLogTable(props: {
     doseRef.current?.focus()
   }, [focus, formulationIdParam])
 
-  const routeName = formulationMetaById[formulationId]?.routeName ?? '-'
+  useEffect(() => {
+    setTableEvents(events)
+  }, [events])
 
-  async function submit({ focusDose = true }: { focusDose?: boolean } = {}): Promise<void> {
+  async function submit({
+    focusDose = true,
+    inputTextOverride,
+    notesOverride,
+  }: {
+    focusDose?: boolean
+    inputTextOverride?: string
+    notesOverride?: string
+  } = {}): Promise<void> {
     if (status.state === 'saving') return
 
     const fid = formulationId.trim()
-    const txt = inputText.trim()
+    const txt = (inputTextOverride ?? inputText).trim()
+    const notesText = (notesOverride ?? notes).trim()
 
     if (!fid) {
       setStatus({ state: 'error', message: 'Missing formulation.' })
@@ -136,8 +176,9 @@ export function TodayLogTable(props: {
     const fd = new FormData()
     fd.append('formulation_id', fid)
     fd.append('input_text', txt)
+    if (dateYMD.trim()) fd.append('date_ymd', dateYMD.trim())
     if (timeHHMM.trim()) fd.append('time_hhmm', timeHHMM.trim())
-    if (notes.trim()) fd.append('notes', notes.trim())
+    if (notesText) fd.append('notes', notesText)
 
     let res: CreateEventState
     try {
@@ -158,10 +199,20 @@ export function TodayLogTable(props: {
       setInputText('')
       setNotes('')
       setTimeHHMM(nowTimeHHMM(timeZone))
+
+      if (!showDeleted && res.event) {
+        const createdEvent = res.event
+        const eventLocalYMD = localDateYMD(createdEvent.ts, timeZone)
+        const todayYMD = nowDateYMD(timeZone)
+        if (eventLocalYMD === todayYMD) {
+          setTableEvents((prev) => {
+            const withoutDupe = prev.filter((e) => e.event_id !== createdEvent.event_id)
+            return [...withoutDupe, createdEvent].sort(compareEvents)
+          })
+        }
+      }
+
       if (focusDose) doseRef.current?.focus()
-      startTransition(() => {
-        router.refresh()
-      })
       return
     }
 
@@ -202,6 +253,7 @@ export function TodayLogTable(props: {
         <Link
           className="text-sm text-gray-600 dark:text-gray-400 underline hover:text-primary"
           href={showDeleted ? hideDeletedHref : showDeletedHref}
+          data-e2e="today-log-toggle-deleted"
         >
           {showDeleted ? 'Hide deleted' : 'Show deleted'}
         </Link>
@@ -211,17 +263,16 @@ export function TodayLogTable(props: {
         <table className="min-w-[560px] w-full text-left border-collapse">
           <thead className="sticky top-0 bg-white/70 dark:bg-surface-dark z-10">
             <tr className="text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-800">
-              <th className="py-3 pl-2 w-28">Time</th>
+              <th className="py-3 pl-2 w-40">Date / Time</th>
               <th className="py-3">Compound / Vial</th>
-              <th className="py-3 text-right">Input</th>
-              <th className="py-3 pl-4 hidden md:table-cell">Route</th>
-              <th className="py-3">Notes</th>
+              <th className="py-3 pr-6 text-right border-r border-gray-200 dark:border-gray-800">Input</th>
+              <th className="py-3 pl-6">Notes</th>
               <th className="py-3 w-24 text-center">Action</th>
             </tr>
           </thead>
 
           <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-800">
-            {events.map((e) => {
+            {tableEvents.map((e) => {
               const vialLabel = e.vial_id ? vialLabelByVialId[e.vial_id] ?? e.vial_id.slice(0, 8) : null
               const compound = e.substance_name ?? e.formulation_name ?? 'Unknown'
               const formulationName = e.formulation_name ?? null
@@ -240,13 +291,16 @@ export function TodayLogTable(props: {
                       {vialLabel ? ` • ${vialLabel}` : ''}
                     </div>
                   </td>
-                  <td className="py-3 text-right font-mono text-gray-900 dark:text-gray-100">{e.input_text ?? '-'}</td>
-                  <td className="py-3 pl-4 hidden md:table-cell">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                      {e.route_name ?? '-'}
-                    </span>
+                  <td className="py-3 pr-6 text-right font-mono text-gray-900 dark:text-gray-100 border-r border-gray-100 dark:border-gray-800">
+                    {e.input_text ?? '-'}
                   </td>
-                  <td className="py-3 text-gray-500 truncate max-w-[260px]">{e.notes ?? '-'}</td>
+                  <td
+                    className="py-3 pl-6 text-gray-500 truncate max-w-[260px]"
+                    title={e.notes ?? ''}
+                    data-e2e="today-log-row-notes"
+                  >
+                    {e.notes ?? '-'}
+                  </td>
                   <td className="py-3 text-center">
                     {showDeleted && e.event_id ? (
                       <form action={restoreEventAction}>
@@ -285,16 +339,28 @@ export function TodayLogTable(props: {
 
             <tr className="bg-primary/5 dark:bg-primary/10 border-l-2 border-primary" data-e2e="today-log-input-row">
               <td className="py-3 pl-2 font-mono text-gray-600 dark:text-gray-400 align-top">
-                <input
-                  className="bg-transparent border-0 p-0 text-sm focus:ring-0 text-gray-900 dark:text-gray-100 w-full"
-                  type="time"
-                  value={timeHHMM}
-                  onChange={(e) => {
-                    setTimeHHMM(e.target.value)
-                    setStatus({ state: 'idle', message: '' })
-                  }}
-                  data-e2e="today-log-input-time"
-                />
+                <div className="flex flex-col gap-1">
+                  <input
+                    className="bg-transparent border-0 p-0 text-sm focus:ring-0 text-gray-900 dark:text-gray-100 w-full"
+                    type="date"
+                    value={dateYMD}
+                    onChange={(e) => {
+                      setDateYMD(e.target.value)
+                      setStatus({ state: 'idle', message: '' })
+                    }}
+                    data-e2e="today-log-input-date"
+                  />
+                  <input
+                    className="bg-transparent border-0 p-0 text-sm focus:ring-0 text-gray-900 dark:text-gray-100 w-full"
+                    type="time"
+                    value={timeHHMM}
+                    onChange={(e) => {
+                      setTimeHHMM(e.target.value)
+                      setStatus({ state: 'idle', message: '' })
+                    }}
+                    data-e2e="today-log-input-time"
+                  />
+                </div>
               </td>
               <td className="py-3 align-top">
                 <select
@@ -313,7 +379,7 @@ export function TodayLogTable(props: {
                   ))}
                 </select>
               </td>
-              <td className="py-3 text-right align-top">
+              <td className="py-3 pr-6 text-right align-top border-r border-gray-100 dark:border-gray-800">
                 <div className="flex flex-col items-end">
                   <input
                     ref={doseRef}
@@ -327,7 +393,7 @@ export function TodayLogTable(props: {
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return
                       e.preventDefault()
-                      void submit()
+                      void submit({ inputTextOverride: e.currentTarget.value })
                     }}
                     autoComplete="off"
                     autoCapitalize="none"
@@ -354,17 +420,7 @@ export function TodayLogTable(props: {
                   ) : null}
                 </div>
               </td>
-              <td className="py-3 pl-4 align-top hidden md:table-cell">
-                <select
-                  className="bg-transparent border-0 p-0 text-sm focus:ring-0 text-gray-500 dark:text-gray-400 cursor-pointer"
-                  value={routeName}
-                  disabled
-                  aria-label="Route"
-                >
-                  <option>{routeName}</option>
-                </select>
-              </td>
-              <td className="py-3 align-top">
+              <td className="py-3 pl-6 align-top">
                 <input
                   className="bg-transparent border-0 p-0 w-full text-sm focus:ring-0 text-gray-900 dark:text-gray-100"
                   placeholder="Add notes…"
@@ -376,7 +432,7 @@ export function TodayLogTable(props: {
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter') return
                     e.preventDefault()
-                    void submit()
+                    void submit({ notesOverride: e.currentTarget.value })
                   }}
                   data-e2e="today-log-input-notes"
                 />

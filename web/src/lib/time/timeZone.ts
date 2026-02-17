@@ -47,6 +47,29 @@ export function parseTimeHHMM(timeHHMM: string): { hour: number; minute: number;
   return { hour, minute, second }
 }
 
+export function parseDateYMD(dateYMD: string): { year: number; month: number; day: number } {
+  const raw = String(dateYMD || '').trim()
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) {
+    throw new Error('Invalid date (expected YYYY-MM-DD).')
+  }
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+
+  if (!Number.isFinite(year)) throw new Error('Invalid year.')
+  if (!Number.isFinite(month) || month < 1 || month > 12) throw new Error('Invalid month (expected 01-12).')
+  if (!Number.isFinite(day) || day < 1 || day > 31) throw new Error('Invalid day (expected 01-31).')
+
+  const d = new Date(Date.UTC(year, month - 1, day))
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() + 1 !== month || d.getUTCDate() !== day) {
+    throw new Error('Invalid calendar date.')
+  }
+
+  return { year, month, day }
+}
+
 function tzOffsetMs(timeZone: string, date: Date): number {
   // Compute the timezone offset at `date` for `timeZone`.
   // Technique: format the date in the target timezone, then treat the formatted wall time
@@ -107,6 +130,17 @@ export function zonedDateTimeToUtcIso(opts: {
   return adjusted2.toISOString()
 }
 
+export function utcIsoFromLocalDateTime(opts: {
+  timeZone: string
+  dateYMD: string
+  timeHHMM: string
+}): string {
+  const tz = safeTimeZone(opts.timeZone)
+  const { year, month, day } = parseDateYMD(opts.dateYMD)
+  const { hour, minute, second } = parseTimeHHMM(opts.timeHHMM)
+  return zonedDateTimeToUtcIso({ year, month, day, hour, minute, second, timeZone: tz })
+}
+
 export function utcIsoFromTodayLocalTime(opts: {
   timeZone: string
   timeHHMM: string
@@ -115,6 +149,12 @@ export function utcIsoFromTodayLocalTime(opts: {
   const tz = safeTimeZone(opts.timeZone)
   const now = opts.now ?? new Date()
   const { year, month, day } = mustGetLocalYmd(now, tz)
-  const { hour, minute, second } = parseTimeHHMM(opts.timeHHMM)
-  return zonedDateTimeToUtcIso({ year, month, day, hour, minute, second, timeZone: tz })
+  const y = String(year).padStart(4, '0')
+  const m = String(month).padStart(2, '0')
+  const d = String(day).padStart(2, '0')
+  return utcIsoFromLocalDateTime({
+    timeZone: tz,
+    dateYMD: `${y}-${m}-${d}`,
+    timeHHMM: opts.timeHHMM,
+  })
 }
