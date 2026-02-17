@@ -57,11 +57,11 @@ Validation outcomes:
 
 ## Context and Orientation
 
-`web/src/app/(app)/today/today-log-table.tsx` is the interactive client component that renders the Today log table, collects input, and invokes `createEventAction`. It currently tracks `timeHHMM`, dose input text, and notes; it does not currently track a separate date.
+`web/src/app/(app)/today/today-log-table.tsx` is the interactive client component that renders the Today log table, collects input, and invokes `createEventAction`. It now tracks `dateYMD`, `timeHHMM`, dose input text, and notes.
 
 `web/src/app/(app)/today/actions.ts` contains `createEventAction`, which receives form data from the table, calls `createSession`, and triggers route revalidation.
 
-`web/src/lib/app/sessions/createSession.ts` derives the event timestamp from either an explicit ISO timestamp (`ts`) or a local time (`timeHHMM`) interpreted against the user profile timezone and “today.”
+`web/src/lib/app/sessions/createSession.ts` derives the event timestamp from either an explicit ISO timestamp (`ts`), explicit local date+time (`dateYMD` + `timeHHMM`), or today-local-time fallback when only `timeHHMM` is provided.
 
 `web/src/lib/time/timeZone.ts` contains timezone conversion helpers used by `createSession`, including conversion from a local wall-clock time to UTC ISO.
 
