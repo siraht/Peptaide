@@ -23,8 +23,8 @@ This is deliberately a development-stack hardening change, not a conversion of `
 - [x] (2026-07-22 14:17Z) Restarted and validated the firewall, Supabase, web, and Tailscale services.
 - [x] (2026-07-22 14:26Z) Verified the web process runs as `peptaide-web`, the desired Tailscale URLs respond, and independent external probes time out on the public Supabase ports.
 - [x] (2026-07-22 14:23Z) Ran type checking, 119 tests, shell syntax checks, systemd verification, runtime preflight, and service checks successfully.
-- [ ] Commit only the hardening paths.
-- [ ] Push the branch and open a draft pull request.
+- [x] (2026-07-22 14:29Z) Committed only the seven hardening paths as `ff092af`.
+- [x] (2026-07-22 14:30Z) Pushed `agent/harden-peptaide-runtime` and opened draft pull request #5.
 
 ## Surprises & Discoveries
 
@@ -66,6 +66,8 @@ This is deliberately a development-stack hardening change, not a conversion of `
 The live Peptaide stack now has a public-interface Docker firewall guard for IPv4 and IPv6. Peptaide Web runs as `peptaide-web:peptaide-runtime`, binds only to `127.0.0.1:3002`, passes runtime preflight, and has a systemd exposure score of 4.0 (`OK`). The developer still builds from the normal checkout through `ops/scripts/deploy-web.sh`. Logflare and Vector are no longer running; the API, database, Studio, and Mailpit remain available locally/Tailscale while their raw public ports are dropped.
 
 The database was not reset. Timestamped schema and data dumps were created outside Git with mode `0600` and SHA-256 checksums. TypeScript validation and all 119 tests passed. Independent TCP probes reached public port 443 and timed out on ports 54321-54324; port 54327 has no listener, is absent from Docker, and the firewall recorded dropped probes across the protected range.
+
+The repository outcome is commit `ff092af` on branch `agent/harden-peptaide-runtime`, published as draft pull request `https://github.com/siraht/Peptaide/pull/5`. Pre-existing unrelated worktree changes remain unstaged and uncommitted.
 
 ## Context and Orientation
 
@@ -177,3 +179,5 @@ The firewall helper depends on `ip`, `iptables`, `ip6tables`, and the Docker-man
 Plan revision note (2026-07-22): Initial plan created after the security audit. It chooses public-interface containment, a build/runtime identity split, and removal of development analytics components to preserve the existing local workflow while reducing exposure.
 
 Plan revision note (2026-07-22): Updated after live deployment. The database backup, runtime identity, firewall guard, Tailscale endpoints, reduced container set, application tests, and external probe evidence all passed. The PostgreSQL collation warning remains a documented maintenance item for the Ubuntu upgrade window.
+
+Plan revision note (2026-07-22): Recorded the isolated commit, pushed branch, draft pull request, and preservation of unrelated worktree changes.
