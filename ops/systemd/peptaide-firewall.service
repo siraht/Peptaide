@@ -1,0 +1,15 @@
+[Unit]
+Description=Peptaide Docker public-interface firewall guard
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+Before=peptaide-supabase.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/peptaide-firewall-guard apply
+ExecStartPost=/usr/local/sbin/peptaide-firewall-guard check
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

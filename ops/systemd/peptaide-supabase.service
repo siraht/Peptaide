@@ -1,14 +1,22 @@
 [Unit]
 Description=Peptaide local Supabase stack (supabase CLI)
-After=docker.service network-online.target
-Wants=docker.service network-online.target
+After=docker.service network-online.target peptaide-firewall.service
+Requires=docker.service peptaide-firewall.service
+Wants=network-online.target
 
 [Service]
 Type=oneshot
+User=ubuntu
+Group=ubuntu
+SupplementaryGroups=docker
 WorkingDirectory=/data/projects/peptaide
-ExecStart=/home/ubuntu/.local/bin/supabase start
+Environment=HOME=/home/ubuntu
+Environment=PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/ubuntu/.local/bin/supabase start -x logflare,vector
 ExecStop=/home/ubuntu/.local/bin/supabase stop
 RemainAfterExit=yes
+PrivateTmp=true
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target

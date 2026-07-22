@@ -1,0 +1,97 @@
+#!/bin/sh
+set -eu
+
+PORT_RANGE="54321:54327"
+RULE_COMMENT="peptaide-private-dev-ports"
+
+die() {
+  printf 'peptaide-firewall-guard: %s\n' "$*" >&2
+  exit 1
+}
+
+public_interface() {
+  if [ -n "${PUBLIC_INTERFACE:-}" ]; then
+    printf '%s\n' "$PUBLIC_INTERFACE"
+    return
+  fi
+
+  ip -4 route show default 2>/dev/null | awk 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }'
+}
+
+rule() {
+  command_name=$1
+  operation=$2
+  interface_name=$3
+
+  "$command_name" -w "$operation" DOCKER-USER \
+    -i "$interface_name" \
+    -p tcp \
+    -m conntrack --ctorigdstport "$PORT_RANGE" \
+    -m comment --comment "$RULE_COMMENT" \
+    -j DROP
+}
+
+chain_exists() {
+  "$1" -w -n -L DOCKER-USER >/dev/null 2>&1
+}
+
+apply_family() {
+  command_name=$1
+  interface_name=$2
+
+  chain_exists "$command_name" || die "$command_name has no DOCKER-USER chain; is Docker running?"
+  if rule "$command_name" -C "$interface_name" >/dev/null 2>&1; then
+    printf '%s rule already present on %s\n' "$command_name" "$interface_name"
+    return
+  fi
+
+  rule "$command_name" -I "$interface_name"
+  printf '%s rule installed on %s\n' "$command_name" "$interface_name"
+}
+
+remove_family() {
+  command_name=$1
+  interface_name=$2
+
+  chain_exists "$command_name" || return 0
+  while rule "$command_name" -C "$interface_name" >/dev/null 2>&1; do
+    rule "$command_name" -D "$interface_name"
+  done
+  printf '%s rule absent on %s\n' "$command_name" "$interface_name"
+}
+
+check_family() {
+  command_name=$1
+  interface_name=$2
+
+  chain_exists "$command_name" || die "$command_name has no DOCKER-USER chain"
+  rule "$command_name" -C "$interface_name" >/dev/null 2>&1 || \
+    die "$command_name rule is missing on $interface_name"
+  printf '%s rule present on %s\n' "$command_name" "$interface_name"
+}
+
+main() {
+  action=${1:-check}
+  interface_name=$(public_interface)
+  [ -n "$interface_name" ] || die "could not determine the public interface"
+
+  case "$action" in
+    apply)
+      apply_family iptables "$interface_name"
+      apply_family ip6tables "$interface_name"
+      ;;
+    remove)
+      remove_family iptables "$interface_name"
+      remove_family ip6tables "$interface_name"
+      ;;
+    check)
+      check_family iptables "$interface_name"
+      check_family ip6tables "$interface_name"
+      ;;
+    *)
+      die "usage: $0 {apply|remove|check}"
+      ;;
+  esac
+}
+
+main "$@"

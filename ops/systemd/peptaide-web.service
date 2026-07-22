@@ -5,26 +5,41 @@ Wants=network-online.target peptaide-supabase.service
 
 [Service]
 Type=simple
-User=ubuntu
+User=peptaide-web
+Group=peptaide-runtime
 WorkingDirectory=/data/projects/peptaide/web
 
 # Machine-local env file (do not commit). See ops/scripts/gen-access-md.sh.
 EnvironmentFile=/etc/peptaide/web.env
 
-# Ensure we use real Node.js (not Bun's node wrapper).
-Environment=PATH=/home/ubuntu/.nvm/versions/node/v22.21.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-# Build at service start. For faster restarts, run build manually and remove this line.
-ExecStartPre=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run build
-
-# Ensure port ownership is deterministic and avoid stale/manual next processes on the service port.
-ExecStart=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run start:safe -- --port ${PORT} --host ${HOST}
+# Builds remain owned by the development account. Deploy with ops/scripts/deploy-web.sh.
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/node /data/projects/peptaide/web/node_modules/next/dist/bin/next start -p ${PORT} -H 127.0.0.1
 
 # Fail fast if the started process is serving stale/missing Next static assets.
-ExecStartPost=/home/ubuntu/.nvm/versions/node/v22.21.1/bin/npm run runtime:preflight -- --base-url http://127.0.0.1:${PORT} --timeout-ms 60000
+ExecStartPost=/usr/bin/node /data/projects/peptaide/web/scripts/runtime-preflight.mjs --base-url http://127.0.0.1:${PORT} --timeout-ms 60000
 
 Restart=always
 RestartSec=2
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/data/projects/peptaide/web/.next/cache
 
 [Install]
 WantedBy=multi-user.target
